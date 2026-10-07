@@ -1,0 +1,119 @@
+/* Week 3, Semantics: diagrams and lab-specific styles (loaded after style.css). */
+
+/* ---------- Hand-drawn diagrams (theme aware) ---------- */
+.diagram {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.diagram svg.dg { display: block; width: 100%; height: auto; font-family: var(--font); }
+.dg .dg-box { fill: var(--lab-bg); stroke: var(--line-2); stroke-width: 1.5; }
+.dg .dg-acc { stroke: var(--accent); stroke-width: 2; }
+.dg .dg-init { stroke: var(--tech); stroke-width: 2; }
+.dg .dg-ok { fill: var(--ok-soft); stroke: var(--ok); }
+.dg .dg-hl { fill: var(--tech-soft); stroke: var(--tech); stroke-width: 1.2; }
+.dg .dg-line { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+.dg .dg-dash { stroke-dasharray: 5 5; }
+.dg .dg-arrowhead { fill: var(--muted); }
+.dg text { fill: var(--ink); font-size: 13px; }
+.dg text.dg-h { font-weight: 700; font-size: 13.5px; }
+.dg text.dg-s { fill: var(--muted); font-size: 11.5px; }
+.dg text.mono { font-family: var(--mono); }
+.dg text.dg-small { font-size: 11.5px; }
+
+.sheet-h { font-size: 15px; font-weight: 700; margin: 18px 0 6px; }
+table.rule-table td { vertical-align: middle; }
+table.rule-table td:first-child { white-space: nowrap; }
+
+/* ---------- Proof tree lab ---------- */
+.pt-wrap {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 18px 14px 14px; overflow-x: auto; text-align: center; min-height: 110px;
+}
+.pt { display: inline-flex; flex-direction: column; align-items: center; vertical-align: bottom; }
+.pt-prem { display: flex; gap: 22px; align-items: flex-end; justify-content: center; padding: 0 6px; }
+.pt-bar { position: relative; align-self: stretch; border-top: 1.6px solid var(--ink-2); margin: 4px 0 3px; min-width: 40px; }
+.pt-rule {
+  position: absolute; left: 100%; top: -0.8em; margin-left: 5px;
+  font-size: 11.5px; font-weight: 700; color: var(--formal); white-space: nowrap; font-family: var(--mono);
+}
+.pt-f {
+  font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink);
+  padding: 3px 8px; border-radius: 7px; border: 1px solid transparent; background: none; white-space: nowrap;
+}
+button.pt-f { cursor: pointer; }
+.pt-f.open { border: 1.5px dashed var(--warn); background: var(--warn-soft); }
+.pt-f.sel { border: 2px solid var(--accent); background: var(--accent-soft); }
+.pt-f.leaf { color: var(--ok); }
+.pt-f.dead { border: 1.5px dashed var(--bad); background: var(--bad-soft); color: var(--bad); }
+.pt-tag { display: block; font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 1px; }
+
+/* ---------- Hoare lab ---------- */
+.hoare-prog { font-family: var(--mono); font-size: 14px; font-weight: 700; padding: 8px 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); overflow-x: auto; }
+table.dt td.ok-cell { color: var(--ok); font-weight: 800; }
+table.dt td.bad-cell { color: var(--bad); font-weight: 800; }
+
+/* ---------- Trace set lab ---------- */
+.tr-list { display: grid; gap: 6px; }
+.tr-row {
+  display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px;
+}
+.tr-row:hover { border-color: var(--muted); }
+.tr-row.on { border-color: var(--tech); background: var(--tech-soft); }
+.tr-in { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.tr-row .trace-strip { gap: 3px; }
+.tr-row .trace-strip .ts { min-width: 20px; padding: 2px 4px; font-size: 11px; }
+.tr-detail { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+
+/* ---------- Stepper / calls ---------- */
+.heap-line { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+.frames { display: grid; gap: 8px; }
+.frame-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+  font-family: var(--mono); font-size: 12.5px; display: grid; gap: 3px;
+}
+.frame-card.top { border: 2px solid var(--accent); background: var(--accent-soft); }
+.frame-card .fc-h { font-family: var(--font); font-size: 12px; font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.frame-card.top .fc-h { color: var(--accent); }
+.frame-card.new-in { animation: fc-in 0.35s ease; }
+@keyframes fc-in { from { transform: translateY(-6px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+.mu-line { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-x: auto; white-space: nowrap; padding: 4px 2px; }
+
+/* ---------- Predict game ---------- */
+.pred-q { display: grid; gap: 8px; }
+.pred-ins { font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--accent); }
+.pred-opts { display: grid; gap: 8px; }
+.pred-opt {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center;
+  text-align: left; width: 100%; cursor: pointer; font: inherit;
+  background: var(--card); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 12px;
+}
+.pred-opt:hover { border-color: var(--muted); }
+.pred-opt .opt-letter { width: 26px; height: 26px; }
+.pred-opt code { background: none; border: 0; padding: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.pred-opt.correct { border-color: var(--ok); background: var(--ok-soft); }
+.pred-opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.pred-opt:disabled { cursor: default; }
+
+/* ---------- Python view ---------- */
+.py-view {
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.5; padding: 8px 0; overflow-x: auto;
+  max-height: 520px; overflow-y: auto;
+}
+.py-line { display: grid; grid-template-columns: 30px minmax(0, 1fr); white-space: pre; padding: 0 10px 0 0; border-left: 3px solid transparent; }
+.py-line .py-n { color: var(--muted); text-align: right; padding-right: 10px; user-select: none; font-size: 11px; }
+.py-line.ctx { background: color-mix(in srgb, var(--tech) 10%, transparent); }
+.py-line.hit { background: color-mix(in srgb, var(--accent) 18%, transparent); border-left-color: var(--accent); }
+
+@media (max-width: 600px) {
+  .tr-row { grid-template-columns: 52px minmax(0, 1fr); }
+  .tr-row > .pill { grid-column: 1 / -1; justify-self: start; }
+  .pt-f { font-size: 12.5px; padding: 2px 5px; }
+  .pt-prem { gap: 12px; }
+}
+
+.rule-box .rule-name .rn { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.lab-tag { white-space: nowrap; }
+.topic :not(pre) > code { overflow-wrap: anywhere; }

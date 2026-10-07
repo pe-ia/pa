@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bounded Static Analysis · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on bounded static analysis: many-step semantics, posets, lattices, Galois connections, the sign abstraction and bounded abstract interpretation.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/bounded-static-analysis.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 5: Bounded Static Analysis</div>
+        <h1>Bounded Static Analysis</h1>
+        <p class="hero-lead">Everything everywhere all at once: instead of running one input at a time, we push <em>all</em> inputs through the program together, a few steps deep. To make that possible we squeeze infinite sets of states into small abstract values, and Galois connections tell us exactly when that squeezing is safe.</p>
+        <div class="hero-meta">
+          <span class="chip">22 topics</span>
+          <span class="chip">9 interactive labs</span>
+          <span class="chip">64 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>The idea: all traces at once, up to a depth</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="what" data-part="The idea" data-short="What is bounded static analysis?">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>What is bounded static analysis?</h2><p class="kicker">Breadth-first instead of depth-first</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Picture a maze with a hidden trap somewhere (the bug). Dynamic analysis sends in one explorer, who follows a single route to the very end, then sends the next explorer, and so on. Bounded static analysis instead pours water in at the entrance: after one second the water stands in every corridor one step deep, after two seconds two steps deep. After <em>n</em> seconds you know about every corridor within <em>n</em> steps, all at once.</p>
+              <p>The catch: a real program is a maze with billions of entrances. You cannot track every drop of water, so you draw a rough map of where the water is. That rough map is called an <strong>abstraction</strong>, and most of this lecture is about drawing it without lying.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Dynamic analysis</strong> (<a href="dynamic-analysis.html#selection">last lecture</a>) picks one initial state $\sigma \in I_p$, runs the interpreter and gets one trace. Then it picks another input. Each run goes all the way down before the next one starts: <strong>depth-first</strong>.</li>
+                <li><strong>Bounded static analysis</strong> starts from the <em>set</em> of all initial states $I_p$ and applies the semantics to every state at the same time. After one round we hold every state reachable in one step, after $n$ rounds every state reachable in at most $n$ steps: <strong>breadth-first</strong>.</li>
+                <li><strong>Bounded</strong> means we stop after a fixed number of rounds $n$. All answers are about behaviours up to that depth. (<a href="unbounded-static-analysis.html#unbounded">Next lecture</a> removes the bound.)</li>
+                <li>The obstacle: these sets are enormous. <code>assertPositive(int num)</code> alone has $2^{32}$ initial states, and a method taking an array has infinitely many. So we compute with <strong>finite abstractions</strong> that over-approximate the set of states (Part 2).</li>
+                <li>The payoff: one answer about <em>all</em> inputs. "No input reaches a division by zero within $n$ steps" is something no finite number of test runs can ever establish.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>Recall the transition system $\langle \State_p, \delta_p, I_p \rangle$ of a program (<a href="semantics.html#transition-system">Semantics</a>) and trace selection from dynamic analysis:</p>
+          <div class="mathbox">$$\tau \in \Select(p, \sigma) \equiv \tau \in \Sem(p) \land \tau_0 = \sigma$$</div>
+          <p class="read">"$\tau$ is a selected trace from $\sigma$ when it is one of the program's traces and it starts in $\sigma$." A dynamic analysis looks at one such $\tau$ at a time.</p>
+          <p>A bounded static analysis instead wants to talk about the whole set of traces that start in <em>any</em> initial state and are cut off at some length $k$:</p>
+          <div class="mathbox">$$\Sem^{k}(p) \;=\; \bigcup_{\sigma \in I_p} \{\, \tau \in \Select(p, \sigma) \mid |\tau| \le k \,\}$$</div>
+          <p class="read">"All traces of the program, from every possible start, that contain at most $k$ states." Definition 5.1 states this precisely; Part 3 shows how to compute an over-approximation of it with finite data.</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Dynamic analysis follows one trace to the end; bounded static analysis advances all traces one step at a time. Same semantics, different search order, and the static order needs abstractions to stay finite.</div>
+        <div data-lab="bfs"></div>
+        <div class="quiz" data-quiz="what"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="goal" data-part="The idea" data-short="Goal and notation">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>Goal and notation</h2><p class="kicker">Prove "must", by failing to find a "may"</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Think of a smoke detector. A good one <strong>never misses a fire</strong>, even if it sometimes beeps at burnt toast. So when it stays silent you can be sure: there is no fire. It never proves a fire (the beep may be toast), but its silence proves safety.</p>
+              <p>A static analysis works the same way. We want to prove "nothing bad happens on any run". We do it by searching, generously, for anything that <em>might</em> go wrong. If even the generous search finds nothing, nothing can go wrong.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The goal of any static analysis is to soundly establish <strong>must properties</strong>: facts that hold on every trace. Bounded: on every trace up to a given length.</li>
+                <li>We write $p, n \vdash_{\BSA}^{\must} Q$ for "the bounded static analysis claims that $Q$ holds on all traces of $p$ up to length $n$". <strong>Sound</strong> means: whenever it claims this, it is true.</li>
+                <li>In practice we flip the question. Instead of "does $Q$ hold everywhere?" we ask "<em>may</em> there be a trace where $Q$ fails?". If our search for such a trace is <strong>complete</strong> (it never misses a real one) and it comes back empty, then $Q$ holds everywhere.</li>
+                <li>The complete may-search is written $\vdash_{\BSA}^{\notmay}$ ("not-may"). It may raise <strong>false alarms</strong> (claim a bad trace might exist when none does) but never misses a real one.</li>
+                <li>Example: $Q$ = "does not divide by zero". The not-may analysis searches for traces that divide by zero. Found none, so the method must not divide by zero. Found one: maybe a bug, maybe a false alarm.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.1</span> Bounded trace semantics (Trace Terminology)</p>
+            $$\Sem^{k}(p) = \{\, \tau \in \State_p^{\,m} \mid m \in [1, k],\ \tau_0 \in I_p,\ \forall i \in [1, m-1].\ \delta_p(\tau_{i-1}, \tau_i) \,\}$$
+            <p class="read">"Sequences of between 1 and $k$ states that start in an initial state, where each state is a legal step from the one before."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.2</span> Bounded may and must properties</p>
+            $$p, k \models^{\may} Q \;\equiv\; \exists \tau \in \Sem^{k}(p).\ Q(\tau) \qquad\qquad p, k \models^{\must} Q \;\equiv\; \forall \tau \in \Sem^{k}(p).\ Q(\tau)$$
+            <p class="read">"$Q$ may happen within $k$ when some short-enough trace satisfies it; $Q$ must happen within $k$ when every short-enough trace satisfies it." The double turnstile $\models$ means <em>true</em>, about the real program.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.3</span> Sound must analysis, complete not-may analysis</p>
+            <p>An analysis is a procedure that outputs claims, written with the single turnstile $\vdash$ (<em>derived</em> by the analysis). A bounded must analysis is <strong>sound</strong>, and a bounded not-may analysis is <strong>complete</strong>, when for all $p, n, Q$:</p>
+            $$p, n \vdash_{\BSA}^{\must} Q \implies p, n \models^{\must} Q \qquad\qquad p, n \models^{\may} Q \implies p, n \vdash_{\BSA}^{\notmay} Q$$
+            <p class="read">"Whatever the must analysis claims is true" and "whatever may really happen, the not-may analysis reports".</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.4</span> A complete not-may analysis gives a sound must analysis</p>
+            <p>Define the must analysis by negating the not-may analysis on the negated property:</p>
+            $$p, n \vdash_{\BSA}^{\must} Q \;:\equiv\; \neg\big(p, n \vdash_{\BSA}^{\notmay} \neg Q\big)$$
+            <p>If $\vdash_{\BSA}^{\notmay}$ is complete, this must analysis is sound.</p>
+            <p class="read">"Q is proven to hold everywhere exactly when the generous search for a trace violating Q finds nothing."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Assume $\neg(p, n \vdash^{\notmay} \neg Q)$. Completeness for the property $\neg Q$ says $p, n \models^{\may} \neg Q \implies p, n \vdash^{\notmay} \neg Q$. Its contrapositive gives $\neg(p, n \models^{\may} \neg Q)$, that is, $\neg \exists \tau \in \Sem^n(p).\ \neg Q(\tau)$. Pushing the negation through the quantifier: $\forall \tau \in \Sem^n(p).\ Q(\tau)$, which is $p, n \models^{\must} Q$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>The same duality holds for the real properties: $\neg(p, n \models^{\may} Q) \equiv p, n \models^{\must} \neg Q$. Negation swaps "some" and "all".</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>"Complete" here is completeness of the <em>may</em> search, and it is exactly what makes the derived <em>must</em> claim sound. People often say "a sound static analysis" for the same thing. Always ask: sound or complete <em>for which property, may or must</em>? (See <a href="introduction.html#soundness-confusion">soundness confusion</a>.)</div>
+        <div class="quiz" data-quiz="goal"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="example-ae" data-part="The idea" data-short="Example: assertion errors">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Example: ruling out assertion errors</h2><p class="kicker">Look only at how each trace ends</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>To check that a cake recipe never ends with a burnt cake, you only need to look at the <em>last moment</em> of every way the baking could go. If none of those endings is "burnt", the recipe is safe, no matter what happened in between.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A trace "ends in an assertion error" exactly when its last state is $\err(\text{`assertion error'})$. Call that predicate $\mathit{ae}$.</li>
+                <li>The static question: does <strong>every</strong> trace avoid it? That is the must property $\neg \mathit{ae}$.</li>
+                <li>We answer it with a not-may analysis for $\mathit{ae}$: search generously for a trace that ends in an assertion error. Nothing found, so no trace can.</li>
+                <li>In JPAMB terms: nothing found gives <code>assertion error;no</code>; found gives <code>assertion error;maybe</code> (it could be a false alarm), or <code>yes</code> if you trust your analysis.</li>
+                <li>Example: in <code>assertPositive(int num)</code> the input $0$ produces the trace <code>get, ifz, load, ifz, new, dup, invoke, throw</code> followed by the error state: 9 elements. A complete analysis must report it, as long as it looks at least 9 deep.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.5</span> The assertion-error predicate</p>
+            $$\mathit{ae}(\tau) \;\equiv\; \tau_{|\tau| - 1} = \err(\text{`assertion error'})$$
+            <p class="read">"The trace's last element (index $|\tau| - 1$, counting from 0) is the assertion-error state."</p>
+          </div>
+          <p>What we want to know, and how we get it:</p>
+          $$p, n \models^{\must} \neg\mathit{ae} \;\equiv\; \forall \tau \in \Sem^{n}(p).\ \neg \mathit{ae}(\tau) \qquad\qquad \neg\big(p, n \vdash_{\BSA}^{\notmay} \mathit{ae}\big) \;\equiv\; p, n \vdash_{\BSA}^{\must} \neg \mathit{ae}$$
+          <p class="read">"No trace up to length $n$ ends in an assertion error" is what we want; "the complete search for assertion-error traces up to length $n$ found none" is how Proposition 5.4 lets us claim it.</p>
+          <p>Worked example for <code>assertPositive</code>: the failing trace is $\tau = s_0 s_1 \cdots s_7\, \err(\text{`assertion error'})$ with $|\tau| = 9$, so $\mathit{ae}(\tau)$ holds and $p, 9 \models^{\may} \mathit{ae}$. With a bound of $5$ every trace is cut before the <code>throw</code>, so $p, 5 \models^{\must} \neg\mathit{ae}$ is true, even though $p$ clearly can fail: a bounded answer can only speak about its bound (topic 04).</p>
+        </div>
+        <div class="quiz" data-quiz="example-ae"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="bounded" data-part="The idea" data-short="What the bound costs">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>Bounded answers have fine print</h2><p class="kicker">Bounded must is not must; bounded not-may is not not-may</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A weather forecast for the next five days says "no storms". That is a true statement about five days, and it says nothing about day six. A bounded analysis gives answers with exactly this kind of fine print: "within $k$ steps".</p>
+              <p>A storm you <em>do</em> see in the forecast is real, though. Problems found within the bound stay problems; safety shown within the bound may break later.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>$\Sem(p)$ contains traces of any length (even infinite ones). $\Sem^{k}(p)$ keeps only those with at most $k$ states. Every bounded statement carries the fine print "within $k$ states".</li>
+                <li><strong>May results transfer up:</strong> a trace of length $\le k$ that divides by zero is a real trace of the program, so the bug is real.</li>
+                <li><strong>Must results do not:</strong> <code>for (int i = 0; i &lt; 100; i++) {} assert false;</code> has no assertion error in its first 50 states, yet every run fails eventually.</li>
+                <li><strong>Non-termination (<code>*</code>) is invisible</strong> to a bounded analysis: every trace is cut long before it could show that it runs forever. The best you get is "some traces are still running at depth $k$". <code>countdown(n)</code> with $n \lt 0$ loops (practically) forever, and $n = 1000$ simply takes long; at depth 50 they look the same.</li>
+                <li>Practical consequence for JPAMB: pick the bound large enough for the benchmark methods, and be less confident in <code>no</code> answers for methods whose traces were still running when you stopped.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.6</span> Bounded semantics grow with the bound</p>
+            $$\Sem^{1}(p) \subseteq \Sem^{2}(p) \subseteq \cdots \subseteq \Sem^{k}(p) \subseteq \Sem^{k+1}(p) \subseteq \Sem(p)$$
+            <p class="read">"Allowing longer traces only adds traces." The last inclusion uses the definition of $\Sem(p)$ as written in the notes, which contains every finite prefix of a run (only the length bound differs from Definition 5.1).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.7</span> Which answers transfer</p>
+            <p>For every program $p$, bound $k$ and property $Q$:</p>
+            $$p \models^{\must} Q \implies p, k \models^{\must} Q \qquad\qquad p, k \models^{\may} Q \implies p \models^{\may} Q$$
+            <p>but in general $p, k \models^{\must} Q \not\Rightarrow p \models^{\must} Q$ and $p \models^{\may} Q \not\Rightarrow p, k \models^{\may} Q$.</p>
+            <p class="read">"Facts for all traces still hold for the short ones, and a witness among the short traces is a witness overall. Not the other way around."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Both implications follow from $\Sem^{k}(p) \subseteq \Sem(p)$ (Proposition 5.6): a universal statement over a set holds over every subset, and an existential witness in a subset is a witness in the superset.</p>
+              <p>Counterexample to the converses: let $p$ be <code>for (int i = 0; i &lt; 100; i++) {} assert false;</code> and $Q = \neg\mathit{ae}$. Every run takes more than 300 steps before the <code>throw</code>, so with $k = 50$ we have $p, 50 \models^{\must} \neg\mathit{ae}$ while $p \models^{\must} \neg \mathit{ae}$ is false. For the second converse use $Q = \mathit{ae}$: $p \models^{\may} \mathit{ae}$ holds but $p, 50 \models^{\may} \mathit{ae}$ does not. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>This is why the Trace Terminology note says a bounded must analysis is not a must analysis, and a bounded not-may analysis is not a not-may analysis:</p>
+          $$p, k \vdash_{\mathbf{A}}^{\must} Q \not\Rightarrow p \vdash_{\mathbf{A}}^{\must} Q \qquad\qquad p \models^{\may} Q \not\Rightarrow p, k \vdash_{\mathbf{A}}^{\notmay} Q$$
+          <p class="read">"A bounded proof of safety is not a proof of safety, and a bounded search can miss a real problem beyond its bound."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write the last implication with a small typo ($p \vdash_{\mathbf{Q}}^{\neg\may}$ without the property). It means: completeness of a bounded not-may analysis is only guaranteed for bugs that appear within the bound.</div>
+        <div class="quiz" data-quiz="bounded"></div>
+      </section>
+
+      <!-- 05 -->
+      <section class="topic" id="many-step" data-part="The idea" data-short="The many-step function">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>The many-step function $\Delta$</h2><p class="kicker">Stepping a whole set of traces at once</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Imagine an album with one page per traveller's journey. Once a minute you go through the album and, for every journey, add a new page for every place the traveller could go next. A traveller at a fork in the road becomes two journeys. Do this $n$ times and the album contains every journey of up to $n$ steps. That "go through the album once" operation is $\Delta$.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>$\Delta$ takes a <strong>set of traces</strong>. For each trace it looks at the last state, finds every successor allowed by the single-step semantics $\delta$, and produces one longer trace per successor.</li>
+                <li>Start: $\Delta^0 = I_p$, every initial state as a one-state trace.</li>
+                <li>Then $\Delta^n = \Delta(\Delta^{n-1}) \cup \Delta^{n-1}$: keep the old traces and add their one-step extensions. The union keeps traces that already ended (in $\ok$ or an error), which have no successors, and keeps all prefixes.</li>
+                <li>Example, <code>checkTheWrongThing(int a)</code> restricted to $a \in \{-1, 0, 1\}$: $\Delta^0$ has 3 traces; the JVM is deterministic so $\Delta(\Delta^0)$ has 3 two-state traces and $\Delta^1$ has 6.</li>
+                <li>Why we cannot just compute this: with all $2^{32}$ values of <code>a</code>, $\Delta^0$ alone has $2^{32}$ traces, and $\Delta^n$ roughly $2^{32}(n+1)$. With arrays, objects or longs, the sets are infinite. We need approximations (next topic) and abstractions (Part 2).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.8</span> The many-step function</p>
+            $$\Delta_p(T) \;=\; \{\, \tau s \mid \tau \in T,\ s \in \State_p,\ \delta_p(\tau_{|\tau|-1}, s) \,\}$$
+            <p class="read">"For every trace $\tau$ in $T$ and every state $s$ that the last state of $\tau$ can step to, the trace $\tau$ followed by $s$." Here $\tau s$ appends $s$ to $\tau$. We drop the subscript $p$ when the program is clear.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.9</span> $n$ rounds of stepping</p>
+            $$\Delta_p^{0} = I_p \qquad\qquad \Delta_p^{n} = \Delta_p(\Delta_p^{n-1}) \cup \Delta_p^{n-1}$$
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.10</span> $\Delta$ is additive, hence monotone</p>
+            $$\Delta\Big(\bigcup_{i} T_i\Big) = \bigcup_{i} \Delta(T_i) \qquad\text{and so}\qquad T \subseteq T' \implies \Delta(T) \subseteq \Delta(T')$$
+            <details class="proof"><summary>Proof</summary><p>$\Delta(T)$ is defined trace by trace: $\Delta(T) = \bigcup_{\tau \in T} \Delta(\{\tau\})$. A union over $\bigcup_i T_i$ splits into the union of the unions over each $T_i$. Monotonicity: if $T \subseteq T'$ then $T' = T \cup T'$, so $\Delta(T') = \Delta(T) \cup \Delta(T') \supseteq \Delta(T)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.11</span> $\Delta^n$ is the bounded semantics</p>
+            $$\Delta_p^{n} = \Sem^{n+1}(p)$$
+            <p class="read">"After $n$ rounds we hold exactly the traces with at most $n$ steps, that is, at most $n+1$ states."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>By induction on $n$. Base: $\Delta^0 = I_p$ is the set of one-state traces starting in $I_p$, which is $\Sem^1(p)$.</p>
+              <p>Step: assume $\Delta^{n} = \Sem^{n+1}(p)$. ($\subseteq$) Elements of $\Delta^{n}$ are in $\Sem^{n+2}(p)$ by Proposition 5.6. An element of $\Delta(\Delta^{n})$ is $\tau s$ with $\tau \in \Sem^{n+1}(p)$ and $\delta(\tau_{|\tau|-1}, s)$, so it starts in $I_p$, every consecutive pair is a legal step, and it has at most $n+2$ states. ($\supseteq$) Take $\tau \in \Sem^{n+2}(p)$. If $|\tau| \le n+1$ then $\tau \in \Sem^{n+1}(p) = \Delta^{n}$. Otherwise $\tau = \tau' s$ with $|\tau'| = n+1$; $\tau'$ is a legal trace from $I_p$, so $\tau' \in \Delta^{n}$, and $\delta(\tau'_{n}, s)$, so $\tau \in \Delta(\Delta^{n})$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Off-by-one alert. The notes say $\Delta^n$ holds "the traces of up to length $n$" and index the last state as $\tau_{|\tau|}$. With traces indexed from $\tau_0$, the last state is $\tau_{|\tau|-1}$, and $\Delta^n$ holds traces of up to $n$ <em>steps</em> ($n+1$ states). Nothing important depends on it, but exam answers should be consistent.</div>
+        <div data-lab="manystep"></div>
+        <div class="quiz" data-quiz="many-step"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="approx" data-part="The idea" data-short="Over- and under-approximation">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Over- and under-approximating $\Delta$</h2><p class="kicker">Errors that stay on the safe side, round after round</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You cannot count every person at a festival. You can count the people you can clearly see: a guaranteed <em>minimum</em>. Or you can read the venue's capacity: a guaranteed <em>maximum</em>. The minimum tells you "at least this many came"; the maximum tells you "certainly no more than this".</p>
+              <p>Analyses do the same with traces. Fewer traces than the truth (only real ones) or more traces than the truth (all real ones plus some imaginary ones).</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Replace $\Delta$ by a cheaper step in every round: $\Delta^{\must}$ produces only real traces (a subset), $\Delta^{\may}$ produces at least all real traces (a superset).</li>
+                <li>Repeating the approximation $n$ times keeps the error on the same side: under stays under, over stays over (Theorem 5.13).</li>
+                <li>From the over-approximation we get a <strong>not-may</strong> analysis: "some trace in $\Delta^{\may,n}$ satisfies $Q$". It never misses a real $Q$-trace; it may report imaginary ones.</li>
+                <li>From the under-approximation we get a <strong>not-must</strong> analysis: "every trace in $\Delta^{\must,n}$ satisfies $Q$". If $Q$ really holds everywhere it says so; it can also be fooled because it only looks at some traces.</li>
+                <li>Dynamic analysis is an under-approximation: it follows only the inputs you chose. Static analysis with abstractions is an over-approximation: merging states adds behaviours.</li>
+                <li>Since we want to prove the <em>absence</em> of errors (a must property), we use the not-may analysis on the <em>negated</em> property, exactly as in Proposition 5.4. In the lab of topic 05, switch between "exact", "under" and "over" to see both sides.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.12</span> Approximate step functions</p>
+            <p>$\Delta^{\must}$ and $\Delta^{\may}$ under- and over-approximate one step:</p>
+            $$\forall T.\quad \Delta^{\must}(T) \subseteq \Delta(T) \subseteq \Delta^{\may}(T)$$
+            <p>and we iterate them like $\Delta$: $\Delta^{\must,0} = \Delta^{\may,0} = I_p$, $\Delta^{\must,n} = \Delta^{\must}(\Delta^{\must,n-1}) \cup \Delta^{\must,n-1}$, and likewise for $\may$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 5.13</span> The sandwich survives iteration</p>
+            $$\forall n.\quad \Delta^{\must,n} \subseteq \Delta^{n} \subseteq \Delta^{\may,n}$$
+            <p class="read">"After any number of rounds, the under-approximation still holds only real traces and the over-approximation still holds all of them."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Induction on $n$. Base: all three are $I_p$. Step, upper half: assume $\Delta^{n} \subseteq \Delta^{\may,n}$. Then</p>
+              $$\Delta^{n+1} = \Delta(\Delta^{n}) \cup \Delta^{n} \subseteq \Delta(\Delta^{\may,n}) \cup \Delta^{\may,n} \subseteq \Delta^{\may}(\Delta^{\may,n}) \cup \Delta^{\may,n} = \Delta^{\may,n+1}$$
+              <p>The first $\subseteq$ uses that the exact $\Delta$ is monotone (Proposition 5.10) and the induction hypothesis; the second uses $\Delta \subseteq \Delta^{\may}$. Lower half, symmetric: $\Delta^{\must,n+1} = \Delta^{\must}(\Delta^{\must,n}) \cup \Delta^{\must,n} \subseteq \Delta(\Delta^{\must,n}) \cup \Delta^{\must,n} \subseteq \Delta(\Delta^{n}) \cup \Delta^{n}$. Note that we never needed the approximations themselves to be monotone. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.14</span> The two bounded analyses</p>
+            $$p, n \vdash_{\BSA}^{\notmay} Q \;\equiv\; \exists \tau \in \Delta^{\may,n}.\ Q(\tau) \qquad\qquad p, n \vdash_{\BSA}^{\notmust} Q \;\equiv\; \forall \tau \in \Delta^{\must,n}.\ Q(\tau)$$
+            <p class="read">"Not-may: some over-approximated trace satisfies $Q$. Not-must: all under-approximated traces satisfy $Q$."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.15</span> Both are complete</p>
+            $$p, n{+}1 \models^{\may} Q \implies p, n \vdash_{\BSA}^{\notmay} Q \qquad\qquad p, n{+}1 \models^{\must} Q \implies p, n \vdash_{\BSA}^{\notmust} Q$$
+            <details class="proof"><summary>Proof</summary><p>By Proposition 5.11, $\Sem^{n+1}(p) = \Delta^{n}$. A witness $\tau \in \Delta^{n}$ with $Q(\tau)$ lies in $\Delta^{\may,n}$ by Theorem 5.13. If $Q$ holds on all of $\Delta^{n}$ it holds on the subset $\Delta^{\must,n}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>Combining with Proposition 5.4: $\neg(p, n \vdash_{\BSA}^{\notmay} \neg Q)$ is a sound bounded must analysis for $Q$. That is the analysis we build: <strong>over-approximate, look for the bad property, and conclude its absence when it is not found</strong>.</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Over-approximation is safe for proving absence; under-approximation is safe for proving presence. Static analysis lives on the over side, dynamic analysis on the under side.</div>
+        <div class="quiz" data-quiz="approx"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Order and abstraction</h2></div>
+
+      <!-- 07 -->
+      <section class="topic" id="sign" data-part="Order and abstraction" data-short="The sign abstraction">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>The sign abstraction</h2><p class="kicker">Three labels instead of four billion numbers</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A gardener does not write down every temperature reading of the year. She only notes whether it was <em>below zero</em>, <em>exactly zero</em> or <em>above zero</em>. Three labels cover infinitely many readings. She loses detail (was it 3 degrees or 30?) but can still answer the question she cares about: "did it ever freeze?"</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>At one point in the program, an <code>int</code> variable can hold a set of values (one per trace). That set can be gigantic.</li>
+                <li>We only remember which <strong>signs</strong> occur: negative ($-$), zero ($0$), positive ($+$). The abstract value is a subset of $\Sign = \{-, 0, +\}$.</li>
+                <li>Examples: $\alpha(\{1,2,3\}) = \{+\}$, $\alpha(\{0\}) = \{0\}$, $\alpha(\{-1, 3\}) = \{-, +\}$, $\alpha(\{-1,0,3\}) = \{-,0,+\}$.</li>
+                <li>Size: a set of 32-bit integers is one of $2^{2^{32}}$ possible sets. A set of signs is one of only $2^3 = 8$. That is the whole point: we compute in a tiny world.</li>
+                <li>What survives: enough to answer "can this divisor be zero?" and "can this value be positive?" (the questions behind <code>divide by zero</code> and <code>assert x &gt; 0</code>). What is lost: magnitudes, exact values, and relations between variables.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.16</span> Signs</p>
+            $$\Sign = \{-, 0, +\} \qquad\qquad \mathit{sign}(n) = \begin{cases} - & n \lt 0 \\ 0 & n = 0 \\ + & n \gt 0 \end{cases}$$
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.17</span> Abstracting a set of integers</p>
+            $$\alpha : \pset{\Z} \to \pset{\Sign} \qquad\qquad \alpha(N) = \{\, \mathit{sign}(n) \mid n \in N \,\}$$
+            <p class="read">"The abstraction of a set of integers is the set of signs that occur in it."</p>
+            <p>The opposite direction, $\gamma(S) = \{ n \in \Z \mid \mathit{sign}(n) \in S \}$ ("every integer whose sign is allowed"), tells us what an abstract value <em>means</em>. Topics 12 and 14 make the pair precise.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes say the sign set "is of size $3!$". That exclamation mark is enthusiasm, not a factorial: $\Sign$ has 3 elements, and the abstract domain $\pset{\Sign}$ has $2^3 = 8$ elements. Likewise "$2^{32}!$" means "$2^{32}$ values, wow", and the concrete domain of value sets has $2^{2^{32}}$ elements.</div>
+        <div data-lab="alpha"></div>
+        <div class="quiz" data-quiz="sign"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="poset" data-part="Order and abstraction" data-short="Partially ordered sets">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>Partially ordered sets</h2><p class="kicker">Comparing how much we know</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Some things compare naturally: a shoebox fits inside a suitcase. Others do not: a long umbrella and a wide hat box, neither fits in the other. A <strong>partial order</strong> is a "fits inside" relation where some pairs are simply incomparable, and that is perfectly fine.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Abstract values differ in precision: $\{+\}$ says more than $\{0, +\}$, which says more than $\{-,0,+\}$. We order them by $\subseteq$: smaller set, more information.</li>
+                <li>An order needs three rules: everything is below itself (<strong>reflexive</strong>); two things below each other are equal (<strong>antisymmetric</strong>); below-below is below (<strong>transitive</strong>).</li>
+                <li>"Partial" because some pairs are incomparable: $\{+\}$ and $\{0\}$, neither contains the other.</li>
+                <li>Familiar posets: $(\Z, \le)$; also $(\Z, \ge)$, the same set ordered backwards; the booleans $(\{\mathtt{tt}, \mathtt{ff}\}, \Rightarrow)$, where $\mathtt{ff} \Rightarrow \mathtt{tt}$ so $\mathtt{ff}$ is the bottom; and $(\pset{\Sign}, \subseteq)$.</li>
+                <li>Non-examples: $(\Z, \lt)$ is not reflexive; "$a$ divides $b$" on $\Z$ is not antisymmetric ($2 \mid -2$ and $-2 \mid 2$ but $2 \ne -2$); "is friends with" is neither antisymmetric nor transitive.</li>
+                <li>A function is <strong>monotone</strong> if it preserves the order: more information in, more information out. $S \mapsto S \cup \{0\}$ is monotone on sign sets; boolean negation is not monotone for $\Rightarrow$. Analyses are built from monotone functions, which is what makes the proofs in Part 3 work.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.18</span> Partially ordered set</p>
+            <p>A <strong>poset</strong> is a pair $(L, \sqsubseteq)$ of a set $L$ and a relation $\sqsubseteq \subseteq L \times L$ such that</p>
+            $$\begin{aligned}
+              &amp;\text{reflexive} &amp;&amp; \forall a \in L.\ a \sqsubseteq a \\
+              &amp;\text{antisymmetric} &amp;&amp; \forall a, b \in L.\ a \sqsubseteq b \land b \sqsubseteq a \implies a = b \\
+              &amp;\text{transitive} &amp;&amp; \forall a, b, c \in L.\ a \sqsubseteq b \land b \sqsubseteq c \implies a \sqsubseteq c
+            \end{aligned}$$
+            <p>It is a <strong>total</strong> order if moreover $a \sqsubseteq b \lor b \sqsubseteq a$ for all $a, b$. We write $a \sqsubset b$ for $a \sqsubseteq b \land a \ne b$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.19</span> Monotone function</p>
+            $$f : (L, \sqsubseteq_L) \to (M, \sqsubseteq_M) \text{ is monotone} \iff \forall a, b \in L.\ a \sqsubseteq_L b \implies f(a) \sqsubseteq_M f(b)$$
+            <p class="read">"If you know less going in, you know less (or equally little) coming out."</p>
+          </div>
+          <p><strong>Checking the three rules on these examples.</strong></p>
+          <div class="table-wrap">
+            <table class="dt">
+              <thead><tr><th>Poset</th><th>Reflexive</th><th>Antisymmetric</th><th>Transitive</th><th>Total?</th></tr></thead>
+              <tbody>
+                <tr><td>$(\Z, \le)$</td><td>$a \le a$</td><td>$a \le b \le a \Rightarrow a = b$</td><td>yes</td><td>yes</td></tr>
+                <tr><td>$(\Z, \ge)$</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+                <tr><td>$(\{\mathtt{tt},\mathtt{ff}\}, \Rightarrow)$</td><td>$x \Rightarrow x$</td><td>only $\mathtt{tt} \Rightarrow \mathtt{tt}$, $\mathtt{ff} \Rightarrow \mathtt{ff}$ go both ways</td><td>yes (chaining implications)</td><td>yes: $\mathtt{ff} \sqsubseteq \mathtt{tt}$</td></tr>
+                <tr><td>$(\pset{\Sign}, \subseteq)$</td><td>$S \subseteq S$</td><td>$S \subseteq T \subseteq S \Rightarrow S = T$</td><td>yes</td><td>no: $\{+\}, \{0\}$</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="poset"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="lattice" data-part="Order and abstraction" data-short="Lattices: join and meet">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Lattices: join and meet</h2><p class="kicker">The smallest box that fits both, the biggest box inside both</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Given two boxes, the <strong>join</strong> is the smallest box both fit into, and the <strong>meet</strong> is the biggest box that fits into both. A <strong>lattice</strong> is a world where, for any two things, both of these always exist and are unique.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>When two paths of the program meet at the same instruction, the analysis holds two abstract values $a$ and $b$ and must keep one. It needs a value that covers both (an <strong>upper bound</strong>) and loses as little as possible (the <strong>least</strong> one): the join $a \join b$.</li>
+                <li>The meet $a \meet b$ is the most precise value below both: what both pieces of knowledge agree on. It shows up when a branch condition sharpens what we know ($x \in \{-,0,+\}$ meet "$x \gt 0$" gives $\{+\}$).</li>
+                <li>$\bot$ (bottom) is below everything: "no value at all", which in an analysis means unreachable. $\top$ (top) is above everything: "could be anything".</li>
+                <li>Not every lattice has $\bot$ and $\top$: $(\Z, \le)$ is a lattice (join is $\max$, meet is $\min$) without a smallest or largest integer. Every <em>finite</em> lattice has both, and every lattice we use in this course is finite or complete.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.20</span> Bounds</p>
+            <p>Let $(L, \sqsubseteq)$ be a poset and $a, b \in L$. An <strong>upper bound</strong> of $a, b$ is any $u$ with $a \sqsubseteq u$ and $b \sqsubseteq u$. A <strong>least upper bound</strong> (join) $a \join b$ is an upper bound below every other upper bound:</p>
+            $$a \sqsubseteq a \join b \;\land\; b \sqsubseteq a \join b \;\land\; \forall c.\ (a \sqsubseteq c \land b \sqsubseteq c) \implies a \join b \sqsubseteq c$$
+            <p>Dually, the <strong>greatest lower bound</strong> (meet) $a \meet b$ satisfies $a \meet b \sqsubseteq a$, $a \meet b \sqsubseteq b$ and $\forall c.\ (c \sqsubseteq a \land c \sqsubseteq b) \implies c \sqsubseteq a \meet b$. For a subset $X \subseteq L$ we write $\lub X$ and $\glb X$ for its least upper and greatest lower bound.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.21</span> Joins and meets are unique</p>
+            <p>If $j$ and $j'$ are both least upper bounds of $a, b$, then $j = j'$.</p>
+            <details class="proof"><summary>Proof</summary><p>$j'$ is an upper bound and $j$ is least, so $j \sqsubseteq j'$. Symmetrically $j' \sqsubseteq j$. Antisymmetry gives $j = j'$. The same argument works for meets. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.22</span> Lattice, complete lattice</p>
+            <p>A poset is a <strong>lattice</strong> $(L, \sqsubseteq, \join, \meet)$ if every pair of elements has a join and a meet. It is <strong>complete</strong> if every subset $X \subseteq L$ (including $\emptyset$ and $L$) has $\lub X$ and $\glb X$. A complete lattice has a least and a greatest element:</p>
+            $$\bot = \glb L = \lub \emptyset \qquad\qquad \top = \lub L = \glb \emptyset$$
+            <p>Every finite non-empty lattice is complete (fold the binary join over the finitely many elements).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.23</span> Lattice laws</p>
+            <p>In every lattice: $\join$ and $\meet$ are commutative, associative and idempotent ($a \join a = a$), satisfy absorption ($a \join (a \meet b) = a$), and</p>
+            $$a \sqsubseteq b \iff a \join b = b \iff a \meet b = a$$
+            <p>With $\top$ and $\bot$: $\ \top \meet a = a = a \join \bot,\quad \top \join a = \top,\quad a \meet \bot = \bot.$</p>
+            <details class="proof"><summary>Proof (of the middle law and one identity)</summary>
+              <p>If $a \sqsubseteq b$, then $b$ is an upper bound of $a, b$, and any upper bound $c$ of both has $b \sqsubseteq c$; so $b$ is the least upper bound: $a \join b = b$. Conversely, $a \join b = b$ gives $a \sqsubseteq a \join b = b$. The meet version is dual.</p>
+              <p>$\top \meet a = a$: since $a \sqsubseteq \top$, the middle law (meet version) gives $a \meet \top = a$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes say having $\join$ and $\meet$ "implies that there exist a least bound $\bot$ and a greatest bound $\top$". That is true for finite (more generally, complete) lattices, which is all we need, but not for every lattice: $(\Z, \le)$ has binary $\max$ and $\min$ and no $\bot$ or $\top$.</div>
+        <div class="quiz" data-quiz="lattice"></div>
+      </section>
+
+      <!-- 10 -->
+      <section class="topic" id="hasse" data-part="Order and abstraction" data-short="Hasse diagrams">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Hasse diagrams</h2><p class="kicker">Draw only the direct steps up</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A Hasse diagram is like an org chart: you draw a line only between a person and their direct boss. "Reports to the boss's boss" is implied by following lines upward. Bigger things are drawn higher.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Draw each element once, larger ones above smaller ones, and a line only when one element <strong>covers</strong> another (nothing in between).</li>
+                <li>Reflexivity (loops) and transitive edges are left out. $\{+\} \subseteq \{+,0,-\}$ is true, but not drawn, because $\{+,0\}$ and $\{+,-\}$ sit in between.</li>
+                <li>Reading a join off the picture: walk upward from both elements; the join is the unique lowest place both can reach. If two different lowest places exist, there is no join. Meets: walk downward.</li>
+                <li>They are called <em>lattices</em> because these diagrams look like a wooden garden lattice.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/bounded-static-analysis/hasse-sign.svg" alt="Hasse diagram of the subsets of {+, 0, -}: the empty set at the bottom, three singletons, three pairs, and {+,0,-} at the top" width="457" height="347"></div>
+              <figcaption><b>Course notes, Bounded Static Analysis.</b> Hasse diagram of $(\pset{\Sign}, \subseteq)$. By KSmrq, CC BY-SA 3.0, with edits.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.24</span> Covering relation, Hasse diagram</p>
+            $$a \lessdot b \iff a \sqsubset b \;\land\; \neg \exists c.\ a \sqsubset c \sqsubset b$$
+            <p class="read">"$b$ covers $a$: $b$ is strictly above $a$ with nothing strictly in between."</p>
+            <p>The Hasse diagram of a finite poset is the graph of $\lessdot$, drawn so that every edge goes upward. In a finite poset, $\sqsubseteq$ is the reflexive and transitive closure of $\lessdot$: a chain from $a$ to $b$ can always be refined until each link is a cover, so nothing is lost by drawing only covers.</p>
+          </div>
+        </div>
+        <div data-lab="hasse"></div>
+        <div class="quiz" data-quiz="hasse"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="sign-lattice" data-part="Order and abstraction" data-short="The sign lattice">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>The sign lattice</h2><p class="kicker">A cube standing on one corner</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Our eight sign sets form a tidy cube balanced on a corner. At the very bottom: "no value at all". At the very top: "could be anything". Merging two pieces of knowledge means taking everything either allows; combining two constraints means keeping only what both allow.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Order: $\subseteq$. Join: union $\cup$. Meet: intersection $\cap$. Bottom $\bot = \emptyset$. Top $\top = \{-, 0, +\}$.</li>
+                <li>$\{+\} \join \{0\} = \{0, +\}$: one path says positive, the other says zero, so afterwards it is "zero or positive".</li>
+                <li>$\{-, 0\} \meet \{0, +\} = \{0\}$: if both facts hold, the value must be zero. $\{+\} \meet \{-\} = \emptyset$: a contradiction, no value is both, so that program point is unreachable.</li>
+                <li>The lattice has <strong>height 3</strong>: any strictly increasing chain has at most 4 elements, e.g. $\emptyset \subset \{0\} \subset \{0,+\} \subset \{-,0,+\}$. A variable's abstract value can grow at most three times. In the <a href="unbounded-static-analysis.html#fixpoints">next lecture</a> this is why unbounded analyses with signs terminate quickly.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.25</span> Powersets are complete lattices</p>
+            <p>For every set $X$, $(\pset{X}, \subseteq)$ is a complete lattice with</p>
+            $$\lub \mathcal{S} = \bigcup \mathcal{S} \qquad \glb \mathcal{S} = \bigcap \mathcal{S}\ (\text{with } \textstyle\bigcap \emptyset = X) \qquad \bot = \emptyset \qquad \top = X$$
+            <details class="proof"><summary>Proof</summary><p>$\bigcup \mathcal{S}$ contains every $S \in \mathcal{S}$, so it is an upper bound. Any upper bound $U$ contains every $S \in \mathcal{S}$ and so contains their union: it is the least. Dually, $\bigcap \mathcal{S}$ is the greatest lower bound. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>Instantiating $X = \Sign$ gives the sign lattice</p>
+          $$\big(\pset{\Sign},\ \subseteq,\ \cup,\ \cap,\ \emptyset,\ \{-, 0, +\}\big)$$
+          <p class="read">"Sign sets ordered by inclusion, joined by union, met by intersection, from the empty set up to all three signs." Its Hasse diagram is the cube in topic 10.</p>
+        </div>
+        <div class="quiz" data-quiz="sign-lattice"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="galois" data-part="Order and abstraction" data-short="Galois connections">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>Galois connections</h2><p class="kicker">When describing and imagining fit together exactly</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You describe a crowd to a friend on the phone: "a few hundred people, mostly adults". That is the <strong>abstraction</strong>. Your friend imagines every crowd that fits the description: the <strong>concretisation</strong>. A good description never rules out the crowd you actually saw, and it is as sharp as your vocabulary allows. A Galois connection is the precise rule that makes describing and imagining fit together.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Two ordered worlds: the <strong>concrete</strong> $C$ (sets of integers, states or traces, ordered by $\subseteq$) and the <strong>abstract</strong> $A$ (e.g. sign sets). $\alpha : C \to A$ describes, $\gamma : A \to C$ says what a description means.</li>
+                <li>The one law: $\alpha(c) \sqsubseteq a \iff c \sqsubseteq \gamma(a)$. "The description of $c$ is at least as sharp as $a$" exactly when "$c$ is among the things $a$ allows".</li>
+                <li>It is lossy: $\gamma(\alpha(\{1,2,3\})) = \gamma(\{+\})$ is every positive integer. But it never loses the truth: $c \subseteq \gamma(\alpha(c))$.</li>
+                <li>From the one law, many useful ones follow for free (Theorem 5.27): both maps are monotone, going round-trip loses at most once, $\alpha$ turns unions into joins.</li>
+                <li>Why we care: $\alpha(c)$ is automatically the <em>best</em> description of $c$, and every soundness question about infinite concrete sets can be rewritten as a check in the small abstract world.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/bounded-static-analysis/galois-connection.jpeg" alt="Two ovals, Concrete and Abstract; alpha maps a to alpha(a), gamma maps b back to gamma(b), with order arrows inside each oval" width="1078" height="636"></div>
+              <figcaption><b>Course notes, Bounded Static Analysis.</b> A Galois connection: abstraction $\alpha$ and concretion $\gamma$ between two ordered sets.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.26</span> Galois connection</p>
+            <p>Let $(C, \sqsubseteq_C)$ and $(A, \sqsubseteq_A)$ be posets. A pair of functions $\alpha : C \to A$ and $\gamma : A \to C$ is a Galois connection, written $(C, \sqsubseteq_C) \galois (A, \sqsubseteq_A)$, when</p>
+            $$\forall c \in C,\ a \in A.\quad \alpha(c) \sqsubseteq_A a \iff c \sqsubseteq_C \gamma(a)$$
+            <p class="read">"Abstracting $c$ lands below $a$ exactly when $c$ lies below what $a$ means."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 5.27</span> The laws you get for free</p>
+            <p>For every Galois connection and all $c, c_1, c_2 \in C$, $a, a_1, a_2 \in A$:</p>
+            $$\begin{aligned}
+              &amp;\text{(L1) extensive} &amp;&amp; c \sqsubseteq_C \gamma(\alpha(c)) &amp;&amp; \text{abstracting then concretising only grows}\\
+              &amp;\text{(L2) reductive} &amp;&amp; \alpha(\gamma(a)) \sqsubseteq_A a &amp;&amp; \text{concretising then abstracting only shrinks}\\
+              &amp;\text{(L3) monotone} &amp;&amp; c_1 \sqsubseteq c_2 \Rightarrow \alpha(c_1) \sqsubseteq \alpha(c_2),\ \ a_1 \sqsubseteq a_2 \Rightarrow \gamma(a_1) \sqsubseteq \gamma(a_2) \\
+              &amp;\text{(L4)} &amp;&amp; \alpha(\gamma(\alpha(c))) = \alpha(c) &amp;&amp; \text{we do not keep losing information}\\
+              &amp;\text{(L5)} &amp;&amp; \gamma(\alpha(\gamma(a))) = \gamma(a) &amp;&amp; \text{in either direction}\\
+              &amp;\text{(L6)} &amp;&amp; \alpha(c_1 \join_C c_2) = \alpha(c_1) \join_A \alpha(c_2) &amp;&amp; \alpha \text{ preserves joins}\\
+              &amp;\text{(L7)} &amp;&amp; \gamma(a_1 \meet_A a_2) = \gamma(a_1) \meet_C \gamma(a_2) &amp;&amp; \gamma \text{ preserves meets}
+            \end{aligned}$$
+            <p>(L6) and (L7) hold whenever the joins and meets involved exist.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p><b>(L1)</b> Take $a = \alpha(c)$ in the defining law: $\alpha(c) \sqsubseteq \alpha(c)$ holds by reflexivity, so $c \sqsubseteq \gamma(\alpha(c))$.</p>
+              <p><b>(L2)</b> Take $c = \gamma(a)$: $\gamma(a) \sqsubseteq \gamma(a)$, so $\alpha(\gamma(a)) \sqsubseteq a$.</p>
+              <p><b>(L3)</b> If $c_1 \sqsubseteq c_2$ then $c_1 \sqsubseteq c_2 \sqsubseteq \gamma(\alpha(c_2))$ by (L1), and the law turns $c_1 \sqsubseteq \gamma(\alpha(c_2))$ into $\alpha(c_1) \sqsubseteq \alpha(c_2)$. For $\gamma$: $\alpha(\gamma(a_1)) \sqsubseteq a_1 \sqsubseteq a_2$ by (L2), and the law gives $\gamma(a_1) \sqsubseteq \gamma(a_2)$.</p>
+              <p><b>(L4)</b> Applying monotone $\alpha$ to (L1) gives $\alpha(c) \sqsubseteq \alpha(\gamma(\alpha(c)))$; (L2) with $a = \alpha(c)$ gives the other direction; antisymmetry. <b>(L5)</b> is symmetric.</p>
+              <p><b>(L6)</b> For every $a$: $\alpha(c_1 \join c_2) \sqsubseteq a \iff c_1 \join c_2 \sqsubseteq \gamma(a) \iff c_1 \sqsubseteq \gamma(a) \land c_2 \sqsubseteq \gamma(a) \iff \alpha(c_1) \sqsubseteq a \land \alpha(c_2) \sqsubseteq a \iff \alpha(c_1) \join \alpha(c_2) \sqsubseteq a$. Two elements with exactly the same upper bounds are equal (take $a$ to be each of them). <b>(L7)</b> is the dual argument with lower bounds. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.28</span> $\gamma$ and joins: an inequality</p>
+            $$\gamma(a_1) \join_C \gamma(a_2) \;\sqsubseteq_C\; \gamma(a_1 \join_A a_2)$$
+            <p class="read">"Merging in the abstract world can only add meaning, never remove it." Proof: $a_i \sqsubseteq a_1 \join a_2$ and $\gamma$ is monotone, so $\gamma(a_1 \join a_2)$ is an upper bound of both. For signs it is even an equality; for intervals it is strict: $\gamma([0,0] \join [2,2]) = \{0,1,2\} \supsetneq \{0\} \cup \{2\}$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.29</span> Galois insertion</p>
+            <p>A Galois connection is an <strong>insertion</strong> when $\alpha(\gamma(a)) = a$ for all $a$ (equivalently $\gamma$ is injective, or $\alpha$ is surjective): no two abstract values mean the same thing. The sign abstraction is one (topic 14).</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes list "$\gamma$ preserves joins" and "$\alpha$ preserves meets". In a general Galois connection it is the other way round: $\alpha$ (the lower adjoint) preserves joins and $\gamma$ (the upper adjoint) preserves meets. Counterexample to "$\alpha$ preserves meets" with signs: $\alpha(\{1\} \cap \{2\}) = \alpha(\emptyset) = \emptyset$, but $\alpha(\{1\}) \cap \alpha(\{2\}) = \{+\}$. "$\gamma$ preserves joins" happens to be true for signs (Proposition 5.28), which is what the notes' proof uses, but in general you only get the inequality.</div>
+        <div data-lab="galoischeck"></div>
+        <div class="quiz" data-quiz="galois"></div>
+      </section>
+
+      <!-- 13 -->
+      <section class="topic" id="adjunctions" data-part="Order and abstraction" data-short="Adjunctions and testing">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>Adjunctions and testing</h2><p class="kicker">Parse, pretty-print, repeat</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Photocopy a document, then photocopy the copy. The first copy loses a little (smudges, a crooked page). But a copy of a copy is no worse than the copy you made from it in the first place, if the machine is any good. Galois connections promise exactly this: you can lose information once, but not over and over.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Galois connections are a special case of a mathematical idea called an <strong>adjunction</strong>, one of the most useful and least appreciated structures in computer science.</li>
+                <li>A testing example from the notes: a pretty-printer <code>pretty</code> and a parser <code>parse</code>. We would like <code>parse(pretty(a)) == a</code>, but it is not always true: line numbers or redundant details get lost.</li>
+                <li>What should <em>always</em> hold is the "lose it only once" law, in both directions:
+<pre><code class="language-python"># Most of the time
+parse(pretty(a)) == a
+
+# Always
+pretty(parse(pretty(a))) == pretty(a)
+
+# Bonus, for all strings s:
+parse(pretty(parse(s))) == parse(s)</code></pre></li>
+                <li>Read <code>parse</code> as $\alpha$ (it forgets spacing and redundant parentheses) and <code>pretty</code> as $\gamma$ (it picks one canonical text). The two laws are (L5) $\gamma \alpha \gamma = \gamma$ and (L4) $\alpha \gamma \alpha = \alpha$.</li>
+                <li>These laws are perfect for property-based testing (<a href="dynamic-analysis.html#pbt">Hypothesis</a>): generate random values or strings and check the equations.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>Without an order on strings and syntax trees this is an analogy rather than a Galois connection, but the algebra is the same. Writing $\alpha = \mathtt{parse}$ and $\gamma = \mathtt{pretty}$:</p>
+          $$\gamma \circ \alpha \circ \gamma = \gamma \qquad\qquad \alpha \circ \gamma \circ \alpha = \alpha$$
+          <p class="read">"Printing what you parsed from a printout gives the same printout; parsing what you printed from a parse gives the same parse."</p>
+          <p>Both say that $\gamma \circ \alpha$ (normalise a text) and $\alpha \circ \gamma$ (round-trip a tree) are <strong>idempotent</strong>: applying them twice equals applying them once. In a Galois connection, $\gamma \circ \alpha$ is called the associated <em>closure operator</em> on $C$: extensive, monotone and idempotent.</p>
+        </div>
+        <div class="callout story"><span class="co-tag">Story</span>The notes call adjunctions one of the most useful and unappreciated mathematical structures in computer science. Whenever you have a pair of conversions where one loses information, look for these round-trip laws; they make excellent tests.</div>
+        <div data-lab="parsepretty"></div>
+        <div class="quiz" data-quiz="adjunctions"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="sign-galois" data-part="Order and abstraction" data-short="The sign Galois connection">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>The sign Galois connection</h2><p class="kicker">Integers on one side, sign sets on the other</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>$\alpha$ looks at every number in your set and ticks the box for its sign. $\gamma$ goes the other way: from the ticked boxes to "every integer with one of these signs". Ticking boxes then reading them back gives a bigger set than you started with, never a smaller one.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>$\alpha(N)$ contains $+$ if $N$ has a positive number, $-$ if it has a negative number, $0$ if it contains $0$.</li>
+                <li>$\gamma(S)$ is the union of the "sign classes" that $S$ allows: all positives if $+ \in S$, all negatives if $- \in S$, and $0$ if $0 \in S$.</li>
+                <li>Worked example from the notes: $c = \{0, 1\}$. $\alpha(c) = \{0, +\}$. Any $a$ above it, e.g. $\{0,+\} \sqsubseteq \{-,0,+\}$, concretises to a superset of $c$: $\{0,1\} \subseteq \gamma(\{0,+\}) = \{n \mid n \ge 0\} \subseteq \gamma(\{-,0,+\}) = \Z$.</li>
+                <li>In code we never build $\gamma(S)$ (it is infinite); we test membership instead: <code>value in signset</code> checks $\mathit{sign}(v) \in S$.</li>
+                <li>Testing the abstraction with the Galois laws: for random sets $X$, check $X \subseteq \gamma(\alpha(X))$, i.e. every element of $X$ is in its own abstraction.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.30</span> Abstraction and concretion for signs</p>
+            $$\begin{aligned}
+              \alpha(N) &amp;= \{\, + \mid n \in N,\ n \gt 0 \,\} \cup \{\, - \mid n \in N,\ n \lt 0 \,\} \cup \{\, 0 \mid 0 \in N \,\} \\
+              \gamma(S) &amp;= \{\, n \in \Z \mid n \gt 0,\ + \in S \,\} \cup \{\, n \in \Z \mid n \lt 0,\ - \in S \,\} \cup \{\, 0 \mid 0 \in S \,\}
+            \end{aligned}$$
+            <p class="read">"$\alpha$ collects the signs that occur; $\gamma$ collects every integer whose sign is allowed." Equivalently $\gamma(S) = \{ n \mid \mathit{sign}(n) \in S \}$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.31</span> It is a Galois insertion</p>
+            $$(\pset{\Z}, \subseteq) \galois (\pset{\Sign}, \subseteq) \qquad\text{and}\qquad \alpha(\gamma(S)) = S$$
+            <details class="proof"><summary>Proof</summary>
+              <p>$\alpha(N) \subseteq S \iff \forall n \in N.\ \mathit{sign}(n) \in S \iff \forall n \in N.\ n \in \gamma(S) \iff N \subseteq \gamma(S)$.</p>
+              <p>Insertion: each sign class is non-empty ($1$, $0$, $-1$ are witnesses), so every sign in $S$ occurs in $\gamma(S)$ and no other sign does: $\alpha(\gamma(S)) = S$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>The notes' worked example as a chain, with the law at each step:</p>
+          $$\{0, 1\} \;\subseteq\; \gamma(\alpha(\{0,1\})) = \gamma(\{0, +\}) = \Z^{\ge 0} \;\subseteq\; \gamma(\{-,0,+\}) = \Z$$
+          <p class="read">"Extensive (L1), then monotone (L3) for $\{0,+\} \subseteq \{-,0,+\}$."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes' definition of this $\alpha$ and $\gamma$ has $+$ and $-$ swapped: $\alpha$ sends $n \lt 0$ to $+$, and $\gamma$ sends $+$ back to the negative numbers. Because <em>both</em> are swapped, the Galois law still holds, but "$+$" would then mean "negative", which contradicts every example in the notes ($\alpha(\{1,2,3\}) = \{+\}$, $\alpha(\{0,1\}) = \{0,+\}$) and the <code>to_sign</code> code. Read it with the signs the right way round, as above. Fixing only one of the two does break the law: the lab in topic 12 lets you pair the correct $\alpha$ with the notes' $\gamma$ and watch it fail.</div>
+        <div class="quiz" data-quiz="sign-galois"></div>
+      </section>
+
+      <!-- 15 -->
+      <section class="topic" id="abstract-ops" data-part="Order and abstraction" data-short="Abstract operations">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>Abstract operations</h2><p class="kicker">Arithmetic on vague knowledge</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You know two numbers only by their signs. Positive plus positive? Positive, for sure. Positive plus negative? Could be anything, so the honest answer is "I don't know". Abstract arithmetic is arithmetic on that kind of vague knowledge, with one rule: <strong>never claim more certainty than you have</strong>. Saying "I don't know" too often is allowed; being wrong is not.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>First lift the concrete operation to sets: $A + B = \{a + b \mid a \in A, b \in B\}$. Example: $\{1,3\} + \{0,10\} = \{1, 3, 11, 13\}$.</li>
+                <li>The abstract version $+_{\Sign}$ works on sign sets. For single signs: $\{+\} + \{+\} = \{+\}$, $\{0\} + \{s\} = \{s\}$, $\{+\} + \{-\} = \{-,0,+\}$ (both $5 + (-2)$ and $2 + (-5)$ and $2 + (-2)$ are possible). For sets, take the union over all pairs of signs.</li>
+                                <li><strong>Soundness</strong> of the abstract operation: the real results must always be inside what the abstract result means. Thanks to the Galois connection this is checkable without infinite sets: abstract the real result and compare in the small lattice.</li>
+                <li>The <strong>best</strong> abstract operation is "concretise, compute, abstract": $\alpha(\gamma(S) + \gamma(T))$. The notes' addition table is exactly that.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.32</span> Lifted operation</p>
+            $$A \oplus_{\pset{\Z}} B = \{\, a \oplus b \mid a \in A,\ b \in B \,\} \qquad \text{e.g.}\quad \{1,3\} +_{\pset{\Z}} \{0,10\} = \{1, 3, 11, 13\}$$
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.33</span> Sound abstract operation</p>
+            <p>$\oplus^{\#} : A \times A \to A$ is a sound abstraction of $\oplus$ when it never under-approximates:</p>
+            $$\forall A, B \subseteq \Z.\quad A \oplus_{\pset{\Z}} B \;\subseteq\; \gamma\big(\alpha(A) \oplus^{\#} \alpha(B)\big)$$
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.34</span> The $\alpha$-form, and soundness on abstract inputs</p>
+            <p>(a) The condition of Definition 5.33 is equivalent to</p>
+            $$\alpha\big(A \oplus_{\pset{\Z}} B\big) \;\sqsubseteq\; \alpha(A) \oplus^{\#} \alpha(B)$$
+            <p class="read">"Abstracting the true result gives something at least as precise as computing abstractly." No infinite sets needed: both sides live in the 8-element lattice.</p>
+            <p>(b) If moreover $\oplus^{\#}$ is monotone, then for all abstract $S, T$: $\ \gamma(S) \oplus_{\pset{\Z}} \gamma(T) \subseteq \gamma(S \oplus^{\#} T)$.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>(a) is the Galois law with $c = A \oplus B$ and $a = \alpha(A) \oplus^{\#} \alpha(B)$.</p>
+              <p>(b) Put $A = \gamma(S)$, $B = \gamma(T)$ in (a): $\alpha(\gamma(S) \oplus \gamma(T)) \sqsubseteq \alpha(\gamma(S)) \oplus^{\#} \alpha(\gamma(T)) \sqsubseteq S \oplus^{\#} T$, using (L2) and monotonicity. The Galois law turns this back into the inclusion. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.35</span> Best abstract transformer</p>
+            $$S \oplus^{\mathrm{best}} T \;=\; \alpha\big(\gamma(S) \oplus_{\pset{\Z}} \gamma(T)\big)$$
+            <p>It is sound, and every sound monotone $\oplus^{\#}$ satisfies $S \oplus^{\mathrm{best}} T \sqsubseteq S \oplus^{\#} T$ (by Proposition 5.34(b) and the Galois law). For signs it distributes over the elements: $S \oplus^{\mathrm{best}} T = \bigcup_{s \in S,\ t \in T} \{s\} \oplus^{\mathrm{best}} \{t\}$.</p>
+          </div>
+          <p><strong>Proposition 5.36.</strong> Over the mathematical integers, the addition table below (the one in the notes) is exactly $\oplus^{\mathrm{best}}$ on single signs (each entry is witnessed by small numbers, e.g. $2 + (-1) \gt 0$, $1 + (-1) = 0$, $1 + (-2) \lt 0$ for the $\top$ entry).</p>
+          <div class="sign-tables">
+            <div class="table-wrap"><table class="tt"><thead><tr><th>$+$</th><th>$\{-\}$</th><th>$\{0\}$</th><th>$\{+\}$</th></tr></thead><tbody>
+              <tr><th>$\{-\}$</th><td>$\{-\}$</td><td>$\{-\}$</td><td>$\top$</td></tr>
+              <tr><th>$\{0\}$</th><td>$\{-\}$</td><td>$\{0\}$</td><td>$\{+\}$</td></tr>
+              <tr><th>$\{+\}$</th><td>$\top$</td><td>$\{+\}$</td><td>$\{+\}$</td></tr></tbody></table></div>
+          </div>
+          <p class="read">"Row sign plus column sign." $\top = \{-,0,+\}$. For sets of signs, take the union over all pairs.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The JVM computes with 32-bit integers that wrap around: $2147483647 + 1 = -2147483648$. With wrap-around, the sound sign tables are worse: $\{+\} + \{+\} = \{-, +\}$ (two positives can overflow to a negative, but never to exactly 0) and $\{-\} + \{-\} = \top$ (since $-2^{31} + (-2^{31})$ wraps to $0$). The course table, and the labs on this page, assume mathematical integers, which is fine for JPAMB but unsound in general. Switch on "32-bit wrap-around" in the lab below to see it.</div>
+        <div data-lab="signops"></div>
+        <div class="quiz" data-quiz="abstract-ops"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Bounded abstract interpretation</h2></div>
+
+      <!-- 16 -->
+      <section class="topic" id="abstract-step" data-part="Bounded abstract interpretation" data-short="Abstract stepping">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>Stepping in the abstract</h2><p class="kicker">One local check, soundness for every depth</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of moving every drop of water, you move the sketch: each round you shade the map one step further. If every single shading step covers at least the corridors the real water could reach, then after any number of rounds the sketch still covers all the real water. You check one step once, and get the guarantee for every depth.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Pick an abstract domain $A$ with a Galois connection to sets of traces, and an abstract step $\Delta_A : A \to A$ that imitates $\Delta$.</li>
+                <li>Iterate it exactly like $\Delta$: start from $\alpha(I_p)$; each round apply $\Delta_A$ and join with the previous round.</li>
+                <li>The theorem: the real traces of up to $n$ steps are all inside $\gamma(\Delta_A^n)$. So if no error state appears in $\Delta_A^n$, no real trace up to depth $n$ ends in an error.</li>
+                <li>What you must check, once per instruction: the abstract step covers the concrete step. Thanks to the Galois connection you can check it in the abstract world: $\alpha(\Delta(T)) \sqsubseteq \Delta_A(\alpha(T))$, "abstracting the real successors is at least as precise as the abstract successors".</li>
+                <li>The infinite sets only appear in the proof. At run time the analysis only touches small abstract values.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.37</span> Bounded abstract interpretation</p>
+            <p>Given $(\pset{\Trace}, \subseteq) \galois (A, \sqsubseteq_A)$ and an abstract step $\Delta_A : A \to A$:</p>
+            $$\Delta_A^{0} = \alpha(I_p) \qquad\qquad \Delta_A^{n} = \Delta_A(\Delta_A^{n-1}) \join_A \Delta_A^{n-1}$$
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 5.38</span> Soundness of bounded abstract interpretation</p>
+            <p>If $\Delta_A$ covers $\Delta$ on every abstract value,</p>
+            $$\text{(A)}\qquad \forall a \in A.\quad \Delta(\gamma(a)) \subseteq \gamma(\Delta_A(a)),$$
+            <p>then for every $n$: $\quad\Delta^{n} \subseteq \gamma(\Delta_A^{n})$.</p>
+            <p class="read">"Every real trace of up to $n$ steps is described by the abstract result after $n$ rounds."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Induction on $n$. Base: $\Delta^0 = I_p \subseteq \gamma(\alpha(I_p)) = \gamma(\Delta_A^0)$ by (L1).</p>
+              <p>Step: assume $\Delta^{n} \subseteq \gamma(\Delta_A^{n})$. Then</p>
+              $$\begin{aligned}
+                \Delta^{n+1} = \Delta(\Delta^{n}) \cup \Delta^{n}
+                &amp;\subseteq \Delta(\gamma(\Delta_A^{n})) \cup \gamma(\Delta_A^{n}) &amp;&amp; \Delta \text{ monotone (Prop. 5.10), IH}\\
+                &amp;\subseteq \gamma(\Delta_A(\Delta_A^{n})) \cup \gamma(\Delta_A^{n}) &amp;&amp; \text{condition (A)}\\
+                &amp;\subseteq \gamma(\Delta_A(\Delta_A^{n}) \join_A \Delta_A^{n}) = \gamma(\Delta_A^{n+1}) &amp;&amp; \text{Prop. 5.28 } (\gamma \text{ monotone})
+              \end{aligned}$$
+              <span class="qed">&#8718;</span>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Lemma 5.39</span> The local condition in the abstract world</p>
+            <p>The notes check soundness on <em>concrete</em> sets instead:</p>
+            $$\text{(B)}\qquad \forall T.\quad \alpha(\Delta(T)) \sqsubseteq_A \Delta_A(\alpha(T)) \qquad\iff\qquad \forall T.\quad \Delta(T) \subseteq \gamma(\Delta_A(\alpha(T)))$$
+            <p>(the two forms are the Galois law). If (B) holds and $\Delta_A$ is monotone, then (A) holds, so Theorem 5.38 applies.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Let $a \in A$ and $T = \gamma(a)$. By (L1), (B) and (L3): $\Delta(\gamma(a)) \subseteq \gamma(\alpha(\Delta(\gamma(a)))) \subseteq \gamma(\Delta_A(\alpha(\gamma(a))))$. By (L2) $\alpha(\gamma(a)) \sqsubseteq a$, so monotone $\Delta_A$ and $\gamma$ give $\gamma(\Delta_A(\alpha(\gamma(a)))) \subseteq \gamma(\Delta_A(a))$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p><strong>Corollary 5.40.</strong> The not-may analysis $p, n \vdash^{\notmay} Q \equiv \exists \tau \in \gamma(\Delta_A^{n}).\ Q(\tau)$ is complete, so its negation on $\neg Q$ is a sound bounded must analysis (Proposition 5.4). In practice $Q$ only looks at the last state, and we check it directly on the abstract value.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes argue $\Delta(T) \cup T \subseteq \gamma(\Delta_A(\alpha(T)) \join \alpha(T))$ "using that gamma preserves meets". The step actually needs $\gamma(x) \cup \gamma(y) \subseteq \gamma(x \join y)$, which follows from monotonicity of $\gamma$ (Proposition 5.28); it is about joins, not meets. Also, the induction quietly needs $\Delta_A$ to be monotone if you start from condition (B); condition (A) avoids that.</div>
+        <div class="quiz" data-quiz="abstract-step"></div>
+      </section>
+
+      <!-- 17 -->
+      <section class="topic" id="state-abs" data-part="Bounded abstract interpretation" data-short="The state abstraction">
+        <header class="topic-head">
+          <span class="topic-num">17</span>
+          <div><h2>The state abstraction</h2><p class="kicker">Forget the journey, keep where you are</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of remembering every traveller's whole journey, only remember where each traveller is standing right now. To find out whether anyone has fallen into the river, that is all you need, and it is far less to write down.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>$\alpha$ keeps only the <strong>last state</strong> of each trace. $\gamma$ of a set of states is every trace that ends in one of them (with any history, real or not).</li>
+                <li>To step, we only need the last state anyway: $\Delta_{\State}$ maps a set of states to the set of their successors.</li>
+                <li>This abstraction loses no precision for one step: abstracting the real successors gives exactly $\Delta_{\State}$ of the abstraction (Proposition 5.43). The lost history never mattered for what happens next.</li>
+                <li>Iterating, $\Delta_{\State}^n$ is the set of states reachable in at most $n$ steps. If $\err(\text{`assertion error'})$ is not among them, no trace up to depth $n$ ends in an assertion error.</li>
+                <li>It is still an infinite set in general, but it is the foundation the next abstractions stand on.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.41</span> State abstraction</p>
+            $$(\pset{\Trace}, \subseteq) \galois (\pset{\State}, \subseteq) \qquad \alpha(T) = \{\, \tau_{|\tau|-1} \mid \tau \in T \,\} \qquad \gamma(S) = \{\, \tau \in \Trace \mid \tau_{|\tau|-1} \in S \,\}$$
+            <p class="read">"Abstract a set of traces to the set of their end states; a set of states means every trace ending in one of them."</p>
+            <p>It is a Galois connection: $\alpha(T) \subseteq S \iff$ every trace in $T$ ends in $S$ $\iff T \subseteq \gamma(S)$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.42</span> Stepping states</p>
+            $$\Delta_{\State}(S) = \{\, s' \mid s \in S,\ \delta(s, s') \,\} \qquad \Delta_{\State}^{0} = \alpha(I_p) = I_p \qquad \Delta_{\State}^{n} = \Delta_{\State}(\Delta_{\State}^{n-1}) \cup \Delta_{\State}^{n-1}$$
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.43</span> The state abstraction is exact for one step</p>
+            $$\alpha(\Delta(T)) = \Delta_{\State}(\alpha(T))$$
+            <details class="proof"><summary>Proof that $\Delta_{\State}$ is an abstract operation of $\Delta$</summary>
+              <p>$\alpha(\Delta(T)) = \{ \text{last}(\tau s) \mid \tau \in T, \delta(\text{last}(\tau), s)\} = \{ s \mid \tau \in T, \delta(\text{last}(\tau), s)\} = \{ s \mid s_0 \in \alpha(T), \delta(s_0, s)\} = \Delta_{\State}(\alpha(T))$. In particular condition (B) of Lemma 5.39 holds, and $\Delta_{\State}$ is monotone. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 5.44</span> Checking assertion errors on states</p>
+            $$\err(\text{`assertion error'}) \notin \Delta_{\State}^{n} \implies \neg \exists \tau \in \Delta^{n}.\ \mathit{ae}(\tau)$$
+            <details class="proof"><summary>Proof</summary><p>By Theorem 5.38, $\Delta^{n} \subseteq \gamma(\Delta_{\State}^{n})$, so every trace in $\Delta^{n}$ ends in a state of $\Delta_{\State}^{n}$. If $\tau$ ended in the error state, that state would be in $\Delta_{\State}^{n}$. (The notes phrase it as: $\{\tau\, \err(\ldots)\} \subseteq \Delta^n$ implies $\alpha$ of it, $\{\err(\ldots)\}$, is contained in $\Delta_{\State}^n$.) <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write "$\Delta_{\State}^{n} = \Delta_{\State}^{n}(\alpha(I_P))$": it means "iterate $\Delta_{\State}$ (with the join) $n$ times, starting from $\alpha(I_P)$", as in Definition 5.42.</div>
+        <div class="quiz" data-quiz="state-abs"></div>
+      </section>
+
+      <!-- 18 -->
+      <section class="topic" id="pc-abs" data-part="Bounded abstract interpretation" data-short="Per-instruction abstraction">
+        <header class="topic-head">
+          <span class="topic-num">18</span>
+          <div><h2>The per-instruction abstraction</h2><p class="kicker">Group the states by program counter</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Sort the travellers by the station they are standing at. Everyone at the same station takes the same trains next, so you announce departures once per station instead of once per person.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>For now, forget the call stack: a state is a single frame $\langle \lambda, \sigma, \iota \rangle$ (locals, operand stack, program counter). Calls come in later lectures.</li>
+                <li>Group the set of states by their $\iota$: a map from program counters to sets of states. All states in a group execute the same instruction.</li>
+                <li>$\Delta_{\Pc}$ steps a whole group with one instruction, $\Delta_\iota$, and sends each successor to the group of its new program counter, where it is merged ($\cup$) with what is already there.</li>
+                <li>No information is lost yet: grouping is just a reorganisation. The gain is structural: from here on we can summarise each group separately, which is exactly what the next abstraction does.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.45</span> Per-instruction domain</p>
+            $$\Pc = \iota \to \pset{\State} \qquad C \sqsubseteq_{\Pc} C' \iff \forall \iota.\ C(\iota) \subseteq C'(\iota) \qquad (C \join_{\Pc} C')(\iota) = C(\iota) \cup C'(\iota)$$
+            $$\alpha(S) = \lambda \iota.\ \{\, s \in S \mid s.\iota = \iota \,\} \qquad\qquad \gamma(C) = \bigcup_{\iota} C(\iota)$$
+            <p class="read">"Map each program counter to the states sitting at it; ordered and joined pointwise."</p>
+            <p>Why this is a Galois connection: $\alpha(S) \sqsubseteq C \iff \forall \iota.\ \{s \in S \mid s.\iota = \iota\} \subseteq C(\iota)$, and when every $C(\iota)$ only contains states whose program counter is $\iota$ (the only maps we ever build) this says exactly $S \subseteq \bigcup_\iota C(\iota) = \gamma(C)$. On such maps $\alpha$ and $\gamma$ are even inverse to each other: no information is lost.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.46</span> Stepping per instruction</p>
+            $$\Delta_{\Pc}(C) = \lub_{\Pc} \Big\{\, \iota' \mapsto \{ \langle \lambda', \sigma', \iota' \rangle \} \;\Big|\; (\iota \mapsto S) \in C,\ S' = \Delta_{\iota}(S),\ \langle \lambda', \sigma', \iota' \rangle \in S' \,\Big\}$$
+            <p class="read">"For every program counter, step all its states with that one instruction; file each successor under its new program counter; merge everything with $\cup$."</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>This part of the notes writes states as $\langle \sigma, \lambda, \iota \rangle$; this site always writes $\langle \lambda, \sigma, \iota \rangle$ as in <a href="semantics.html#frame">Semantics</a>. Same thing, different order.</div>
+        <div class="quiz" data-quiz="pc-abs"></div>
+      </section>
+
+      <!-- 19 -->
+      <section class="topic" id="pv-abs" data-part="Bounded abstract interpretation" data-short="Per-variable abstraction">
+        <header class="topic-head">
+          <span class="topic-num">19</span>
+          <div><h2>The per-variable abstraction and its price</h2><p class="kicker">Our first hard choice: forget who came with whom</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of a guest list of couples, you keep one list of everyone who sat on the left and one list of everyone who sat on the right. From the two lists you can no longer tell who sat next to whom: every pairing looks possible. That is much shorter to write down, and sometimes exactly the information you needed.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Per program counter, instead of a set of whole states, keep <strong>one set of values per local variable and per stack slot</strong>. At each instruction the JVM's types tell us how many locals and stack slots there are and that they hold <code>int</code>s, so these are sets of integers: exactly what the sign abstraction can summarise.</li>
+                <li>$\gamma$ of such a summary is every combination: the Cartesian product of the sets. That is where precision is lost. The <strong>relations</strong> between variables vanish.</li>
+                <li>Example: states $\{(x{=}1, y{=}{-1}), (x{=}{-1}, y{=}1)\}$ become $x \in \{1, -1\}$, $y \in \{-1, 1\}$, whose $\gamma$ also contains $(1, 1)$ and $(-1,-1)$.</li>
+                <li>In <code>copyThenDivide</code> (<code>int y = x; if (x &gt; 0) return 10 / y;</code>) the real states inside the branch all have $y = x \gt 0$. Per variable we know $x \gt 0$ but $y$ is unrelated to $x$ and may be anything, including $0$: a <strong>false alarm</strong> for <code>divide by zero</code>.</li>
+                <li>That is why the notes call this "our first hard choice": it is the first abstraction that severely over-approximates. The way out is a <em>relational</em> domain (octagons, polyhedra), which tracks facts like $y = x$ or $x - y \le 3$.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.47</span> Per-variable domain</p>
+            $$\Pv = \iota \to (\N \to \pset{\mathbf{V}_{\sigma}}) \times (\pset{\mathbf{V}_{\sigma}})^{*}$$
+            <p class="read">"For each program counter: a map from local index to a set of values, and a stack of sets of values."</p>
+            <p>For a group of states $C(\iota)$, all with the same number of locals and the same stack height $h$:</p>
+            $$\alpha(C)(\iota) = \Big( i \mapsto \{ s.\lambda[i] \mid s \in C(\iota) \},\ \big[\{ s.\sigma[j] \mid s \in C(\iota) \}\big]_{j \lt h} \Big)$$
+            $$\gamma(P)(\iota) = \{\, \langle \lambda, \sigma, \iota \rangle \mid \forall i.\ \lambda[i] \in L_i,\ \forall j \lt h.\ \sigma[j] \in K_j \,\} \quad\text{where } P(\iota) = (L, K)$$
+            <p class="read">"Collect, per slot, the values seen; a summary means every state built by picking any allowed value for each slot independently."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 5.48</span> A Galois connection that loses relations</p>
+            <p>$(\Pc, \sqsubseteq_{\Pc}) \galois (\Pv, \sqsubseteq_{\Pv})$ with the pointwise order. In general $\gamma(\alpha(C)) \supsetneq C$: e.g. $C(\iota) = \{(1,-1), (-1,1)\}$ for $(\lambda[0], \lambda[1])$ gives $\gamma(\alpha(C))(\iota) = \{1,-1\} \times \{-1,1\}$, four states.</p>
+            <details class="proof"><summary>Proof</summary><p>$\alpha(C) \sqsubseteq P$ says: every value that occurs in slot $i$ (or $j$) of some state at $\iota$ is in the corresponding set of $P(\iota)$. That holds iff every state of $C(\iota)$ has all its components in the allowed sets, i.e. $C(\iota) \subseteq \gamma(P)(\iota)$, for every $\iota$. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Two small slips in the notes: "the abstract locals is <em>not</em> a mapping" should read "is <em>now</em> a mapping from naturals to sets of values", and the Galois connection is $\Pc \galois \Pv$ (there is a stray parenthesis).</div>
+        <div data-lab="relations"></div>
+        <div class="quiz" data-quiz="pv-abs"></div>
+      </section>
+
+      <!-- 20 -->
+      <section class="topic" id="pv-sign" data-part="Bounded abstract interpretation" data-short="Variable abstractions Pv[A]">
+        <header class="topic-head">
+          <span class="topic-num">20</span>
+          <div><h2>Variable abstractions: $\Pv[A]$ and $\Pv[\Sign]$</h2><p class="kicker">Finally, signs per variable per instruction</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Now shrink each list once more. Instead of "the people on the left were 23, 31 and 45 years old", keep "all adults". Each variable at each instruction gets a tiny label instead of a set of numbers, and the whole analysis state fits on an index card.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Replace every set of values in $\Pv$ by an abstract value from a value domain $A$. With $A = \pset{\Sign}$ each local and each stack slot holds a <code>SignSet</code>.</li>
+                <li>Any Galois connection for single variables lifts to whole frames by applying $\alpha$ and $\gamma$ slot by slot.</li>
+                <li>An abstract state per instruction is a tuple of locals and a tuple of stack values. Three pseudo-elements help: <strong>Bot</strong> (no state reaches this instruction; the identity of $\join$), <strong>Err</strong> (an error outcome was reached) and <strong>Ok</strong> (a normal return).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 5.49</span> Variable abstraction</p>
+            $$\Pv[A] = \iota \to (\N \to A) \times A^{*}$$
+            <p>ordered, joined and met pointwise (per $\iota$, per local, per stack slot).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 5.50</span> Lifting a value abstraction</p>
+            $$(\pset{\mathbf{V}_{\sigma}}, \subseteq) \galois (A, \sqsubseteq_A) \quad\implies\quad (\Pv, \sqsubseteq_{\Pv}) \galois (\Pv[A], \sqsubseteq_{\Pv[A]})$$
+            <p>with $\hat\alpha$ and $\hat\gamma$ applying $\alpha$ and $\gamma$ to every slot. In particular $(\Pv, \sqsubseteq_{\Pv}) \galois (\Pv[\Sign], \sqsubseteq_{\Pv[\Sign]})$.</p>
+            <details class="proof"><summary>Proof</summary><p>$\hat\alpha(P) \sqsubseteq Q \iff$ for every $\iota$ and slot $k$: $\alpha(P(\iota)_k) \sqsubseteq_A Q(\iota)_k \iff$ (Galois law per slot) $P(\iota)_k \subseteq \gamma(Q(\iota)_k)$ for every $\iota, k$ $\iff P \sqsubseteq_{\Pv} \hat\gamma(Q)$. Pointwise orders make the law hold pointwise. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="pv-sign"></div>
+      </section>
+
+      <!-- 21 -->
+      <section class="topic" id="chain" data-part="Bounded abstract interpretation" data-short="Abstractions all the way down">
+        <header class="topic-head">
+          <span class="topic-num">21</span>
+          <div><h2>Abstractions all the way down</h2><p class="kicker">Galois connections compose</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A map of the country, a regional map drawn from it, a city sketch drawn from that. Each copy loses detail, but if each sketch is faithful to the one before, the last sketch is faithful to the real country. You only ever have to check one step of copying at a time.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>If $\alpha_1, \gamma_1$ connects $C$ to $B$ and $\alpha_2, \gamma_2$ connects $B$ to $A$, then $\alpha_2 \circ \alpha_1$ and $\gamma_1 \circ \gamma_2$ connect $C$ to $A$.</li>
+                <li>So the whole tower from sets of traces down to sign sets per variable per instruction is one Galois connection, and everything proved in topic 16 applies to the final analysis.</li>
+                <li>Modularity: to try a different value domain (intervals, parity, constants) you swap only the last layer; the first four stay proven.</li>
+                <li>The lab shows the same behaviours at each level, and how the set they stand for grows as you go down.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 5.51</span> Composition</p>
+            $$(C, \sqsubseteq_C) \mathrel{\overset{\alpha_1}{\underset{\gamma_1}{\rightleftarrows}}} (B, \sqsubseteq_B) \;\land\; (B, \sqsubseteq_B) \mathrel{\overset{\alpha_2}{\underset{\gamma_2}{\rightleftarrows}}} (A, \sqsubseteq_A) \implies (C, \sqsubseteq_C) \mathrel{\overset{\alpha_2 \circ \alpha_1}{\underset{\gamma_1 \circ \gamma_2}{\rightleftarrows}}} (A, \sqsubseteq_A)$$
+            <details class="proof"><summary>Proof</summary><p>$\alpha_2(\alpha_1(c)) \sqsubseteq_A a \iff \alpha_1(c) \sqsubseteq_B \gamma_2(a) \iff c \sqsubseteq_C \gamma_1(\gamma_2(a))$, using the second and then the first connection. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>The chain of this lecture:</p>
+          $$(\pset{\Trace}, \subseteq) \galois (\pset{\State}, \subseteq) \galois (\Pc, \sqsubseteq_{\Pc}) \galois (\Pv, \sqsubseteq_{\Pv}) \galois (\Pv[\Sign], \sqsubseteq_{\Pv[\Sign]})$$
+          <p class="read">"Traces, to end states, to states per instruction, to value sets per variable, to sign sets per variable." Only the step $\Pc \to \Pv$ and the step to signs lose information that matters for the next step.</p>
+        </div>
+        <div data-lab="ladder"></div>
+        <div class="quiz" data-quiz="chain"></div>
+      </section>
+
+      <!-- 22 -->
+      <section class="topic" id="limits" data-part="Bounded abstract interpretation" data-short="What signs cannot catch">
+        <header class="topic-head">
+          <span class="topic-num">22</span>
+          <div><h2>What the sign analysis cannot catch</h2><p class="kicker">And when static still beats dynamic</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Signs are a ruler with only three marks: below zero, zero, above zero. Perfect for "could this divisor be zero?", useless for "is this exactly one million?" or "is y the same as x?". A coarse ruler gives honest but vague answers, and vague answers about bugs are false alarms.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Relations between variables</strong> (<code>copyThenDivide</code>): per-variable abstraction forgets $y = x$, so <code>10 / y</code> raises a false alarm. A domain problem: no transfer function on $\Pv[\Sign]$ can fix it.</li>
+                <li><strong>Specific values</strong> (<code>isNotAMillion</code>: <code>assert i != 1000000</code>): the sign of $1000000$ is $+$, so "$i \ne 1000000$" can be true or false for any sign. Here the alarm is real, but <code>assert i != 5</code> after <code>i = 7</code> would get the same alarm, falsely.</li>
+                <li><strong>Overflow</strong>: the course tables assume mathematical integers (topic 15). Sound for i32 only if wrap-around is modelled.</li>
+                <li><strong>Depth</strong>: errors after more than $n$ steps are missed by a bounded analysis; loops are only partly explored (fixed next lecture with <a href="unbounded-static-analysis.html#fixpoints">fixpoints</a> and <a href="unbounded-static-analysis.html#widening">widening</a>).</li>
+                <li><strong>What we did not abstract</strong>: arrays (lengths, indices: <code>out of bounds</code>), <code>null</code>, the heap, calls, floats.</li>
+                <li><strong>Static beats dynamic</strong> when the answer is "never": <code>divideAfterCheck</code> provably never divides by zero for all $2^{32}$ inputs, which no amount of testing can show; and when bugs hide behind rare inputs, an over-approximation still flags them.</li>
+                <li><strong>Dynamic beats static</strong> when you need certainty that a bug is real (a witness input, no false alarms), when the property depends on exact values (<code>arraySpellsHello</code>), and on deep loops.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>For <code>copyThenDivide</code> no transformer helps: after <code>y = x</code> the per-variable abstraction is $x \mapsto \top, y \mapsto \top$, whose concretisation contains the state $(x{=}1, y{=}0)$, which passes the test $x \gt 0$ and divides by zero. Any sound analysis over $\Pv[\Sign]$ must report it.</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>When a static analysis raises a false alarm, ask whether the domain can express the fact that would rule it out (e.g. $y = x$). If it cannot, no amount of care elsewhere helps: you need a richer domain.</div>
+        <div class="quiz" data-quiz="limits"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and laws worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Many-step function</h3><div class="mathbox">$\Delta(T) = \{\tau s \mid \tau \in T, \delta(\tau_{|\tau|-1}, s)\}$<br>$\Delta^0 = I_p,\ \Delta^n = \Delta(\Delta^{n-1}) \cup \Delta^{n-1} = \Sem^{n+1}(p)$</div><p>All traces of at most $n$ steps.</p></div>
+          <div class="cheat-item"><h3>Must via not-may</h3><div class="mathbox">$p,n \vdash^{\must}_{\BSA} Q \equiv \neg(p,n \vdash^{\notmay}_{\BSA} \neg Q)$</div><p>Sound if the not-may search is complete: over-approximate, look for the bad thing.</p></div>
+          <div class="cheat-item"><h3>Approximation sandwich</h3><div class="mathbox">$\Delta^{\must,n} \subseteq \Delta^n \subseteq \Delta^{\may,n}$</div><p>Holds for all $n$ if it holds for one step (exact $\Delta$ is monotone).</p></div>
+          <div class="cheat-item"><h3>Bounds</h3><div class="mathbox">$p \models^{\must} Q \Rightarrow p,k \models^{\must} Q \quad p,k \models^{\may} Q \Rightarrow p \models^{\may} Q$</div><p>Not the other way: bugs can sit beyond the bound; <code>*</code> is invisible.</p></div>
+          <div class="cheat-item"><h3>Poset and lattice</h3><div class="mathbox">reflexive, antisymmetric, transitive; $a \join b$ least upper bound, $a \meet b$ greatest lower bound</div><p>$a \sqsubseteq b \iff a \join b = b \iff a \meet b = a$.</p></div>
+          <div class="cheat-item"><h3>Galois connection</h3><div class="mathbox">$\alpha(c) \sqsubseteq_A a \iff c \sqsubseteq_C \gamma(a)$</div><p>Gives: $c \sqsubseteq \gamma\alpha(c)$, $\alpha\gamma(a) \sqsubseteq a$, both monotone, $\alpha\gamma\alpha = \alpha$, $\gamma\alpha\gamma = \gamma$, $\alpha$ preserves joins, $\gamma$ preserves meets.</p></div>
+          <div class="cheat-item"><h3>Signs</h3><div class="mathbox">$\alpha(N) = \{\mathit{sign}(n) \mid n \in N\} \quad \gamma(S) = \{n \mid \mathit{sign}(n) \in S\}$</div><p>Lattice $(\pset{\Sign}, \subseteq, \cup, \cap, \emptyset, \{-,0,+\})$, 8 elements, height 3.</p></div>
+          <div class="cheat-item"><h3>Sound abstract operation</h3><div class="mathbox">$\alpha(A \oplus B) \sqsubseteq \alpha(A) \oplus^{\#} \alpha(B)$</div><p>Best: $S \oplus^{\mathrm{best}} T = \alpha(\gamma(S) \oplus \gamma(T))$. $\{+\}+\{-\} = \top$; $0 \in$ divisor adds an error.</p></div>
+          <div class="cheat-item"><h3>Abstract iteration</h3><div class="mathbox">$\Delta_A^0 = \alpha(I),\ \Delta_A^n = \Delta_A(\Delta_A^{n-1}) \join \Delta_A^{n-1}$<br>$\Delta(\gamma(a)) \subseteq \gamma(\Delta_A(a)) \Rightarrow \Delta^n \subseteq \gamma(\Delta_A^n)$</div><p>Check one step locally, get every depth.</p></div>
+          <div class="cheat-item"><h3>The chain</h3><div class="mathbox">$\pset{\Trace} \galois \pset{\State} \galois \Pc \galois \Pv \galois \Pv[\Sign]$</div><p>Galois connections compose: $\alpha_2 \circ \alpha_1$, $\gamma_1 \circ \gamma_2$. $\Pv$ loses relations between variables.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table class="gloss">
+            <tr><td>$\Sem^{k}(p)$</td><td>bounded trace semantics</td><td>traces of at most $k$ states from an initial state</td></tr>
+            <tr><td>$\Delta, \Delta^n$</td><td>many-step function</td><td>extend every trace by one step; $n$ rounds with the old traces kept</td></tr>
+            <tr><td>$\Delta^{\may}, \Delta^{\must}$</td><td>approximate steps</td><td>superset (over) and subset (under) of the real step</td></tr>
+            <tr><td>$p,n \vdash^{\notmay}_{\BSA} Q$</td><td>not-may analysis</td><td>complete search for a trace satisfying $Q$ (may raise false alarms)</td></tr>
+            <tr><td>$\mathit{ae}(\tau)$</td><td>assertion error</td><td>the last state of $\tau$ is $\err(\text{`assertion error'})$</td></tr>
+            <tr><td>$\sqsubseteq$</td><td>order</td><td>"at least as precise as"; $\subseteq$ for sets</td></tr>
+            <tr><td>$\join, \meet$</td><td>join, meet</td><td>least upper bound (merge), greatest lower bound (combine constraints)</td></tr>
+            <tr><td>$\bot, \top$</td><td>bottom, top</td><td>nothing (unreachable), anything</td></tr>
+            <tr><td>$\lessdot$</td><td>covers</td><td>one step up in a Hasse diagram</td></tr>
+            <tr><td>$\alpha, \gamma$</td><td>abstraction, concretisation</td><td>describe a concrete set; what a description means</td></tr>
+            <tr><td>$\galois$</td><td>Galois connection</td><td>$\alpha(c) \sqsubseteq a \iff c \sqsubseteq \gamma(a)$</td></tr>
+            <tr><td>$\Sign$</td><td>signs</td><td>$\{-, 0, +\}$; abstract values are subsets</td></tr>
+            <tr><td>$\oplus^{\#}$</td><td>abstract operation</td><td>sign-level version of $+, -, \times, /, \%$</td></tr>
+            <tr><td>$\Delta_A$</td><td>abstract step</td><td>the analysis's one-round function on abstract values</td></tr>
+            <tr><td>$\Pc, \Pv, \Pv[A]$</td><td>domains</td><td>states per instruction; value sets per variable; abstract values per variable</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>Why should we use abstractions when analysing code?</summary>
+          <p>A static analysis wants to say something about <em>all</em> executions, but the set of executions is astronomically large or infinite: <code>assertPositive(int)</code> has $2^{32}$ initial states, and with arrays, objects or loops the sets of states and traces are infinite (topic 05). We cannot compute with such sets directly.</p>
+          <p>An abstraction replaces a set of concrete values, states or traces by a finite description (here: which signs occur, per variable, per instruction). Computing on descriptions is cheap and always finishes: the sign lattice has 8 elements per variable. Because the description over-approximates (every real behaviour is included, $c \subseteq \gamma(\alpha(c))$), a negative answer is trustworthy: if the abstract run never reaches an error state, no real run does (Theorem 5.38, Corollary 5.44). That gives sound "no" answers for every input at once, which testing can never give.</p>
+          <p>The price is precision: the description also allows behaviours that do not exist, so we get false alarms (topic 22). Abstractions let us choose the trade-off between cost and precision explicitly, e.g. signs versus intervals versus relational domains, and next lecture their finiteness (finite height) is also what makes unbounded analysis terminate.</p>
+        </details>
+        <details class="proof"><summary>What is the advantage of Galois connections?</summary>
+          <p>A Galois connection $\alpha(c) \sqsubseteq a \iff c \sqsubseteq \gamma(a)$ pins down precisely what each abstract value means ($\gamma$) and what the best description of a concrete set is ($\alpha$). From that single law we get, for free, all the properties we rely on (Theorem 5.27): abstraction only loses information ($c \sqsubseteq \gamma(\alpha(c))$), it never invents precision ($\alpha(\gamma(a)) \sqsubseteq a$), both maps are monotone, information is lost only once, and $\alpha$ turns unions into joins.</p>
+          <p>The practical advantages: (1) soundness becomes a <em>local</em> check in the small abstract world: for each operation and each instruction show $\alpha(f(T)) \sqsubseteq f^{\#}(\alpha(T))$, and Theorem 5.38 lifts that to every depth. (2) It defines the best possible abstract operation, $\alpha \circ f \circ \gamma$, as a yardstick. (3) Connections compose (Theorem 5.51), so the analysis is a modular tower: traces, states, per instruction, per variable, signs; each layer is proven once, and the value domain can be swapped without redoing the rest. (4) The laws are directly testable with property-based testing, as in <code>test_abstractions.py</code>.</p>
+        </details>
+        <details class="proof"><summary>Which cases is the Sign abstraction not able to catch?</summary>
+          <p>Anything that depends on more than the sign of each variable separately:</p>
+          <ul>
+            <li>Relations between variables: <code>int y = x; if (x &gt; 0) return 10 / y;</code> is safe but raises a divide-by-zero alarm, because the per-variable abstraction forgets $y = x$.</li>
+            <li>Specific values: <code>assert i != 1000000</code> or <code>assert x != 5</code> cannot be decided from signs; the analysis must answer "maybe" whether the alarm is real or not.</li>
+            <li>Overflow: the course's tables assume mathematical integers; with 32-bit wrap-around $\{+\} + \{+\}$ can be negative.</li>
+            <li>Array bounds, null pointers and anything on the heap, which the sign abstraction does not model at all; and errors deeper than the bound $n$.</li>
+          </ul>
+          <p>In those cases the sign analysis stays sound (it says "maybe") but it is imprecise, i.e. it produces false alarms, or, for errors beyond the bound, it misses them.</p>
+        </details>
+        <details class="proof"><summary>In which cases does your static analysis outperform your dynamic analysis?</summary>
+          <p>When the right answer is "this can never happen": a dynamic analysis can only say "not found" (a not-must analysis over the inputs it tried), while the static analysis can prove absence for all inputs within the bound, e.g. no division by zero in <code>divideAfterCheck</code> for any of the $2^{32}$ inputs, or no assertion in a method at all. It also does not need lucky inputs: rare values like the one million in <code>isNotAMillion</code>, which random fuzzing practically never hits, still lead to a "maybe" instead of a confident and wrong "no". And a single abstract run can be cheaper than thousands of concrete runs.</p>
+          <p>The dynamic analysis wins when the property depends on exact values or relations (it never raises false alarms, and every report comes with a concrete witness input), on deep loops beyond the static bound, and on data structures the abstraction does not model (arrays as in <code>arraySpellsHello</code>).</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Bounded Static Analysis" and "Trace Terminology" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute. Figures from the course notes: the Hasse diagram by KSmrq (CC BY-SA 3.0, with edits) and the Galois connection figure. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/bounded-static-analysis.js"></script>
+</body>
+</html>

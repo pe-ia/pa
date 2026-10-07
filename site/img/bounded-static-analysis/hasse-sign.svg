@@ -1,0 +1,120 @@
+<svg width="343pt" height="260pt" viewBox="0 0 343 260" xmlns="http://www.w3.org/2000/svg">
+  <defs></defs>
+  <title>Hasse diagram</title>
+  <g id="graph0" class="graph" style="font-family:Times-Roman;font-size:14.00;">
+    <g id="node8" class="node">
+      <title>phi</title>
+      <ellipse style="fill:none;stroke:black;" cx="171" cy="238" rx="27" ry="18"></ellipse>
+      <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="171" y="243">Ø</text>
+    </g>
+    <g class="fragment">
+      <g id="edge19" class="edge">
+        <title>x-&gt;phi</title>
+        <path style="fill:none;stroke:black;" d="M78,183C100,197 131,215 150,226"></path>
+        <polygon style="fill:none;stroke:black;" points="76,186 69,178 79,180 76,186"></polygon>
+      </g>
+      <g id="node5" class="node">
+        <title>x</title>
+        <ellipse style="fill:none;stroke:black;" cx="49" cy="166" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="49" y="171">{+}</text>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="edge21" class="edge">
+        <title>y-&gt;phi</title>
+        <path style="fill:none;stroke:black;" d="M171,194C171,203 171,212 171,220"></path>
+        <polygon style="fill:none;stroke:black;" points="168,194 171,184 175,194 168,194"></polygon>
+      </g>
+      <g id="node6" class="node">
+        <title>y</title>
+        <ellipse style="fill:none;stroke:black;" cx="171" cy="166" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="171" y="171">{0}</text>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="edge23" class="edge">
+        <title>z-&gt;phi</title>
+        <path style="fill:none;stroke:black;" d="M264,183C242,197 211,215 192,226"></path>
+        <polygon style="fill:none;stroke:black;" points="263,180 273,178 266,186 263,180"></polygon>
+      </g>
+      <g id="node7" class="node">
+        <title>z</title>
+        <ellipse style="fill:none;stroke:black;" cx="293" cy="166" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="293" y="171">{-}</text>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="edge16" class="edge">
+        <title>xy-&gt;x</title>
+        <path style="fill:none;stroke:black;" d="M49,122C49,131 49,140 49,148"></path>
+        <polygon style="fill:none;stroke:black;" points="46,122 49,112 53,122 46,122"></polygon>
+      </g>
+      <g id="edge17" class="edge">
+        <title>xy-&gt;y</title>
+        <path style="fill:none;stroke:black;" d="M78,111C100,125 131,143 150,154"></path>
+        <polygon style="fill:none;stroke:black;" points="76,114 69,106 79,108 76,114"></polygon>
+      </g>
+      <g id="node4" class="node">
+        <title>xy</title>
+        <ellipse style="fill:none;stroke:black;" cx="49" cy="94" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="49" y="99">{+, 0}</text>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="edge12" class="edge">
+        <title>xz-&gt;x</title>
+        <path style="fill:none;stroke:black;" d="M142,111C120,125 89,143 70,154"></path>
+        <polygon style="fill:none;stroke:black;" points="141,108 151,106 144,114 141,108"></polygon>
+      </g>
+      <g id="edge13" class="edge">
+        <title>xz-&gt;z</title>
+        <path style="fill:none;stroke:black;" d="M200,111C222,125 253,143 272,154"></path>
+        <polygon style="fill:none;stroke:black;" points="198,114 191,106 201,108 198,114"></polygon>
+      </g>
+      <g id="node3" class="node">
+        <title>xz</title>
+        <ellipse style="fill:none;stroke:black;" cx="171" cy="94" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="171" y="99">{+, -}</text>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="node2" class="node">
+        <title>yz</title>
+        <ellipse style="fill:none;stroke:black;" cx="293" cy="94" rx="27" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="293" y="99">{0, -}</text>
+      </g>
+      <g id="edge8" class="edge">
+        <title>yz-&gt;y</title>
+        <path style="fill:none;stroke:black;" d="M264,111C242,125 211,143 192,154"></path>
+        <polygon style="fill:none;stroke:black;" points="263,108 273,106 266,114 263,108"></polygon>
+      </g>
+      <g id="edge9" class="edge">
+        <title>yz-&gt;z</title>
+        <path style="fill:none;stroke:black;" d="M293,122C293,131 293,140 293,148"></path>
+        <polygon style="fill:none;stroke:black;" points="290,122 293,112 297,122 290,122"></polygon>
+      </g>
+    </g>
+    <g class="fragment">
+      <g id="node1" class="node">
+        <title>xyz</title>
+        <ellipse style="fill:none;stroke:black;" cx="171" cy="22" rx="31" ry="18"></ellipse>
+        <text style="font-family: 'Bitstream Vera Sans'; font-size: 13px; text-anchor: middle; white-space: pre;" x="171" y="27">{+,0,-}</text>
+      </g>
+      <g id="edge3" class="edge">
+        <title>xyz-&gt;yz</title>
+        <path style="fill:none;stroke:black;" d="M202,40C224,54 254,71 273,82"></path>
+        <polygon style="fill:none;stroke:black;" points="200,43 193,35 203,37 200,43"></polygon>
+      </g>
+      <g id="edge4" class="edge">
+        <title>xyz-&gt;xz</title>
+        <path style="fill:none;stroke:black;" d="M171,50C171,59 171,68 171,76"></path>
+        <polygon style="fill:none;stroke:black;" points="168,50 171,40 175,50 168,50"></polygon>
+      </g>
+      <g id="edge5" class="edge">
+        <title>xyz-&gt;xy</title>
+        <path style="fill:none;stroke:black;" d="M140,40C118,54 88,71 69,82"></path>
+        <polygon style="fill:none;stroke:black;" points="139,37 149,35 142,43 139,37"></polygon>
+      </g>
+    </g>
+  </g>
+</svg>

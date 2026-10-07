@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 115 900 620">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"></path>
+    </marker>
+    <style>
+      .node { fill:none; stroke:#333; stroke-width:2; rx:12; }
+      .text { font-family:Arial,Helvetica,sans-serif; font-size:18px; fill:#222; text-anchor:middle; dominant-baseline:middle; }
+      .edge { fill:none; stroke:#333; stroke-width:2; marker-end:url(#arrow); }
+      .label { font-family:Arial,Helvetica,sans-serif; font-size:16px; fill:#333; }
+    </style>
+  </defs>
+
+  <rect x="400" y="155" width="100" height="65" class="node"></rect>
+  <text x="450" y="190" class="text">i = 0</text>
+
+  <polygon points="450,265 590,330 450,395 310,330" fill="none" stroke="#333" stroke-width="2"></polygon>
+  <text x="450" y="325" class="text">i &lt; 100?</text>
+
+  <rect x="400" y="435" width="100" height="65" class="node"></rect>
+  <text x="450" y="468" class="text">i += 1</text>
+
+  <rect x="300" y="545" width="300" height="55" class="node"></rect>
+  <text x="450" y="570" class="text">Many operations dependent on i</text>
+
+  <!-- Edges -->
+  <path d="M450 115 L450 155" class="edge"></path>
+  <path d="M450 220 L450 265" class="edge"></path>
+  <path d="M450 395 L450 435" class="edge"></path>
+  <text x="465" y="420" class="label">true</text>
+
+  <!-- Back edge, routed around right -->
+  <path d="M500 468 L735 468 L735 330 L590 330" class="edge"></path>
+
+  <!-- Exit edge -->
+  <path d="M310 330 L150 330 L150 572 L300 572" class="edge"></path>
+  <text x="245" y="312" class="label">false</text>
+</svg>

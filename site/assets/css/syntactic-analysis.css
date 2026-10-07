@@ -1,0 +1,92 @@
+/* Week 2, Syntactic Analysis: lab-specific styles (loaded after style.css). */
+
+/* ---------- Trees (SVG) ---------- */
+.tree-wrap { overflow-x: auto; padding: 4px 0; }
+.tree-wrap svg { display: block; margin: 0 auto; max-width: none; }
+.tree .edge { stroke: var(--line-2); stroke-width: 1.5; }
+.tree .tn rect { fill: var(--card); stroke: var(--ink-2); stroke-width: 1.2; }
+.tree .tn text { fill: var(--ink); font-family: var(--mono); font-size: 12.5px; text-anchor: middle; dominant-baseline: central; }
+.tree .tn.nt rect { fill: var(--tech-soft); stroke: var(--tech); }
+.tree .tn.op rect { fill: var(--formal-soft); stroke: var(--formal); }
+.tree .tn.tok rect { fill: var(--lab-bg); stroke: var(--line-2); stroke-dasharray: 3 2; }
+.tree .tn.paren rect { fill: var(--warn-soft); stroke: var(--warn); }
+.tree .tn.leaf rect { fill: var(--card); stroke: var(--line-2); }
+.tree .tn.hl rect { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 2; }
+.tree .tn.done rect { fill: var(--formal-soft); stroke: var(--formal); }
+.tree .tn.match rect { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 2; }
+.tree .tn.cur rect { stroke: var(--accent); stroke-width: 3; }
+.tree .ann { fill: var(--formal); font-weight: 700; font-size: 11.5px; }
+.tree .tn text.ann { font-size: 11.5px; dominant-baseline: auto; }
+.tree .badge { fill: var(--accent); font-size: 10.5px; font-weight: 800; font-family: var(--mono); text-anchor: end; }
+
+/* ---------- Levels lab ---------- */
+.lv-bits { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; line-height: 1.6; }
+.lv-text .lv-chars { font-family: var(--mono); font-size: 14px; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lv-note { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--font); }
+.lv-ir { font-family: var(--mono); font-size: 14px; color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.lv-notes { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.lv-bc { margin: 0; padding-left: 28px; font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+.lv-bc li::marker { color: var(--muted); }
+.tok-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.tok {
+  font-family: var(--mono); font-size: 12px; padding: 2px 7px; border-radius: 6px;
+  border: 1px solid var(--line-2); background: var(--lab-bg); color: var(--ink-2);
+}
+.tok b { color: var(--tech); font-weight: 700; }
+
+/* ---------- Derivation lab ---------- */
+.form-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 36px; }
+.sym {
+  font-family: var(--mono); font-size: 18px; font-weight: 700; min-width: 30px; height: 34px;
+  display: inline-grid; place-items: center; border-radius: 7px; padding: 0 6px;
+}
+.sym.t { color: var(--ink); background: var(--lab-bg); border: 1px solid var(--line); }
+button.sym.nt { cursor: pointer; color: var(--tech); background: var(--tech-soft); border: 1.5px solid var(--tech); }
+button.sym.nt.on { background: var(--tech); color: var(--card); }
+button.sym.nt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ctl-group .btn .katex { font-size: 1em; }
+
+/* ---------- Regex labs ---------- */
+.words { display: flex; flex-wrap: wrap; gap: 4px; }
+.word {
+  font-family: var(--mono); font-size: 12.5px; padding: 1px 7px; border-radius: 6px;
+  background: var(--ok-soft); border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line)); color: var(--ink);
+}
+table.dt td .word { margin: 1px 2px; display: inline-block; }
+.grp {
+  display: inline-block; font-family: var(--mono); font-size: 12px; margin: 1px 2px; padding: 1px 6px;
+  border-radius: 6px; background: var(--tech-soft); border: 1px solid color-mix(in srgb, var(--tech) 35%, var(--line));
+}
+.grp b { color: var(--tech); }
+code.rx { display: block; overflow-x: auto; white-space: nowrap; padding: 6px 8px; font-size: 12px; }
+
+/* ---------- Parentheses depth strip ---------- */
+.depth-strip { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; padding: 6px 0; }
+.dch { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; min-width: 20px; }
+.dch i { display: block; width: 14px; border-radius: 3px 3px 0 0; background: var(--tech); opacity: 0.75; }
+.dch b { font-family: var(--mono); font-size: 15px; color: var(--ink); }
+.dch small { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.dch.over i { background: var(--bad); opacity: 1; }
+.dch.over b { color: var(--bad); }
+.dch.neg b { color: var(--warn); text-decoration: underline; }
+
+/* ---------- Query labs ---------- */
+.sexp { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; max-height: 420px; overflow: auto; }
+.sx { white-space: nowrap; border-left: 3px solid transparent; }
+.sx .fld { color: var(--formal); }
+.sx .ty { color: var(--tech); font-weight: 600; }
+.sx .an { color: var(--hi); }
+.sx .tx { color: var(--muted); }
+.sx .capn { color: var(--card); background: var(--ok); border-radius: 5px; padding: 0 5px; font-size: 11px; font-weight: 700; }
+.sx.inm { background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.sx.cap { background: var(--ok-soft); border-left-color: var(--ok); }
+.sx.out { opacity: 0.38; }
+.qres { margin: 6px 0 0; padding-left: 18px; }
+.qres li { margin-bottom: 3px; overflow-wrap: anywhere; }
+table.dt td.okc { color: var(--ok); font-weight: 650; }
+table.dt td.badc { color: var(--bad); font-weight: 700; background: var(--bad-soft); }
+
+@media (max-width: 600px) {
+  .sym { font-size: 16px; min-width: 26px; height: 30px; }
+  .sexp { font-size: 11.5px; }
+}

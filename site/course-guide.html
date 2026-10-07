@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course Guide · PA Study</title>
+  <meta name="description" content="How 02242 Program Analysis works: schedule, the project, technical contributions and how to write a good paper.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/course-guide.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Guide contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Course guide</div>
+        <h1>Course guide</h1>
+        <p class="hero-lead">How 02242 works in practice: the weekly rhythm, the project you defend at the exam, how your grade is estimated, and how to write a paper people actually want to read.</p>
+        <div class="hero-meta">
+          <span class="chip">13 topics</span>
+          <span class="chip">5 interactive tools</span>
+          <span class="chip" data-qcount>questions</span>
+          <span class="chip">Source: course page, Project and "How to Write a Good Paper" notes</span>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The course page calls itself a living document. Dates, point values and rules below are copied from the versions downloaded on 3 October 2026; check the official course page and LEARN before you rely on them.</div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>How the course runs</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="course" data-part="How the course runs" data-short="The idea of the course">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>The idea of the course</h2><p class="kicker">You only learn from your mistakes</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Most courses explain everything first and let you practise afterwards. This one flips it: you get a problem first, you try, you get stuck, and <em>then</em> the lecture fills exactly the gap you just discovered. It can feel frustrating. That is the point, and it is also why you should ask for help early.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Goal:</strong> learn to derive information from programs using different techniques, by building analyses yourself.</li>
+                <li><strong>The challenge:</strong> do as well as possible on the <a href="introduction.html#jpamb">JPAMB benchmark</a>, a suite of small Java methods whose possible outcomes your analyses must predict.</li>
+                <li><strong>Teaching philosophy:</strong> "You only learn from <em>your</em> mistakes." Material sticks when it fills a gap you found by failing at a task, so the course is practical and hands-on.</li>
+                <li><strong>Didactic contract:</strong> 7.5 ECTS over 13 weeks + exam week at 28 hours per ECTS point is about <strong>14 hours per week</strong>, only 4 of them in class. Good programming experience is expected.</li>
+                <li>Attendance is <strong>not mandatory</strong>, but the lectures are the primary way the material is conveyed; it is very hard to pass without engaging.</li>
+                <li>Feedback is welcome by mail or an anonymous form; the course is still evolving.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Budget about 10 hours a week outside class for building analyses. Building things is where the learning happens.</div>
+        <div class="quiz" data-quiz="course"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="week" data-part="How the course runs" data-short="A lecture day and the groups">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>A lecture day and the groups</h2><p class="kicker">Feedback first, then lecture, then lab</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Every Monday afternoon starts with talking to a few classmates about what went well and what did not, then the whole class sorts out the biggest questions, then there is a lecture, and the rest of the afternoon you build things with TAs around.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>Time</th><th>What happens</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">13:00</td><td><strong>Peer feedback</strong> in your feedback group: progress, what was easy or hard, and last lecture's questions.</td></tr>
+                    <tr><td class="mono">13:20</td><td><strong>Communal feedback</strong>: the class summarises and resolves the biggest questions.</td></tr>
+                    <tr><td class="mono">13:30</td><td><strong>Lecture</strong>: interactive, about the problem of the day.</td></tr>
+                    <tr><td class="mono">15:00</td><td><strong>Lab work</strong> with the TAs.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>Every lecture ends with 2 or 3 <strong>questions</strong> about program analysis. You discuss them in your feedback group the week after, and <strong>they may be asked at the oral exam</strong>. Each lecture page on this site has them, with model answers, under "Exam questions".</li>
+                <li><strong>Feedback group:</strong> about 4 random students, to hear alternative solutions; you sit together at the start of every class.</li>
+                <li><strong>Project group:</strong> 3 to 5 students who do the final project and defend it together. Fixed when the proposal is handed in, and it may <strong>not overlap</strong> with your feedback group.</li>
+                <li><strong>Shepherds:</strong> each project group gets a permanent TA who helps with the project.</li>
+                <li>Mondays 13 to 17, room 358-060A. Teacher: Christian Gram Kalhauge; TAs: Oskar, Alessandro and Emil.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="week"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="schedule" data-part="How the course runs" data-short="Schedule and deadlines">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Schedule and deadlines</h2><p class="kicker">What is next, and what is due</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>One topic per Monday. Around the autumn holiday the project starts, and from then on lab days alternate with the last few topics until the paper, the video and the exam.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The tentative schedule from the course page (topics marked (*) had not yet been updated for this year):</p>
+              <div class="table-wrap">
+                <table class="dt" id="schedule-table">
+                  <thead><tr><th>No</th><th>Date</th><th>Topic</th><th>Due</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">01</td><td class="mono">08-31</td><td><a href="introduction.html">Introduction</a></td><td></td></tr>
+                    <tr><td class="mono">02</td><td class="mono">09-07</td><td><a href="syntactic-analysis.html">Syntactic Analysis</a></td><td></td></tr>
+                    <tr><td class="mono">03</td><td class="mono">09-14</td><td><a href="semantics.html">Semantics</a></td><td></td></tr>
+                    <tr><td class="mono">04</td><td class="mono">09-21</td><td><a href="dynamic-analysis.html">Dynamic Analysis</a></td><td></td></tr>
+                    <tr><td class="mono">05</td><td class="mono">09-28</td><td><a href="bounded-static-analysis.html">Bounded Static Analysis</a></td><td></td></tr>
+                    <tr><td class="mono">06</td><td class="mono">10-04</td><td><a href="unbounded-static-analysis.html">Unbounded Static Analysis</a></td><td></td></tr>
+                    <tr><td class="mono">&middot;</td><td class="mono">10-12</td><td><em>Autumn holiday</em></td><td></td></tr>
+                    <tr><td class="mono">08</td><td class="mono">10-19</td><td><em>Lab day</em></td><td>Proposal (+1 day)</td></tr>
+                    <tr><td class="mono">07</td><td class="mono">10-26</td><td>Concolic Execution (*)</td><td></td></tr>
+                    <tr><td class="mono">09</td><td class="mono">11-02</td><td>Context Sensitive Analysis (*)</td><td></td></tr>
+                    <tr><td class="mono">10</td><td class="mono">11-09</td><td><em>Lab day</em></td><td></td></tr>
+                    <tr><td class="mono">11</td><td class="mono">11-16</td><td>How to Write a Good Paper (*)</td><td></td></tr>
+                    <tr><td class="mono">12</td><td class="mono">11-23</td><td><em>Lab day</em></td><td></td></tr>
+                    <tr><td class="mono">13</td><td class="mono">11-30</td><td>Q/A and how to do a good presentation</td><td>Paper</td></tr>
+                    <tr><td class="mono">&middot;</td><td class="mono">12-07</td><td></td><td>Video and contribution table</td></tr>
+                    <tr><td class="mono">&middot;</td><td class="mono">12-09 to 12-11</td><td><em>Exam (tentative)</em></td><td></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Lectures are on Mondays, but the table lists lecture 06 on 10-04, which is a Sunday in 2026. It is most likely Monday 10-05; check LEARN.</div>
+        <div data-lab="timeline"></div>
+        <div class="quiz" data-quiz="schedule"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>The project and the exam</h2></div>
+
+      <!-- 05 -->
+      <section class="topic" id="proposal" data-part="The project and the exam" data-short="Choosing a project">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>Choosing a project and the proposal</h2><p class="kicker">Two pages that set your ambition</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Pick a program analysis problem you find interesting, typically some JPAMB cases you want to do better on, and promise to try several solutions and compare them. The proposal is basically the introduction of your future paper, and it must convince the teachers you know what you are doing.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The topic must centre on program analysis and show your understanding of the course. Common approach: choose benchmark cases to improve on, implement several solutions, and evaluate them on <strong>speed and precision</strong>. Custom projects are possible after talking to the teacher.</li>
+                <li>The proposal is about <strong>2 pages</strong>, ACM small format, and corresponds roughly to the introduction of the final paper.</li>
+                <li>It is graded <strong>1 to 4</strong> on each of six criteria (the CGIE model plus plan and presentation):
+                  <ul>
+                    <li><strong>Context:</strong> what is the problem?</li>
+                    <li><strong>Gap:</strong> why do current techniques not work?</li>
+                    <li><strong>Innovation:</strong> what is your proposed solution?</li>
+                    <li><strong>Evaluation:</strong> when have you solved the problem?</li>
+                    <li><strong>Plan:</strong> what is the plan?</li>
+                    <li><strong>Presentation:</strong> is it formatted correctly and presented nicely?</li>
+                  </ul></li>
+                <li>You need <strong>at least 12 points</strong> and <strong>no criterion at 1</strong>. A rejected proposal must be resubmitted, even after the deadline. Proposals are graded as they come in.</li>
+                <li>Append the table of technical contributions (see <a href="#contributions">topic 06</a>), including the maximal grade of each student.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Rule</span> Accepting a proposal</p>
+            <p>With scores $s_1, \ldots, s_6 \in \{1, 2, 3, 4\}$ for the six criteria,
+            $$\text{accepted} \iff \sum_{i=1}^{6} s_i \geq 12 \;\wedge\; \forall i.\; s_i \neq 1.$$</p>
+            <p class="read">"Accepted exactly when the six scores add up to at least 12 and none of them is a 1."</p>
+          </div>
+        </div>
+        <div data-lab="proposal"></div>
+        <div class="quiz" data-quiz="proposal"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="assessment" data-part="The project and the exam" data-short="How you are assessed">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>How you are assessed</h2><p class="kicker">Paper, overview sheet, video, oral defence</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Your grade is one overall judgement of what your group wrote, what each of you contributed, and how well you can explain it when asked. Using the course's techniques, doing them well, and backing up your claims with experiments is what counts.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The final grade is an overall assessment of: the <strong>paper</strong> (per project group), the individualised <strong>project overview sheet</strong>, and the <strong>video presentation</strong> and <strong>oral defence</strong> (done in project groups).</li>
+                <li>It is measured against the course's learning objectives, with special weight on:
+                  <ol>
+                    <li>using the content of the course (shown by your technical contributions),</li>
+                    <li>a well-done project: easy to read, techniques warranted by the problem, claims supported by evaluation,</li>
+                    <li>for extra points: an interesting problem and an innovative solution.</li>
+                  </ol></li>
+                <li><strong>Proceedings:</strong> after the exam, papers are collected (voluntarily) into proceedings shared with participants and future students, and a best paper is awarded each semester.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="assessment"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="contributions" data-part="The project and the exam" data-short="Technical contributions">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Technical contributions and the suggested grade</h2><p class="kicker">Points, diversity, and the maximal grade per student</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The course keeps a menu of things worth doing in a project, each with a point value. Your group adds up what it did, splits the points between its members, and every student's points (and how many <em>different</em> things they worked on) suggest the best grade they can aim for. It is advice, not a promise.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The overview sheet (one A4 page) holds name, student number, feedback group and a photo of each member, plus a table with one row per contribution: the contribution, the points it is worth, and how those points are split between the students.</p>
+              <div class="table-wrap">
+                <table class="dt contrib-table">
+                  <thead><tr><th>Code</th><th>Contribution</th><th>Formula</th><th class="num">Max</th></tr></thead>
+                  <tbody id="contrib-list"></tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <table class="dt" style="max-width:520px">
+                  <thead><tr><th>Grade</th><th>Points</th><th>Diversity</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">12</td><td>at least 20</td><td>across 5 contributions</td></tr>
+                    <tr><td class="mono">10</td><td>at least 15</td><td>across 4 contributions</td></tr>
+                    <tr><td class="mono">7</td><td>at least 10</td><td>across 3 contributions</td></tr>
+                    <tr><td class="mono">4</td><td>at least 7</td><td>across 3 contributions</td></tr>
+                    <tr><td class="mono">02</td><td>at least 5</td><td>across 3 contributions</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Rule</span> Points of a contribution</p>
+            <p>A contribution $c$ with formula $f_c$ (e.g. "5 per analysis") and maximum $m_c$, done $n$ times, is worth
+            $$\mathrm{pts}(c) = \min\big(m_c,\; f_c(n)\big),$$
+            and the group splits it: $\sum_{s} \mathrm{pts}_s(c) \leq \mathrm{pts}(c)$ over the students $s$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Rule</span> Suggested maximal grade</p>
+            <p>For a student $s$ let $P_s = \sum_c \mathrm{pts}_s(c)$ and $D_s = |\{c \mid \mathrm{pts}_s(c) > 0\}|$. With the table rows $(g, p_g, d_g)$,
+            $$\mathrm{grade}(s) = \max\{\, g \mid P_s \geq p_g \wedge D_s \geq d_g \,\}$$
+            (and no suggested passing grade if no row applies).</p>
+            <p class="read">"The highest grade whose point threshold and diversity threshold the student both meets."</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The note stresses that technical contributions are an <em>advisory</em> grade that sets expectations. At the exam your grade can be higher or lower depending on the project as a whole. The list is also incomplete and open to suggestions by mail.</div>
+        <div data-lab="calculator"></div>
+        <div class="quiz" data-quiz="contributions"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="paper-requirements" data-part="The project and the exam" data-short="What the paper must contain">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>What the paper must contain</h2><p class="kicker">At most 10 pages, ACM acmsmall</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The paper is a short research paper: here is a problem, here is our idea, here is the theory behind it, here is the proof that it works, here is how it compares with other ideas. Ten pages, a fixed template, and an appendix that does not count.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>Section</th><th>Pages</th><th>Must contain</th></tr></thead>
+                  <tbody>
+                    <tr><td><strong>Abstract</strong></td><td></td><td>a description of the paper</td></tr>
+                    <tr><td><strong>Introduction</strong></td><td>1 to 2</td><td>motivation and problem (use examples); the problem as a research question; a short description of the solution; a list of contributions with forward references</td></tr>
+                    <tr><td><strong>Example</strong></td><td>1 to 2</td><td>an example illustrating your approach</td></tr>
+                    <tr><td><strong>Approach and theory</strong></td><td>2 to 3</td><td>a formal description of the approach; a walkthrough of the theory needed; any theoretical guarantees</td></tr>
+                    <tr><td><strong>Evaluation</strong></td><td>2 to 3</td><td>an empirical evaluation, compared against at least one other technique (or variations of yours); analysis of the results; threats to validity</td></tr>
+                    <tr><td><strong>Related work</strong></td><td>1 to 2</td><td>alternative techniques for the same problem, and why the other techniques from the lectures (and literature) were not used</td></tr>
+                    <tr><td><strong>Conclusion</strong></td><td>0 to 1/2</td><td>a short recap</td></tr>
+                    <tr><td><strong>Appendix</strong></td><td>not counted</td><td>data availability statement, AI-use statement, references</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>At most <strong>10 pages</strong> excluding the appendix, ACM format in <code>acmsmall</code> mode.</li>
+                <li>Before writing, the note recommends Simon Peyton Jones' talk on writing a great research paper (summarised in <a href="#writing">Part 4</a>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="paper-requirements"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="defence" data-part="The project and the exam" data-short="Video and oral defence">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>Video and oral defence</h2><p class="kicker">Five minutes of video, then questions</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You record a short talk about your project before the exam. At the exam it is played first, and then the examiners ask each of you questions about your own contributions and about the course.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Video:</strong> handed in the week of the exam; formatted like a normal oral presentation, at most <strong>5 minutes</strong>. Use slides (record with e.g. OBS), include examples and diagrams that can guide the oral exam, and <strong>number your slides</strong> so the examiners can navigate.</li>
+                <li><strong>Oral defence:</strong> in project groups, about 30 minutes per group (plan still being worked out): the video first, ending with individual questioning.</li>
+                <li>Questions cover your technical contributions and the course material in general, <strong>especially the lecture questions</strong> (the "Exam questions" sections on this site).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="defence"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Writing a good paper</h2></div>
+
+      <!-- 10 -->
+      <section class="topic" id="writing" data-part="Writing a good paper" data-short="Write coherently">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Write coherently</h2><p class="kicker">Remember the reader</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Your reader is busy and reading your paper is not their priority. Every confusing sentence spends a bit of their patience. Make each paragraph say one thing, let each sentence pick up where the last one left off, and say who did what.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>One point per paragraph.</strong> State the point in the first sentence; the rest of the paragraph supports it. Skimmers then still get your argument.</li>
+                <li><strong>Flow, old to new.</strong> Start each sentence with something the reader already knows and end with the new information. Flow breaks when a sentence opens with something new and unrelated.
+                  <div class="callout"><p><strong>No flow:</strong> Program analysis is one of the most fun disciplines in computer science. After taking this course, we hope that the students will feel this as well. <em>Concolic execution is a great example of why people should know about program analysis. Sadly, it is not well known.</em></p>
+                  <p><strong>Flow:</strong> ... we hope that the students will feel that as well. <em>One example of a program analysis that might entice students to take and enjoy the course, is concolic execution. Sadly, concolic execution is not well known.</em></p></div></li>
+                <li><strong>Active voice.</strong> Let a subject do every action; when you did something, write "we".
+                  <div class="callout"><p><strong>Don't:</strong> A thorough investigation of the causes of the inaccuracies in the analysis was done, and no clear cause were found.<br><strong>Do:</strong> We did a thorough investigation of the inaccuracies in the analysis, and we found no clear cause.</p>
+                  <p><strong>Don't:</strong> Contained in this paper, are many truths!<br><strong>Do:</strong> This paper contains many truths!</p></div></li>
+                <li><strong>Read it aloud.</strong> You will hear quickly whether your sentences make sense.</li>
+                <li><strong>Orwell's six rules:</strong> (1) never use a metaphor or figure of speech you are used to seeing in print; (2) never use a long word where a short one will do; (3) if you can cut a word, cut it; (4) never use the passive where you can use the active; (5) never use a foreign phrase, scientific word or jargon if there is an everyday English equivalent; (6) break any of these rules sooner than say anything outright barbarous.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div data-lab="passive"></div>
+        <div class="quiz" data-quiz="writing"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="structure" data-part="Writing a good paper" data-short="Structure and title">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Structure and title</h2><p class="kicker">Fewer readers at every section</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Think of the paper as a funnel. Thousands see the title, far fewer read the abstract, a hundred read the introduction, and only a handful read the technical details. So the parts most people read deserve the most care.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <div class="funnel" aria-label="Readers per section">
+                <div style="--w:100%"><b>Title</b><span>1 sentence &middot; 10,000 readers</span></div>
+                <div style="--w:86%"><b>Abstract</b><span>1 to 2 paragraphs &middot; 1,000 readers</span></div>
+                <div style="--w:72%"><b>Introduction</b><span>1 to 2 pages &middot; 100 readers</span></div>
+                <div style="--w:60%"><b>Key idea</b><span>2 to 3 pages &middot; 50 readers</span></div>
+                <div style="--w:46%"><b>Technical meat</b><span>3 to 5 pages &middot; 10 readers</span></div>
+                <div style="--w:72%"><b>Related work</b><span>1 to 2 pages &middot; 100 readers</span></div>
+                <div style="--w:72%"><b>Conclusion</b><span>0 to 1/2 page &middot; 100 readers</span></div>
+              </div>
+              <ul>
+                <li><strong>The title</strong> is the most important part: it invites people in. Use keywords people recognise and say what the method is.</li>
+                <li><strong>Bad:</strong> "Project 10"; "Group 10" (your group is in the author list); "Program Analysis" (says nothing); "Testcase Prediction" (ambiguous, method unclear).</li>
+                <li><strong>Good:</strong> "Test Case Selection using Static Call-Graph Analysis"; "Testing Static Analysis using LLM-Synthesized Code"; "Confirming Static Analysis Results using Directed Dynamic Analysis".</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="structure"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="cgie" data-part="Writing a good paper" data-short="Abstract and introduction (CGIE)">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>Abstract and introduction: the CGIE model</h2><p class="kicker">Context, Gap, Innovation, Evaluation</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>An abstract tells a tiny story: here is a world the reader cares about, here is what is broken in it, here is our idea, and here is the evidence that it works. After the introduction the examiner already knows the best grade you can get; the rest of the paper proves you deserve it. So write the introduction first, even before the work is finished.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Context:</strong> what the reader needs to know to be motivated about the problem.</li>
+                <li><strong>Gap:</strong> why current approaches do not solve it completely (cite some prior work here, not all of it).</li>
+                <li><strong>Innovation:</strong> your key idea and how it sets you apart, including how you perform on the problem.</li>
+                <li><strong>Evaluation:</strong> how you have shown that it works.</li>
+              </ul>
+              <div class="callout"><p><em>(Context)</em> The regression test-suites of big software projects can contain thousands of tests. Running all of these tests can take multiple days. Selecting which tests to run is therefore crucial to maintain developer productivity. <em>(Gap)</em> Currently, developers will manually select which tests to run after a change. This is inefficient and error-prone.</p>
+              <p><em>(Innovation)</em> In this paper, we use syntactic static analysis and information logged in an initial run of the test-suite, to predict which test might have changed. Our key insight is ... <em>(Evaluation)</em> In a case study, we ran our approach on Maven, which has 8323 tests. Over the last 300 commits we were able to correctly predict 98% of the changed tests, and were able to on average save 23.2 min of test time per commit.</p></div>
+              <p>The introduction is an expanded abstract that also:</p>
+              <ul>
+                <li>references prior work in the gap (the rest goes to related work),</li>
+                <li>uses the extra space for a small <strong>motivating example</strong> that anchors the reader,</li>
+                <li>includes a <strong>process diagram</strong> of your idea,</li>
+                <li>ends with a <strong>bullet list of contributions with forward references</strong>. Don't let your reader guess what you did.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div data-lab="cgie"></div>
+        <div class="quiz" data-quiz="cgie"></div>
+      </section>
+
+      <!-- 13 -->
+      <section class="topic" id="technical" data-part="Writing a good paper" data-short="Key idea and technical meat">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>Key idea and technical meat</h2><p class="kicker">Theory, implementation, evaluation, threats to validity</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>First show your idea on a small example that anyone can follow. Then the serious part: why it is correct, how you built it (briefly), and experiments that show it beats the alternative, together with an honest list of what could make your experiment misleading.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Key idea:</strong> illustrate a (possibly limited) version of your approach with one or more examples, readable by people outside the field. The note points to sections 2 and 3 of Kalhauge and Palsberg (2019), <em>Binary reduction of dependency graphs</em>, as a good example.</li>
+                <li><strong>Theory:</strong> argue with math that the approach is sound, as rigorously as your work allows.</li>
+                <li><strong>Implementation:</strong> usually uninteresting; a paragraph or two on how it differs from the theory.</li>
+                <li><strong>Evaluation:</strong> the reason for the implementation. Start with a summary and a list of sub-research questions that each answer part of the main research question, then fill in one section per question. Check that you answered the research question (or change it), analysed the results statistically (do they vary?), and thought about threats to validity (or reduced your scope).</li>
+                <li><strong>Threats to validity:</strong> <em>internal</em> (measurement errors in your experiment, e.g. a noisy laptop, corrected by repeated measurements) and <em>external</em> (your scope limits what you may generalise, e.g. a small set of Java benchmarks, or implementations written by you).</li>
+              </ul>
+              <div class="callout"><p>Example opening of an evaluation: "In this section, we answer our main research question: <em>Is static analysis better, in terms of speed and accuracy, than dynamic at detecting information flow bugs?</em> ... We then asked two questions: How fast are the analyses? ... Can we tune the dynamic analysis? ... While our experiments are limited by the scope (see Section 6.5), we conclude that dynamic analysis is faster, but also more imprecise than static analysis, in detecting information flow bugs."</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="technical"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="related" data-part="Writing a good paper" data-short="Related work and conclusion">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>Related work and conclusion</h2><p class="kicker">Explain why the alternatives fall short</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Related work is not a reading list. For each alternative, say why it does not solve your problem as well as your approach does. The conclusion is just a short recap.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Compare with academic papers (search Google Scholar), known tools, or techniques from the course.</li>
+                <li><strong>Don't:</strong> "There exist other techniques that also solve our problem, like fuzz testing and symbolic execution."</li>
+                <li><strong>Do:</strong> "We could also have used fuzz testing to solve our problem, however it does have two major drawbacks compared to our technique. Firstly, it requires a ... The same limitations apply to symbolic execution."</li>
+                <li>The paper must explain why other techniques from the lectures were not used, so related work is also where you show you know the whole course.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="related"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">The rules worth remembering</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Workload</h3><div class="mathbox">$7.5 \text{ ECTS} \times 28\,\mathrm{h} = 210\,\mathrm{h}$</div><p>The course states this as about 14 hours a week, only 4 of them in class.</p></div>
+          <div class="cheat-item"><h3>Proposal</h3><div class="mathbox">$\sum s_i \geq 12,\ s_i \in \{2,3,4\}$</div><p>Context, Gap, Innovation, Evaluation, Plan, Presentation. About 2 pages, ACM small.</p></div>
+          <div class="cheat-item"><h3>Suggested grade</h3><div class="mathbox">12: 20/5 &middot; 10: 15/4 &middot; 7: 10/3 &middot; 4: 7/3 &middot; 02: 5/3</div><p>Points / number of different contributions. Advisory only.</p></div>
+          <div class="cheat-item"><h3>Paper</h3><div class="mathbox">$\leq 10$ pages, acmsmall</div><p>Abstract, intro, example, approach and theory, evaluation, related work, conclusion; appendix with data availability, AI use, references.</p></div>
+          <div class="cheat-item"><h3>Video and exam</h3><div class="mathbox">video $\leq 5$ min, defence $\approx 30$ min</div><p>Number your slides. Expect the lecture questions.</p></div>
+        </div>
+      </section>
+
+      <p class="page-foot">Based on the 02242 Program Analysis course page, the "Project" and "How to Write a Good Paper" notes by Christian Gram Kalhauge, DTU Compute (versions of 3 October 2026), which summarise talks by Simon Peyton Jones and Derek Dreyer. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/course-guide.js"></script>
+</body>
+</html>

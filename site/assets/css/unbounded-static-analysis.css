@@ -1,0 +1,78 @@
+/* Week 6, Unbounded Static Analysis: lab-specific styles (loaded after style.css). */
+
+/* Tables in the style of the notes */
+table.usa-notes td { vertical-align: middle; }
+table.usa-notes .katex { font-size: 1em; }
+table.dt.usa-st td, table.dt.usa-st th { font-size: 12px; padding: 4px 8px; }
+table.dt.usa-st td.mono { white-space: nowrap; }
+table.dt.usa-st tr.usa-head td:first-child { color: var(--accent); font-weight: 700; }
+
+/* Three analyses side by side (stacked) */
+.usa-three { display: grid; gap: 12px; }
+.usa-ph { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 4px; }
+.usa-ph b { font-size: 14px; color: var(--ink); }
+.usa-sub { font-size: 13px; color: var(--muted); margin: 4px 0 8px; }
+
+/* Control rows for wide labs */
+.usa-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end; }
+
+/* Shared SVG text and axes */
+.usa-lbl { fill: var(--muted); font-family: var(--font); font-size: 11.5px; }
+.usa-axis { stroke: var(--line-2); stroke-width: 1.5; }
+.usa-zero { stroke: var(--bad); stroke-width: 2; stroke-dasharray: 5 4; }
+.usa-grid { stroke: var(--grid); stroke-width: 1; }
+
+/* Relational plane */
+.usa-plane svg { max-width: 420px; margin: 0 auto; }
+.usa-pt { fill: var(--ink); }
+.usa-box { fill: color-mix(in srgb, var(--hi) 14%, transparent); stroke: var(--hi); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.usa-best { fill: none; stroke: var(--warn); stroke-width: 2; stroke-dasharray: 2 3; }
+.usa-oct { fill: color-mix(in srgb, var(--formal) 16%, transparent); stroke: var(--formal); stroke-width: 2.5; }
+.usa-poly { fill: color-mix(in srgb, var(--ok) 16%, transparent); stroke: var(--ok); stroke-width: 2; }
+
+/* Kleene: Hasse diagram and chain */
+.usa-kl svg { max-width: 360px; margin: 0 auto; }
+.hs-e { stroke: var(--line-2); stroke-width: 2; }
+.hs-n rect { fill: var(--card); stroke: var(--ink-2); stroke-width: 1.5; }
+.hs-n text { fill: var(--ink); font-family: var(--mono); font-size: 12.5px; font-weight: 700; }
+.hs-n.on rect { fill: var(--tech-soft); stroke: var(--tech); stroke-width: 2.5; }
+.hs-n.cur rect { fill: var(--tech); stroke: var(--tech); }
+.hs-n.cur > text:not(.hs-i) { fill: var(--card); }
+.hs-n circle { fill: var(--accent); }
+.hs-n text.hs-i { fill: var(--accent-ink); font-size: 11px; font-family: var(--font); }
+.usa-iter { font-size: 12px; }
+.usa-iter .ts { min-width: 0; }
+.usa-bar { fill: var(--tech); }
+.usa-bar.inf { fill: var(--accent); }
+
+/* Interval number line */
+.usa-iv { stroke-width: 1.5; }
+.usa-iv.a { fill: color-mix(in srgb, var(--tech) 35%, transparent); stroke: var(--tech); }
+.usa-iv.b { fill: color-mix(in srgb, var(--warn) 35%, transparent); stroke: var(--warn); }
+.usa-iv.r { fill: color-mix(in srgb, var(--formal) 35%, transparent); stroke: var(--formal); }
+
+/* Widening chart */
+.usa-inf { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 4; }
+.usa-hi { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.usa-lo { fill: none; stroke: var(--tech); stroke-width: 2; stroke-dasharray: 5 4; }
+
+/* Control-flow graph */
+.usa-cfg svg { max-width: 520px; margin: 0 auto; }
+.usa-edge { fill: none; stroke: var(--ink-2); stroke-width: 1.6; }
+.usa-edge.back { stroke: var(--accent); stroke-dasharray: 5 4; stroke-width: 2; }
+.usa-arrhead { fill: var(--ink-2); }
+.usa-blk rect { fill: var(--card); stroke: var(--line-2); stroke-width: 1.5; }
+.usa-blk.scc rect { fill: var(--formal-soft); stroke: var(--formal); stroke-width: 2.5; }
+.usa-blk.stk rect { stroke: var(--warn); stroke-width: 2.5; }
+.usa-blk.cur rect { stroke: var(--tech); stroke-width: 3.5; }
+.usa-blk.dead { opacity: 0.45; }
+.usa-ins { fill: var(--ink); font-family: var(--mono); font-size: 11.5px; }
+.usa-bid { fill: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.usa-rpo { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.usa-log { margin: 4px 0 0; padding-left: 20px; font-size: 13px; color: var(--ink-2); }
+.usa-log li { margin-bottom: 3px; }
+.usa-log li.scc { color: var(--formal); font-weight: 650; }
+
+@media (max-width: 600px) {
+  table.dt.usa-st td.mono { white-space: normal; overflow-wrap: anywhere; }
+}

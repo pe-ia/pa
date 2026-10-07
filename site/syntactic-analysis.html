@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syntactic Analysis · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on syntactic analysis: levels of syntax, formal languages, grammars, the Chomsky hierarchy, regular expressions, parsers, tree-sitter queries, folds and traversals.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/syntactic-analysis.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 2: Syntactic Analysis</div>
+        <h1>Syntactic Analysis</h1>
+        <p class="hero-lead">A poor man's analysis: judging a program by its shape instead of its meaning. Which levels of syntax there are, what formal language theory says we can and cannot match, and how regular expressions, parsers, tree queries, folds and traversals become real analyses.</p>
+        <div class="hero-meta">
+          <span class="chip">20 topics</span>
+          <span class="chip">11 interactive labs</span>
+          <span class="chip">63 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>What syntactic analysis is</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="what" data-part="What it is" data-short="What is syntactic analysis?">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>What is syntactic analysis?</h2><p class="kicker">Looking at the shape of the code, not at what it does</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Imagine grading essays without reading them: you check the layout, count the paragraphs and search for forbidden words. You are fast, and you can point at the exact line that bothers you, but you cannot tell whether the argument is true.</p>
+              <p>A syntactic analysis does the same with programs. It looks at the <strong>shape</strong> of the code (the text, the words, the tree the parser builds) and never runs it or reasons about what it computes.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>syntactic analysis</strong> inspects the structure of the program: its characters, tokens or syntax tree. A <strong>semantic analysis</strong> reasons about its meaning, the set of all traces (see <a href="introduction.html#syntactic-semantic">syntactic vs semantic</a>).</li>
+                <li>For a syntactic analysis <code>2 + 1</code> and <code>1 + 2</code> are different programs, although they mean the same. Conversely, two methods can contain the same pattern and behave completely differently:
+<pre><code class="language-java">static int a(int n) { return 1 / n; }           // divides by zero when n == 0
+static int b(int n) { return 1 / (n * n + 1); } // never divides by zero</code></pre>
+                  Both contain a <code>/</code>. Only a semantic argument tells them apart (for <code>b</code>: a square is never one less than a multiple of 4, so even with 32-bit overflow $n \cdot n + 1 \neq 0$).</li>
+                <li>Syntax is great for capturing the <strong>developer's intention</strong> (style, suspicious constructions, misuse of an API) and poor at <strong>logical bugs</strong> that depend on which values flow where at run time.</li>
+                <li>Most static analysers in the wild, the <strong>linters</strong> (ESLint, Pylint, SpotBugs, Checkstyle), are syntactic pattern matchers. Two reasons: they are easier to develop and maintain, and they give better feedback, because a match can highlight the exact piece of source code.</li>
+                <li>The regex analysis of <a href="introduction.html#first-analysis">week 1</a> was syntactic: "the method contains <code>/</code>, so it may divide by zero".</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.1</span> Syntactic equality and semantic equivalence</p>
+            <p>Two programs are <em>syntactically equal at level</em> $\ell$ when their representations at that level are identical, and <em>semantically equivalent</em> when they have the same meaning:</p>
+            $$p =_\ell q \iff \mathit{rep}_\ell(p) = \mathit{rep}_\ell(q) \qquad\qquad p \approx q \iff \Sem(p) = \Sem(q)$$
+            <p class="read">"p and q look the same at level ℓ" versus "p and q have exactly the same traces". The levels $\ell$ (text, tokens, tree, ...) are the subject of the next topic; $\Sem$ is the <a href="semantics.html#traces">maximal trace semantics</a>.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.2</span> Semantic property</p>
+            <p>A set of programs $P \subseteq L$ is a <em>semantic property</em> if it cannot tell equivalent programs apart:</p>
+            $$\forall p, q \in L.\; p \approx q \implies (p \in P \iff q \in P)$$
+            <p class="read">"whenever two programs mean the same, either both have the property or neither has it." Termination and "may divide by zero" are semantic properties.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.3</span> Syntactic analysis</p>
+            <p>An analysis $A : L \to \mathit{Facts}$ is <em>syntactic</em> if it only looks at a representation of the program, that is, it factors as $A = f \circ \mathit{rep}_\ell$ for some function $f$.</p>
+            <p class="read">"first turn the program into text, tokens or a tree, then compute the answer from that alone; never run it."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.1</span> "Contains a division" is decidable but not semantic</p>
+            <p>$P_{/} = \{ p \mid p \text{ contains the token } / \}$ is decidable, but it is not a semantic property.</p>
+            <details class="proof"><summary>Proof</summary><p>Decidable: scan the tokens of $p$ once. Not semantic: <code>return x / 1;</code> and <code>return x;</code> are semantically equivalent, yet only the first is in $P_{/}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>By <a href="introduction.html#rice">Rice's theorem</a> every non-trivial semantic property is undecidable, while patterns over syntax usually are decidable. A syntactic analysis therefore <strong>replaces an undecidable semantic question by a decidable syntactic one</strong> and hopes the two mostly agree.</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Syntax is what the developer wrote; semantics is what the machine does. Syntactic analysis is cheap and explainable because it never leaves the first world.</div>
+        <div class="quiz" data-quiz="what"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="levels" data-part="What it is" data-short="Levels of syntax">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>The levels of syntax</h2><p class="kicker">From raw bits to bytecode, trading intention for structure</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Think of a handwritten letter. At the lowest level it is ink dots; then letters; then words; then sentences with grammar; finally a short summary of what it says. Every step up throws away details (the handwriting, the spacing) and keeps more of the structure.</p>
+              <p>A program has the same ladder. You can analyse it at any rung, and choosing the right rung is half the work.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Bits</strong>: the bytes in the file. Only here can you see the encoding (UTF-8, Latin-1, a byte order mark).</li>
+                <li><strong>Text</strong>: characters, including white-space, comments and indentation.</li>
+                <li><strong>Tokens</strong>: the lexer groups characters into words of the language. <code>1232</code> and <code>232</code> both become an integer token, so they look the same to the parser. White-space and comments are gone.</li>
+                <li><strong>CST</strong> (concrete syntax tree): the parser arranges all tokens into a tree. <code>10 + (5 + 3)</code> becomes <code>(paren (+ 10 (paren (+ 5 3))))</code>, and precedence is decided: <code>10 + 3 * 5</code> means <code>10 + (3 * 5)</code>, not <code>(10 + 3) * 5</code>.</li>
+                <li><strong>AST</strong> (abstract syntax tree): drops what does not matter for the meaning. <code>(( 10 ))</code> and <code>( 10 )</code> are both stored as <code>10</code>.</li>
+                <li><strong>IR</strong> (intermediate representation, e.g. LLVM IR, ClangIR, GCC's RTL): the compiler has resolved names (every variable fully qualified) and optimised a little: <code>x + 2 + 4</code> may become <code>mypackage.Class.x + 6</code>.</li>
+                <li><strong>Bytecode</strong>: what the virtual machine runs. The style of the original source is gone; only the functionality is left.</li>
+                <li>Going right, analyses get <strong>easier and more robust</strong> (no formatting variants to worry about), but you lose the <strong>context and intention</strong> of the developer.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/syntactic-analysis/levels-of-syntax.svg" alt="Seven boxes from left to right: bits, text, tokens, CST, AST, IR, Bytecode, above a gradient from Intention to Structure" width="488" height="89"></div>
+              <figcaption><b>Course notes, Syntactic Analysis.</b> The levels of syntactic matching, from intention (left) to structure (right).</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.4</span> The syntax pipeline</p>
+            <p>The front end of a compiler is a chain of (partial) functions, each producing the next representation:</p>
+            $$\mathit{Bits} \xrightarrow{\ \mathit{decode}\ } \Sigma^* \xrightarrow{\ \mathit{lex}\ } \mathit{Tok}^* \xrightarrow{\ \mathit{parse}\ } \mathit{CST} \xrightarrow{\ \mathit{abstract}\ } \mathit{AST} \xrightarrow{\ \mathit{lower}\ } \mathit{IR} \xrightarrow{\ \mathit{compile}\ } \mathit{BC}$$
+            <p>and $\mathit{rep}_\ell$ is the composition up to level $\ell$, e.g. $\mathit{rep}_{\mathit{AST}} = \mathit{abstract} \circ \mathit{parse} \circ \mathit{lex} \circ \mathit{decode}$. A token is a pair $(\mathit{kind}, \mathit{lexeme})$ such as $(\mathtt{INT}, \texttt{"1232"})$.</p>
+            <p class="read">"each stage reads the output of the previous one; a level-ℓ analysis sees only what survived up to ℓ." The functions are partial because ill-formed input (an unclosed parenthesis) has no CST.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.2</span> Information only gets lost</p>
+            <p>If $f(p) = f(q)$, then every analysis of the form $A' = A \circ f$ gives the same answer on $p$ and $q$.</p>
+            <details class="proof"><summary>Proof</summary><p>$A'(p) = A(f(p)) = A(f(q)) = A'(q)$. <span class="qed">&#8718;</span></p></details>
+            <p class="read">"once two programs look the same at some level, nothing computed from that level can distinguish them." Since $\mathit{abstract}$ maps <code>(( 10 ))</code> and <code>( 10 )</code> to the same AST, no AST analysis can warn about redundant parentheses.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span><code>x + 2 + 4</code> parses as <code>(x + 2) + 4</code>, which contains no constant sub-expression. Folding it into <code>x + 6</code> needs <em>re-association</em>: $(x + 2) + 4 = x + (2 + 4)$. That is valid for Java <code>int</code>, because 32-bit wrap-around addition is arithmetic modulo $2^{32}$ and therefore associative. It is <em>not</em> valid for <code>double</code>: <code>(x + 1e16) - 1e16</code> is not always <code>x</code>.</div>
+        <div data-lab="levels"></div>
+        <div class="quiz" data-quiz="levels"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="every-level" data-part="What it is" data-short="An analysis at every level">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>An analysis at every level</h2><p class="kicker">Each question has a best zoom level</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A spelling mistake is visible in the letters, a missing comma in the sentence structure, a copied paragraph only in the meaning. Pick the level where the thing you look for is still visible and nothing else is in the way.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>Which information is best retrieved at which level? One answer per level, with the reason it belongs there:</p>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>Level</th><th>Example analysis</th><th>Why exactly here</th></tr></thead>
+                  <tbody>
+                    <tr><td>bits</td><td>the encoding of the file</td><td>after decoding the bytes are gone</td></tr>
+                    <tr><td>text</td><td>number of characters, long lines, unknown tokens</td><td>white-space disappears in the lexer</td></tr>
+                    <tr><td>tokens</td><td>number of tokens (a size metric), magic numbers</td><td>no tree needed, robust to formatting</td></tr>
+                    <tr><td>CST</td><td>syntax confusions like <code>a &amp;&amp; b || c</code></td><td>parentheses still present</td></tr>
+                    <tr><td>AST</td><td>dangerous constructions: <code>query("SELECT FROM db WHERE name=" + user_input)</code></td><td>the shape "string concatenated into a query call" is clean</td></tr>
+                    <tr><td>IR</td><td>use of deprecated functions</td><td>names are fully resolved, imports and aliases cannot hide them</td></tr>
+                    <tr><td>bytecode</td><td>unoptimised code, what really runs</td><td>everything the compiler added or removed is visible</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p><strong>Example: AND and OR confusion.</strong> In Java <code>&amp;&amp;</code> binds tighter than <code>||</code>, so <code>a &amp;&amp; b || c</code> means <code>(a &amp;&amp; b) || c</code>. Many developers are unsure about this, so a linter can ask them to write the parentheses. It must run on the <strong>CST</strong>: there the two versions differ (one has a parenthesis node), while their ASTs are identical.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.5</span> The mixed-operator lint</p>
+            <p>For a CST $t$, write $\mathit{label}(n)$ for the operator of node $n$ and $c \lhd n$ for "$c$ is a child of $n$". The lint warns when</p>
+            $$\mathit{warn}(t) \iff \exists n, c \in t.\; c \lhd n \;\land\; \mathit{label}(n) = \texttt{||} \;\land\; \mathit{label}(c) = \texttt{\&\&}$$
+            <p class="read">"some || node has an && node as a direct child." With explicit parentheses the child is a parenthesis node, so the rule does not fire. (The other mix, || directly under &&, cannot occur without parentheses because || binds looser.)</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.3</span> The lint is impossible on the AST</p>
+            <p>$\mathit{abstract}(\mathit{parse}(\texttt{a \&\& b || c})) = \mathit{abstract}(\mathit{parse}(\texttt{(a \&\& b) || c}))$, so by Proposition 2.2 no AST-level analysis can warn on exactly the first one.</p>
+          </div>
+        </div>
+        <div data-lab="andor"></div>
+        <div class="quiz" data-quiz="every-level"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="goal" data-part="What it is" data-short="The goal: few false alarms">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>The goal of syntactic analysis</h2><p class="kicker">Give up soundness, keep the developers' trust</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A smoke alarm that beeps every time you make toast gets its battery removed, and then it catches no fires at all. A tool that complains about correct code is ignored, so it is better to stay quiet unless you are fairly sure.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Recall the <a href="introduction.html#soundness-confusion">program-based view</a>: an analysis accepts or rejects programs. <strong>Sound</strong> means it only accepts good programs; <strong>complete</strong> means it accepts all good programs (it never rejects a good one).</li>
+                <li>Syntax does not determine meaning (topic 01). To be sound, a syntactic analysis for "no division by zero" would have to reject every program in which a <code>/</code> could possibly be harmful, i.e. nearly every program with a division. That is useless noise.</li>
+                <li>So syntactic analyses usually aim for the other side, <strong>completeness</strong>: do not reject good programs, i.e. produce few false warnings, and accept that some bugs slip through.</li>
+                <li>This matches what developers want. Christakis and Bird (2016) surveyed developers at Microsoft:
+                  <blockquote class="callout story" style="margin:8px 0">"Program analysis design should aim for a false-positive rate no higher than <strong>15 to 20%</strong>." and "When forced to choose between more bugs or fewer false positives, [developers] typically choose the latter." (Christakis and Bird)</blockquote></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.6</span> Sound and complete over programs</p>
+            <p>Let $\mathit{Good} \subseteq L$ be the programs without the bug and $\mathit{Acc} \subseteq L$ the programs the analysis accepts (no warning). Then</p>
+            $$\text{sound} \iff \mathit{Acc} \subseteq \mathit{Good} \qquad\qquad \text{complete} \iff \mathit{Good} \subseteq \mathit{Acc}$$
+            <p class="read">"sound: everything let through is good; complete: everything good is let through."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.7</span> False-alarm rate</p>
+            <p>With TP the true warnings and FP the false warnings, the share of warnings that are wrong is</p>
+            $$\mathit{FAR} = \frac{FP}{TP + FP} = 1 - \mathit{precision}$$
+            <p class="read">"of all the warnings the tool printed, which fraction was wrong." This is what the survey calls the false-positive rate: 50 warnings of which 9 are wrong gives 18%, at the edge of acceptable.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.4</span> The trivial extremes</p>
+            <p>Rejecting everything ($\mathit{Acc} = \emptyset$) is sound; accepting everything ($\mathit{Acc} = L$) is complete. Both are worthless; a useful analysis is judged by how close it gets to $\mathit{Good}$ from its chosen side.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>In statistics "false positive rate" usually means $FP / (FP + TN)$, the share of good programs that get flagged. The 15 to 20% in the survey is about the share of <em>warnings</em> that are false. Say which one you mean in your report.</div>
+        <div class="quiz" data-quiz="goal"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Languages, formally</h2></div>
+
+      <!-- 05 -->
+      <section class="topic" id="language" data-part="Languages, formally" data-short="Alphabets, words, languages">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>A language, formally speaking</h2><p class="kicker">Alphabets, words and sets of words</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Take a bag of Scrabble tiles: that is the <strong>alphabet</strong>. Any row of tiles is a <strong>word</strong>, even nonsense. A <strong>language</strong> is just a list that says which rows count, like a dictionary. Nothing more.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>An alphabet $\Sigma$ is a finite set of symbols: $\{a, b\}$, the ASCII characters, or the token kinds of Java.</li>
+                <li>A word is a finite sequence of symbols. The empty word is written $\epsilon$. $\Sigma^*$ is the set of all words.</li>
+                <li>A language is <em>any</em> set of words. Over $\{a, b\}$: "words with an even number of a's", "words of length 3", "$\{ab, ba\}$".</li>
+                <li>A program is a word too (over characters or tokens). The Java programs form a language $L_{\mathit{Java}}$; the terminating ones form a smaller language. Program analysis questions are therefore <strong>membership questions</strong>: is $p \in L_{\mathit{good}}$?</li>
+                <li>The goal is to decide membership <em>automatically</em>, which is the subject of the next topics.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.8</span> Words</p>
+            <p>Given a finite alphabet $\Sigma$, the words of length $n$ are $\Sigma^n$ (sequences $w = w_1 w_2 \cdots w_n$ with $w_i \in \Sigma$; $\Sigma^0 = \{\epsilon\}$), and</p>
+            $$\Sigma^* = \bigcup_{n \in \N} \Sigma^n$$
+            <p>Concatenation $uv$ glues two words; $\epsilon$ is its neutral element ($\epsilon w = w = w \epsilon$); $|w|$ is the length.</p>
+            <p class="read">"Sigma-star is the set of all finite words over Sigma, of every length, including the empty word."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.9</span> Language</p>
+            <p>A <em>language</em> over $\Sigma$ is a subset $L \subseteq \Sigma^*$. Its elements are called <em>words of</em> $L$ (programs, if $L$ is a programming language).</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.10</span> Operations on languages</p>
+            $$L_1 L_2 = \{ uv \mid u \in L_1,\, v \in L_2 \} \qquad L^0 = \{\epsilon\},\; L^{n+1} = L\, L^n \qquad L^* = \bigcup_{n \in \N} L^n$$
+            <p class="read">"concatenate any word of the first language with any word of the second; L-star is zero or more words of L glued together." Union and intersection are the usual set operations.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.1</span> Most languages have no program</p>
+            <p>$\Sigma^*$ is countable but the set of languages $2^{\Sigma^*}$ is uncountable. Since there are only countably many programs (each is a finite word), most languages are not recognised by any program.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>List the words as $w_0, w_1, \ldots$ (by length, then alphabetically). Suppose the languages could be listed as $L_0, L_1, \ldots$. The diagonal language $D = \{ w_i \mid w_i \notin L_i \}$ differs from every $L_i$ on the word $w_i$, so it is missing from the list: contradiction (Cantor). Programs are words, hence countable, so they cannot cover all languages. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="language"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="deciders" data-part="Languages, formally" data-short="Deciders and recognizers">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Deciders and recognizers</h2><p class="kicker">Always answering versus answering when the answer is yes</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Two bouncers at a club. The first always gives a verdict, "in" or "out", in finite time. The second lets members in quickly, but when someone is not a member he may keep staring at them forever, never saying "out". The first is a <strong>decider</strong>, the second a <strong>recognizer</strong>.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A machine (an <em>automaton</em>) reads a word and either accepts, rejects or runs forever.</li>
+                <li>A <strong>decider</strong> for $L$ halts on every input and accepts exactly the words of $L$.</li>
+                <li>A <strong>recognizer</strong> for $L$ accepts exactly the words of $L$, but may run forever on words outside $L$.</li>
+                <li><strong>The halting problem is recognizable.</strong> Run the program; if it terminates, say yes. If it does not terminate, well, we have to wait to see if it does. That is a recognizer, not a decider (it is <a href="introduction.html#halting">undecidable</a>).</li>
+                <li>Every analysis question can be phrased as a sub-language: the terminating Java programs are
+                  $L_{\mathit{halt}} = \{ p \mid p \text{ terminates},\, p \in L_{\mathit{Java}} \}$.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.11</span> Recognizing and deciding</p>
+            <p>A machine $M$ on input $w$ either accepts, rejects or diverges ($\uparrow$). Its language is $\mathcal{L}(M) = \{ w \mid M \text{ accepts } w \}$.</p>
+            <ul>
+              <li>$M$ <em>recognizes</em> $L$ if $\mathcal{L}(M) = L$. $L$ is <em>recognizable</em> (recursively enumerable) if some machine recognizes it.</li>
+              <li>$M$ <em>decides</em> $L$ if it recognizes $L$ and halts on every input. $L$ is <em>decidable</em> (recursive) if some machine decides it.</li>
+            </ul>
+            <p class="read">"a recognizer only promises to say yes to members; a decider also promises to say no to everyone else."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.5</span> Halting is recognizable</p>
+            <p>$L_{\mathit{halt}}$ is recognizable.</p>
+            <details class="proof"><summary>Proof</summary><p>The machine "simulate $p$ step by step; accept when it halts" accepts exactly the terminating programs, and diverges on the others. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.2</span> Decidable means recognizable from both sides</p>
+            <p>$L$ is decidable if and only if both $L$ and its complement $\overline{L} = \Sigma^* \setminus L$ are recognizable.</p>
+            <details class="proof"><summary>Proof</summary><p>($\Rightarrow$) A decider for $L$ recognizes $L$; swapping its answers recognizes $\overline{L}$. ($\Leftarrow$) Given recognizers $M_1$ for $L$ and $M_2$ for $\overline{L}$, run both on $w$ in alternation, one step each. Every $w$ is in exactly one of the two, so exactly one machine eventually accepts; answer accordingly. This always halts. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 2.1</span></p>
+            <p>The non-terminating programs $\overline{L_{\mathit{halt}}}$ are not even recognizable: otherwise $L_{\mathit{halt}}$ would be decidable by Theorem 2.2.</p>
+            <p class="read">"no program can confirm every infinite loop", which is why dynamic analyses can never prove that something does not happen.</p>
+          </div>
+        </div>
+        <div class="callout story"><span class="co-tag">Example</span>The halting problem is undecidable but recognizable: we can run the program and, if it terminates, we know it terminates. If it does not terminate... we have to wait and see.</div>
+        <div class="quiz" data-quiz="deciders"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="sublanguage" data-part="Languages, formally" data-short="Analyses as deciders">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>An analysis is a decider for a sub-language</h2><p class="kicker">Where "sound" and "complete" come from</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Inside the big club "Java programs" there is a VIP room, "programs that halt". A static analysis is the bouncer of the VIP room. He must always answer quickly (he is a decider), so sometimes he turns away someone who belonged, or lets in someone who did not.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A static analysis $SA_{\mathit{halt}} : L_{\mathit{Java}} \to \{\mathit{true}, \mathit{false}\}$ must terminate on every program, so it is a decider, but for a language that is (in general) not $L_{\mathit{halt}}$.</li>
+                <li><strong>Sound</strong>: $SA_{\mathit{halt}}(p) \implies p \in L_{\mathit{halt}}$. Everything it accepts really halts.</li>
+                <li><strong>Complete</strong>: $p \in L_{\mathit{halt}} \implies SA_{\mathit{halt}}(p)$. It accepts every program that halts.</li>
+                <li>Example: "accept if the method has no loops, no recursion and no calls". Straight-line code always halts, so this is <strong>sound</strong>. It rejects <code>sumTo</code>, which has a loop but always halts, so it is <strong>not complete</strong>.</li>
+                <li>This language-theoretic reading is why the course uses sound and complete the way it does for static analyses (compare <a href="introduction.html#sound-complete">week 1</a>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.12</span> Sound and complete deciders</p>
+            <p>Let $SA$ be a decider with accepted language $L_{SA} = \{ p \mid SA(p) \}$, and $L \subseteq L_{\mathit{Java}}$ the property. Then</p>
+            $$SA \text{ sound} \iff L_{SA} \subseteq L \qquad\qquad SA \text{ complete} \iff L \subseteq L_{SA}$$
+            <p class="read">"sound: the accepted programs all have the property; complete: all programs with the property are accepted."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.3</span> Not both</p>
+            <p>If $L$ is undecidable, no decider $SA$ is both sound and complete for $L$.</p>
+            <details class="proof"><summary>Proof</summary><p>Sound and complete together give $L_{SA} \subseteq L \subseteq L_{SA}$, so $L = L_{SA}$. But $SA$ is a decider for $L_{SA}$, hence $L$ would be decidable. Contradiction. <span class="qed">&#8718;</span></p></details>
+            <p class="read">"an always-terminating analysis of an undecidable property must err on at least one side."</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="sublanguage"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="grammar" data-part="Languages, formally" data-short="Production rules and grammars">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>Production rules and grammars</h2><p class="kicker">A finite recipe for an infinite language</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A grammar is a recipe with placeholders. Start with one placeholder, the start symbol. A rule says "you may replace this placeholder by that". Keep replacing until no placeholders are left: what remains is a word of the language. Every word you can cook this way is in; nothing else is.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>production rule</strong> $\alpha \to \beta$ rewrites an occurrence of $\alpha$ into $\beta$. Both sides are strings of <strong>symbols</strong> (terminals, written $a, b, c$) and <strong>non-terminals</strong> (written $A, B, C$).</li>
+                <li>Non-terminals are called so because we keep applying rules to them; a derivation <em>terminates</em> when only terminal symbols are left. Such a string is a word of the language (a program, for a programming language).</li>
+                <li>Naive membership test: generate all words of the language and check whether $w$ appears. If $w$ is not in the language this can run forever, so it is only a recognizer. Better algorithms exist for restricted kinds of grammars (topic 10).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.13</span> Grammar</p>
+            <p>A grammar is a quadruple $G = (N, \Sigma, \to, S)$: a finite set of non-terminals $N$, an alphabet $\Sigma$ with $N \cap \Sigma = \emptyset$, a finite set of production rules $\to \;\subseteq V^* N V^* \times V^*$ where $V = N \cup \Sigma$, and a start symbol $S \in N$.</p>
+            <p class="read">"rules rewrite a string containing at least one non-terminal into any string of symbols and non-terminals."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.14</span> Derivation</p>
+            <p>One step: $u \alpha v \Rightarrow u \beta v$ whenever $\alpha \to \beta$ is a rule and $u, v \in V^*$. Write $\to^*$ for zero or more steps (the reflexive transitive closure). Strings $\gamma$ with $S \to^* \gamma$ are <em>sentential forms</em>.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.15</span> Language of a grammar</p>
+            $$L_G = \{ w \mid w \in \Sigma^*,\; S \to^* w \}$$
+            <p class="read">"all strings without non-terminals that can be derived from the start symbol."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.6</span> Every grammar language is recognizable</p>
+            <details class="proof"><summary>Proof</summary><p>Enumerate all derivations breadth-first (all one-step derivations, then all two-step ones, ...). There are finitely many of each length, so every derivable word appears after finitely many steps; accept when $w$ appears. If $w \notin L_G$ the search never ends. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="grammar"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="derivation" data-part="Languages, formally" data-short="Deriving ((ab)b)">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>A derivation, step by step</h2><p class="kicker">Generating $((ab)b)$</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The grammar below is a box-in-a-box recipe: an $S$ is either the letter $a$, or a pair of brackets holding another $S$ followed by an $X$, and an $X$ is a $b$. Unpack the boxes and you get nested words like $((ab)b)$.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The grammar $(\{S, X\}, \{a, b, (, )\}, \to, S)$ has three numbered rules:</p>
+              <div class="mathbox">$$S \to^1 (SX) \qquad S \to^2 a \qquad X \to^3 b$$</div>
+              <p>One derivation of $((ab)b)$, the superscript naming the rule used:</p>
+              <div class="mathbox">$$S \to^1 (SX) \to^3 (Sb) \to^1 ((SX)b) \to^2 ((aX)b) \to^3 ((ab)b)$$</div>
+              <ul>
+                <li>Other orders work too (always rewriting the leftmost non-terminal, for instance); they build the same <strong>parse tree</strong>.</li>
+                <li>Some languages really work like this: <strong>LaTeX</strong> and the <strong>C macro system</strong> expand macros by rewriting text until nothing is left to expand.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.7</span> The language of the example</p>
+            <p>Writing $x^n$ for $n$ copies of $x$,</p>
+            $$L_G = \{\, \texttt{(}^n\, \texttt{a}\, (\texttt{b)})^n \mid n \geq 0 \,\} = \{ \texttt{a},\; \texttt{(ab)},\; \texttt{((ab)b)},\; \texttt{(((ab)b)b)},\; \ldots \}$$
+            <p class="read">"n opening brackets, then a, then n copies of 'b)'."</p>
+            <details class="proof"><summary>Proof</summary><p>Write $w_n = \texttt{(}^n\,\texttt{a}\,(\texttt{b)})^n$. $X$ only derives $\texttt{b}$, so we may read the rules as $S \to \texttt{a}$ and $S \to \texttt{(}S\,\texttt{b)}$. ($\supseteq$) by induction on $n$: $w_0 = \texttt{a}$ is derivable, and from $S \to^* w_n$ we get $S \to \texttt{(}S\,\texttt{b)} \to^* \texttt{(}w_n\texttt{b)} = w_{n+1}$. ($\subseteq$) by induction on the length of the derivation: the first rule used is either $S \to \texttt{a}$, giving $w_0$, or $S \to \texttt{(}S\,\texttt{b)}$, after which the inner $S$ derives some $w_n$ by a shorter derivation, giving $w_{n+1}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>Note that a word of $L_G$ must have exactly as many $\texttt{b)}$ pairs as opening brackets. Matching such counts is exactly what regular expressions cannot do (topic 13).</p>
+        </div>
+        <div data-lab="derive"></div>
+        <div class="quiz" data-quiz="derivation"></div>
+      </section>
+
+      <!-- 10 -->
+      <section class="topic" id="chomsky" data-part="Languages, formally" data-short="The Chomsky hierarchy">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>The Chomsky hierarchy</h2><p class="kicker">What kinds of languages exist, and what it costs to match them</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Languages come in nested families, like Russian dolls. The smallest doll can be checked with a fixed amount of memory, like counting on a single hand. Each bigger doll needs a more powerful machine: a stack of plates, a notebook as long as the input, an endless notebook. The more power, the more you can describe, and the harder (or impossible) it is to answer.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Type 3, regular</strong>: everything a regular expression describes. Only repetition of small patterns, no nesting. Membership is decidable in linear time with a finite automaton.</li>
+                <li><strong>Type 2, context-free</strong>: words defined by nesting, perfect for parentheses and blocks. The basis of the syntax of most programming languages (except C: <code>typedef</code>, we are looking at you). Recognized by a pushdown automaton.</li>
+                <li><strong>Type 1, context-sensitive</strong>: recursion with context. Checking that a variable is in scope depends on the declarations around it and how deeply nested we are:
+<pre><code class="language-java">int hello(int x) {
+  // Context { x, y }
+  int y;
+  {
+    int z;
+    // Context { x, y, z } is z in scope? Yes
+  }
+  // Context { x, y } is z in scope? No
+}</code></pre></li>
+                <li><strong>Type 0, recursively enumerable</strong>: whatever a Turing machine can recognize, for example all programs that terminate.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/syntactic-analysis/chomsky-hierarchy.png" alt="Nested ellipses: type 3 regular inside type 2 context-free inside type 1 context-sensitive inside type 0 recursively enumerable, each labelled with its production rule shape" width="1325" height="901"></div>
+              <figcaption><b>Course notes, Syntactic Analysis.</b> The Chomsky hierarchy with the shape of the production rules allowed at each level.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.16</span> The four grammar types</p>
+            <p>With $A, B \in N$, $a \in \Sigma$ and $\alpha, \beta, \gamma \in V^*$:</p>
+            <div class="table-wrap">
+              <table class="dt">
+                <thead><tr><th>Type</th><th>Rules allowed</th><th>Machine</th><th>Membership</th></tr></thead>
+                <tbody>
+                  <tr><td>3, regular</td><td>$A \to a$, $A \to aB$ (and $A \to \epsilon$)</td><td>finite automaton</td><td>decidable, $O(n)$</td></tr>
+                  <tr><td>2, context-free</td><td>$A \to \gamma$</td><td>pushdown automaton</td><td>decidable, $O(n^3)$</td></tr>
+                  <tr><td>1, context-sensitive</td><td>$\alpha A \beta \to \alpha \gamma \beta$, $\gamma \neq \epsilon$</td><td>linear bounded automaton</td><td>decidable (PSPACE)</td></tr>
+                  <tr><td>0, unrestricted</td><td>$\alpha \to \beta$, $\alpha$ contains a non-terminal</td><td>Turing machine</td><td>recognizable only</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="read">"Type 2: a non-terminal is rewritten the same way wherever it stands. Type 1: how A may be rewritten can depend on its neighbours alpha and beta, the context."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.4</span> The hierarchy is strict</p>
+            $$\mathsf{REG} \subsetneq \mathsf{CFL} \subsetneq \mathsf{CSL} \subsetneq \mathsf{RE}$$
+            <p>Witnesses: $\{a^n b^n \mid n \geq 0\}$ is context-free but not regular; $\{a^n b^n c^n \mid n \geq 0\}$ is context-sensitive but not context-free; $L_{\mathit{halt}}$ is recursively enumerable but not context-sensitive (all context-sensitive languages are decidable).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.8</span> Declare-before-use is not context-free</p>
+            <p>The copy language $\{\, w\,c\,w \mid w \in \{a, b\}^* \}$ is not context-free. It is the core of "a name used later must equal a name declared earlier", which is why scoping and typing live above the context-free level.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes say type 3 is "on the top of the hierarchy": they mean the most restrictive, innermost doll, not the most powerful one. Also, the figure shows one particular type 0 shape ($\gamma \to \alpha\gamma$); in general any rule with a non-terminal on the left is allowed.</div>
+        <div class="quiz" data-quiz="chomsky"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Regular: regular expressions</h2></div>
+
+      <!-- 11 -->
+      <section class="topic" id="regex" data-part="Regular expressions" data-short="Regular expressions">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>Regular expressions and their meaning</h2><p class="kicker">A tiny language whose programs denote sets of words</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A regular expression is a stencil: hold it over a text and it lights up every place where the pattern fits. "An a, then any number of b's" is one stencil that fits infinitely many words. They are extremely useful, very common, and very fast, and famously easy to get wrong.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The course grammar for regular expressions:
+                  <div class="mathbox">$$e ::= \epsilon \mid a \mid e_1 e_2 \mid e_1 + e_2 \mid e_1^{*}$$</div>
+                  empty string, a symbol, concatenation, alternative, Kleene star (zero or more).</li>
+                <li>A regex is a program whose meaning is a set of words. That meaning is easiest to define <strong>denotationally</strong> (giving a mathematical object meaning by mapping it to one we already know, here sets of words; see <a href="semantics.html#denotational">denotational semantics</a>).</li>
+                <li>Matching is fast: a regex can be compiled to a finite automaton that reads the input once, $O(n)$.</li>
+                <li>Practical flavours (try them on <a href="https://regex101.com/">regex101.com</a>) extend the syntax: <code>|</code> instead of $+$, <code>+</code> for "one or more" ($e^+ = e e^*$), <code>?</code>, character classes <code>[a-z]</code>, <code>\d</code>, anchors <code>^ $</code>, groups.</li>
+                <li>Some extensions (back-references like <code>(a*)b\1</code>) are not regular at all, and backtracking engines (Python, Java, JavaScript) can take exponential time on patterns like <code>(a+)+b</code>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/syntactic-analysis/xkcd-perl-problems.png" alt="xkcd comic: If you're havin' Perl problems I feel bad for you, son. I got 99 problems, so I used regular expressions. Now I have 100 problems." width="548" height="205"></div>
+              <figcaption><b>xkcd 1171, "Perl Problems"</b> by Randall Munroe (CC BY-NC 2.5), as shown in the course notes.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.17</span> Denotational semantics of regular expressions</p>
+            $$\begin{aligned}
+              \sem{\epsilon} &amp;= \{\epsilon\} \\
+              \sem{a} &amp;= \{a\} \\
+              \sem{e_1 e_2} &amp;= \{\, uw \mid u \in \sem{e_1},\; w \in \sem{e_2} \,\} \\
+              \sem{e_1 + e_2} &amp;= \sem{e_1} \cup \sem{e_2} \\
+              \sem{e_1^{*}} &amp;= \text{the least } X \text{ with } X = \{\epsilon\} \cup \{\, uw \mid u \in \sem{e_1},\; w \in X \,\}
+            \end{aligned}$$
+            <p class="read">"a symbol means itself; concatenation glues every word of the first with every word of the second; plus is union; star is the smallest set that contains the empty word and is closed under putting one more e1-word in front."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.9</span> The star as a least fixpoint</p>
+            <p>Let $F(X) = \{\epsilon\} \cup \sem{e}\,X$. Then $\sem{e^*} = \bigcup_{n \in \N} F^n(\emptyset) = \bigcup_{n \in \N} \sem{e}^n$.</p>
+            <details class="proof"><summary>Proof</summary><p>$F$ is monotone ($X \subseteq Y \Rightarrow F(X) \subseteq F(Y)$) and preserves unions of chains, so by Kleene's fixpoint theorem its least fixpoint is the limit of $\emptyset \subseteq F(\emptyset) \subseteq F^2(\emptyset) \subseteq \cdots$. By induction, $F^{n+1}(\emptyset) = \bigcup_{k \leq n} \sem{e}^k$: true for $n = 0$ ($\{\epsilon\} = \sem{e}^0$), and $F^{n+2}(\emptyset) = \{\epsilon\} \cup \sem{e}\bigcup_{k \leq n}\sem{e}^k = \bigcup_{k \leq n+1}\sem{e}^k$. <span class="qed">&#8718;</span></p></details>
+            <p class="read">"start from nothing and keep applying the equation; each round adds the words with one more repetition, and the union of all rounds is the meaning of the star."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.5</span> Kleene's theorem</p>
+            <p>For a language $L$ the following are equivalent: $L = \sem{e}$ for some regular expression $e$; $L$ is accepted by a finite automaton; $L$ is generated by a type 3 grammar. For a fixed $e$, membership $w \in \sem{e}$ is decidable in time $O(|w|)$.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The table in the notes writes $\sem{A}$ and $\sem{B}$ on the right-hand sides where it means $\sem{e_1}$ and $\sem{e_2}$, and uses $+$ for alternatives where real regex flavours use <code>|</code> (and <code>+</code> means "one or more").</div>
+        <div data-lab="regexsem"></div>
+        <div class="quiz" data-quiz="regex"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="regex-practice" data-part="Regular expressions" data-short="Regexes on JPAMB">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>Regular expressions in practice</h2><p class="kicker">Picking apart method ids and method bodies</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Your JPAMB analysis is handed a name like <code>jpamb.cases.Simple.assertPositive:(I)V</code> and has to find the code it refers to. A regex is the quickest way to chop that name into its parts, and then to cut the method out of the source file.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Method ids form a little language: <code>jpamb.cases.Simple</code> <code>.</code> <code>assertPositive</code> <code>:</code> <code>(I)</code> <code>V</code>, i.e. the class, the method, the argument types and the return type.</li>
+                <li>Tricks from the notes: pick the regex flavour of your implementation language, paste the cases from <code>stats/cases.txt</code> as test strings, use the quick reference, remember that <code>.</code> means "any character" so write <code>\.</code> for a dot, and use <strong>match groups</strong> to extract each part.</li>
+                <li>The class name gives the file: replace <code>.</code> by <code>/</code> (or <code>\</code> on Windows) and add <code>.java</code>.</li>
+                <li>JPAMB cases are never nested classes, so a regex can find the method in the file. The regex the notes use to cut a method body out of the file:
+<pre><code class="language-python">r"public\W+static\W+(?P&lt;retype&gt;void)\W+(?P&lt;mname&gt;\w*)()\W*{(?P&lt;code&gt;[^}]*)}"</code></pre>
+                  Read it carefully: <code>()</code> is an <em>empty group</em>, not literal parentheses, and <code>\W*</code> cannot skip over a parameter name. So it only finds <code>public static void</code> methods <strong>without parameters</strong>, and <code>[^}]*</code> stops at the first closing brace.</li>
+                <li>A sturdier version (Python syntax; JavaScript writes <code>(?&lt;name&gt;...)</code>):
+<pre><code class="language-python">import re
+METHOD = re.compile(r"^(?P&lt;cls&gt;[\w.]+)\.(?P&lt;method&gt;\w+):\((?P&lt;args&gt;[^)]*)\)(?P&lt;ret&gt;.+)$")
+m = METHOD.match("jpamb.cases.Simple.assertPositive:(I)V")
+m.group("cls"), m.group("method"), m.group("args"), m.group("ret")
+# ('jpamb.cases.Simple', 'assertPositive', 'I', 'V')</code></pre></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.18</span> Matching and searching</p>
+            <p>A <em>match</em> of $e$ in a text $w$ is a span $(i, j)$ with $w_{i..j} \in \sem{e}$ (the characters from position $i$ up to, not including, $j$). <code>fullmatch</code> requires $(0, |w|)$, <code>match</code> requires $i = 0$, <code>search</code> takes the smallest $i$. Among the matches starting at $i$, backtracking engines (Python, Java, JavaScript) return the first one in priority order (leftmost-first), POSIX tools the longest. Capture groups record the sub-spans matched by each group.</p>
+            <p class="read">"a regex library answers more than yes or no: it tells you where, and which piece matched which group." That is why greedy <code>[\w.]+</code> in the regex above first grabs too much and then backs off to the last dot.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.19</span> The method id language</p>
+            $$\mathit{id} ::= \mathit{name}\,(\texttt{.}\,\mathit{name})^{*}\;\texttt{.}\;\mathit{name}\;\texttt{:(}\;\mathit{type}^{*}\;\texttt{)}\;\mathit{type}$$
+            <p class="read">"a dotted class name, a dot, the method name, a colon, the argument types in parentheses, the return type." No nesting anywhere, so the language is regular and a regex is the right tool.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>A regex sees text, not structure: a method name inside a comment or a string literal matches too, and a <code>}</code> inside a string ends the "body".</div>
+        <div data-lab="regexlab"></div>
+        <div class="quiz" data-quiz="regex-practice"></div>
+      </section>
+
+      <!-- 13 -->
+      <section class="topic" id="nesting" data-part="Regular expressions" data-short="Why regexes cannot nest">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>Why regular expressions cannot match nesting</h2><p class="kicker">Finite memory cannot count without limit</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Checking that brackets are balanced means remembering how many are still open. A regular expression is like counting on your fingers: you have a fixed number of them. Nest one level deeper than you have fingers and you lose track. A parser has a stack of plates instead, and can always add one more.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>For any <strong>fixed</strong> depth $k$ there is a regex: depth 1 is <code>(\(\))*</code>, depth 2 puts depth 1 inside each pair, and so on. The regex grows with $k$.</li>
+                <li>For <strong>unbounded</strong> depth no regex exists. This is why extracting a Java method body with <code>[^}]*</code> fails as soon as the body contains an <code>if</code> block: blocks nest.</li>
+                <li>A <strong>counter</strong> (a stack holding only one kind of plate) solves balanced parentheses: +1 on <code>(</code>, -1 on <code>)</code>, never below zero, end at zero. That is a pushdown automaton, the machine of context-free languages.</li>
+                <li>The formal tool for such impossibility proofs is the <strong>pumping lemma</strong>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.6</span> Pumping lemma for regular languages</p>
+            <p>If $L$ is regular, there is a $p \geq 1$ such that every $w \in L$ with $|w| \geq p$ can be split as $w = xyz$ with</p>
+            $$|xy| \leq p, \qquad |y| \geq 1, \qquad \forall i \geq 0.\; x y^i z \in L$$
+            <p class="read">"every long enough word has a short non-empty piece near the start that can be repeated any number of times, or removed, without leaving the language."</p>
+            <details class="proof"><summary>Proof sketch</summary><p>Let a finite automaton with $p$ states accept $L$. Reading the first $p$ symbols of $w$ visits $p + 1$ states, so by the pigeonhole principle some state repeats. The input read between the two visits is $y$; going around that loop $i$ times instead of once still ends in an accepting state. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.10</span> Balanced parentheses are not regular</p>
+            <p>$D = \{ \texttt{(}^n \texttt{)}^n \mid n \geq 0 \}$ is not regular (hence neither is the language of all balanced parenthesis strings: its intersection with the regular language $\texttt{(}^*\texttt{)}^*$ is $D$, and regular languages are closed under intersection).</p>
+            <details class="proof"><summary>Proof</summary><p>Suppose it is, with pumping length $p$. Take $w = \texttt{(}^p \texttt{)}^p$. Since $|xy| \leq p$, $y$ consists only of opening brackets, $y = \texttt{(}^k$ with $k \geq 1$. Then $x y^2 z = \texttt{(}^{p+k} \texttt{)}^p \notin D$. Contradiction. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.11</span> Bounded depth is regular</p>
+            <p>The balanced strings of depth at most $k$ are $\sem{R_k}$, where $R_0 = \epsilon$ and $R_{k+1} = (\,\texttt{(}\,R_k\,\texttt{)}\,)^{*}$.</p>
+            <p class="read">"zero or more bracket pairs, each containing a balanced string of depth at most k." Every fixed $k$ works; no single regex works for all $k$.</p>
+          </div>
+        </div>
+        <div data-lab="parens"></div>
+        <div class="quiz" data-quiz="nesting"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 4</span><h2>Context-free: grammars, parsers and trees</h2></div>
+
+      <!-- 14 -->
+      <section class="topic" id="bnf" data-part="Grammars and trees" data-short="BNF and parsers">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>Grammars and parsers</h2><p class="kicker">Backus-Naur form, ambiguity and linear-time parsing</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Using regular expressions for nested code is like reading a family tree with a flat list of names: you lose who belongs to whom. A <strong>parser</strong> reads the tokens and rebuilds the tree. It is usually generated from a grammar written in a standard rule-book format called BNF.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A parser is a structured program that takes a stream of tokens and turns it into a CST.</li>
+                <li><strong>Backus-Naur form</strong> (BNF) is the primary way to define the syntax of a programming language. It is our grammar notation with several alternatives per rule, separated by <code>|</code>:
+                  $A ::= abc \mid B \mid x^{*}$ and $B ::= a$. Extended BNF adds $\cdot^{*}$ (many) and $\cdot^{+}$ (some).</li>
+                <li>Many tools use <strong>first-match semantics</strong>: try the alternatives in order and commit to the first that works. Then every input has at most one parse; together with restricting the grammar to <em>deterministic</em> context-free languages, parsing becomes linear, $O(n)$, instead of $O(n^3)$ for arbitrary context-free grammars.</li>
+                <li>A grammar that allows two trees for one input is <strong>ambiguous</strong>. $E ::= E + E \mid E * E \mid n$ allows <code>1 + 2 * 3</code> to be read as <code>(1 + 2) * 3</code> or <code>1 + (2 * 3)</code>. The standard fix encodes precedence and associativity in layers:
+                  <div class="mathbox">$$E ::= E + T \mid T \qquad T ::= T * F \mid F \qquad F ::= n \mid (E)$$</div>
+                  Left recursion ($E ::= E + T$) makes <code>+</code> left-associative.</li>
+                <li>There are many families of parsers (LL, LR, LALR, PEG, GLR, Earley). To learn more, take <a href="https://courses.compute.dtu.dk/02247/f25/index.html">02247 Compilers</a>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.20</span> Parse tree and ambiguity</p>
+            <p>For a context-free grammar, a <em>parse tree</em> of $w$ has root $S$, leaves spelling $w$ from left to right, and every inner node $A$ with children $\gamma$ for some rule $A \to \gamma$. $G$ is <em>ambiguous</em> if some $w \in L_G$ has two different parse trees.</p>
+            <p class="read">"a parse tree is a derivation with the order of steps forgotten; ambiguous means some word can be built in two structurally different ways."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.21</span> Deterministic context-free language</p>
+            <p>A language is <em>deterministic context-free</em> (DCFL) if a deterministic pushdown automaton accepts it: at every moment at most one move is possible.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 2.7</span> Parsing costs</p>
+            <p>Membership for an arbitrary context-free grammar takes $O(n^3)$ time (the CYK and Earley algorithms). Every DCFL has an LR(1) grammar; LR(k) grammars are never ambiguous, and LR(k) parsers run in $O(n)$ (Knuth, 1965).</p>
+          </div>
+        </div>
+        <div data-lab="precedence"></div>
+        <div class="quiz" data-quiz="bnf"></div>
+      </section>
+
+      <!-- 15 -->
+      <section class="topic" id="treesitter" data-part="Grammars and trees" data-short="Tree-sitter and queries">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>Tree-sitter: grammars and queries</h2><p class="kicker">A parser for most languages, and regular expressions over trees</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Tree-sitter is a parser factory that already has grammars for most languages you would want to analyse. It hands you the tree, plus a little search language for trees: describe the shape you are looking for, and it finds every place in the tree with that shape.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Example from the notes: the lambda calculus $e ::= \lambda x.\,e \mid e_1\,e_2 \mid x \mid (e)$ (abstraction, application, variable, parentheses) as a tree-sitter grammar, written in JavaScript:
+<pre><code class="language-javascript">{
+  rules: {
+    source_file: $ => $._exp,
+    _exp: $ => choice($.abs, $.app, $.var, $._parens),
+    abs: $ => prec.right(seq('λ', $.var, '.', $._exp)),
+    app: $ => prec.left(seq($._exp, $._exp)),
+    var: $ => /[a-zA-Z]+/,
+    _parens: $ => choice("(", $._exp, ")"),
+  }
+}</code></pre>
+                  <code>seq</code> is concatenation, <code>choice</code> alternatives, a regex literal defines a token. <code>prec.left</code> says <code>a b c</code> is <code>(a b) c</code>; <code>prec.right</code> lets <code>λx. e</code> extend as far right as possible. Rules starting with <code>_</code> are hidden from the tree.</li>
+                <li>Tree-sitter parses incrementally (Wagner and Graham, 1998): built for editors, it re-parses only what changed. Grammars exist for most languages, with bindings for Java, Python, Go, Rust and more.</li>
+                <li>To find patterns you can either extend the grammar with "error" rules (cumbersome, hard to maintain) or use <strong>queries</strong>: S-expression patterns over the tree, with <code>field:</code> names, captures <code>@name</code> and predicates like <code>#eq?</code>. The query from the notes, for the playground:
+<pre><code class="language-plaintext">(method_declaration name:
+      ((identifier) @method-name (#eq? @method-name "assertBoolean"))
+      body: (_) @body
+    ) @method</code></pre></li>
+                <li>Queries are essentially regular expressions over trees, tried at <strong>every level</strong> (every node) of the syntax tree.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.22</span> Tree patterns</p>
+            $$P ::= (\,T\;\; f_1{:}\,P_1 \;\cdots\; f_k{:}\,P_k\,)\,@c \;\mid\; \texttt{"tok"} \;\mid\; (\_)$$
+            <p>A node $n$ matches $(T\; f_1{:}P_1 \cdots)$ if its type is $T$ and its children contain, in order, nodes matching $P_1, \ldots, P_k$ (in field $f_i$ when a field is given); <code>"tok"</code> matches an anonymous token with that text; <code>(_)</code> matches any named node. A match produces a <em>capture map</em> $\theta$ from capture names to nodes; predicates such as <code>(#eq? @c "text")</code> filter the maps.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.23</span> Running a query</p>
+            $$Q_P(t) = \bigcup_{n \in \mathit{nodes}(t)} \mathit{match}(P, n)$$
+            <p class="read">"try the pattern with every node of the tree as its root and collect all capture maps." This "at every node" is what makes a query like a regex search, applied to trees instead of strings.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>A slip in the notes' grammar: <code>_parens</code> should be <code>seq("(", $._exp, ")")</code>; with <code>choice</code> a lone <code>(</code> would count as an expression.</div>
+        <div data-lab="query"></div>
+        <div class="quiz" data-quiz="treesitter"></div>
+      </section>
+
+      <!-- 16 -->
+      <section class="topic" id="context" data-part="Grammars and trees" data-short="Context matters">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>Context is important</h2><p class="kicker">A match in the wrong method is a false alarm</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Searching the whole book for the word "murder" tells you the book has one. It does not tell you whether chapter 3 has one. When the question is about one method, the search must be limited to that method.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>We want to know whether <code>assertFalse</code> contains a division by zero. A query run over the whole class also matches the <code>1 / 0</code> in <code>divideByZero</code>:
+<pre><code class="language-java">public class Simple {
+  public static void assertFalse() {
+    assert false;
+  }
+  public static int divideByZero() {
+    return 1 / 0;
+  }
+}</code></pre></li>
+                <li>A tree-sitter pattern describes a fixed shape: parent, children, grandchildren. The notes put it as "queries do not support nested queries": there is no "anywhere below this node" operator, so one pattern cannot say "a division somewhere inside method <code>m</code>, at any depth".</li>
+                <li>The practical fix: first find the method (and its <code>body</code>), then run the second query <em>only on that subtree</em>, e.g. <code>QueryCursor(divide_q).captures(body)</code> with a query <code>divide_q</code> for divisions. For anything more involved, you write your own matching code (topics 17 and 18).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.24</span> A property in context</p>
+            <p>With $\mathit{desc}(n)$ the descendants of $n$ (the transitive closure of the child relation) and $P$ the division pattern,</p>
+            $$\mathit{Div}_m(t) \iff \exists n \in \mathit{desc}(\mathit{body}(m)).\; \mathit{match}(P, n) \neq \emptyset$$
+            <p class="read">"method m divides if some node anywhere inside m's body matches the division pattern."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.12</span> Fixed shapes see a bounded depth</p>
+            <p>A pattern of depth $d$ anchored at a method node only inspects nodes at most $d$ levels below it. Since a division can be wrapped in arbitrarily many nested blocks, no single pattern anchored at the method expresses $\mathit{Div}_m$. Restricting the search, $\bigcup_{n \in \mathit{desc}(\mathit{body}(m))} \mathit{match}(P, n)$, does.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>Matching recurses once per pattern level, so it never looks deeper than $d$. Put the division inside $d$ nested <code>{ }</code> blocks: the method still divides, but the pattern cannot see it, while a pattern for depth $d$ anchored anywhere in the body finds it. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div data-lab="context"></div>
+        <div class="quiz" data-quiz="context"></div>
+      </section>
+
+      <!-- 17 -->
+      <section class="topic" id="folds" data-part="Grammars and trees" data-short="Folds and catamorphisms">
+        <header class="topic-head">
+          <span class="topic-num">17</span>
+          <div><h2>Folds: general matching of patterns in trees</h2><p class="kicker">One traversal, many analyses</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Picture a company's reporting chain. Every employee reports one number to their manager; every manager combines the numbers of their team into one number and passes it up; the CEO ends up with one answer. You only decide <em>how to combine</em> at each kind of position. That is a fold.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The recursive matching of a pattern on a tree structure is called a <strong>fold</strong>. On a list, <code>foldr(f, z, [x1, x2, x3]) = f(x1, f(x2, f(x3, z)))</code>: replace every "cons" by <code>f</code> and the empty list by <code>z</code>.</li>
+                <li>On a syntax tree: give one function per kind of node, which receives the <em>already computed</em> results of its children. Evaluate, count nodes, compute the depth, pretty-print, or "does this divide by a literal 0?" are all the same traversal with different functions.</li>
+</ul>
+<pre><code class="language-python">def cata(alg, t):
+    match t:
+        case Num(n):        return alg.num(n)
+        case Var(x):        return alg.var(x)
+        case Bin(op, l, r): return alg.bin(op, cata(alg, l), cata(alg, r))
+
+class DivByLiteralZero:   # an "algebra": what to do at each kind of node
+    # result = (is this subtree the literal 0?, was a division by a literal 0 found?)
+    def num(self, n):        return (n == 0, False)
+    def var(self, x):        return (False, False)
+    def bin(self, op, l, r): return (False, l[1] or r[1] or (op == "/" and r[0]))</code></pre>
+              <ul>
+                <li>Mathematicians have categorised folds (and unfolds) in great detail; the most common kind is the <strong>catamorphism</strong> (Meijer, Fokkinga and Paterson, 1991, "Functional programming with bananas, lenses, envelopes and barbed wire").</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.25</span> Node shapes, algebras</p>
+            <p>The <em>shape</em> of one node of an expression tree, with holes $A$ where the children go, is the functor</p>
+            $$F(A) = \mathtt{Num}\;\Z \;+\; \mathtt{Var}\;\mathit{Name} \;+\; \mathtt{Bin}\;(\mathit{Op} \times A \times A)$$
+            <p>An <em>$F$-algebra</em> is a set $A$ with a function $\varphi : F(A) \to A$ (what to compute at one node, given the children's results). Trees themselves form the <em>initial algebra</em> $(\mathit{Expr}, \mathit{in})$, where $\mathit{in}$ builds a node from its parts.</p>
+            <p class="read">"F(A) is a node whose children have been replaced by values of type A."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.26</span> Catamorphism</p>
+            $$\mathtt{cata} : (F(A) \to A) \to \mathit{Expr} \to A \qquad h = \mathtt{cata}\,\varphi \;\text{ is the unique } h \text{ with } h \circ \mathit{in} = \varphi \circ F(h)$$
+            <p>Concretely: $h(\mathtt{Num}\,n) = \varphi(\mathtt{Num}\,n)$ and $h(\mathtt{Bin}(op, l, r)) = \varphi(\mathtt{Bin}(op, h(l), h(r)))$.</p>
+            <p class="read">"to fold a node, first fold its children, then apply the algebra to the node with the children's results in place." Uniqueness is what makes folds safe to reason about: the algebra completely determines the result.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Example</span> Lists are the simplest case</p>
+            <p>Lists of $X$ have the node shape $F_X(A) = 1 + X \times A$ (either the empty list, or an element and the rest). An algebra is a pair $(z, f)$ with $z \in A$ and $f : X \times A \to A$, and $\mathtt{cata}\,(z, f) = \mathtt{foldr}\,f\,z$.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write the list shape as $F_{[x]}\,a = (x, a) + \bot$. Read $\bot$ as "the one empty-list case": the standard notation is $F_X(A) = 1 + X \times A$, where $1$ is a one-element set. The notes also file this under "abstract algebra"; the precise home is the theory of $F$-algebras in category theory.</div>
+        <div data-lab="fold"></div>
+        <div class="quiz" data-quiz="folds"></div>
+      </section>
+
+      <!-- 18 -->
+      <section class="topic" id="traversal" data-part="Grammars and trees" data-short="Tree traversals">
+        <header class="topic-head">
+          <span class="topic-num">18</span>
+          <div><h2>Tree traversals</h2><p class="kicker">Matching on the way down, or on the way up</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Walk through every room of a building, always taking the leftmost unvisited door and coming back the way you came. If you write down a room's name when you <strong>enter</strong> it you get pre-order; when you <strong>leave</strong> it, post-order.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Pre-order</strong>: node, then children (red in the figure). <strong>In-order</strong> (binary trees): left, node, right (green). <strong>Post-order</strong>: children, then node (blue).</li>
+                <li>Pre-order suits passing context <em>down</em> ("I am inside method m"); post-order suits combining results <em>up</em> (a fold computes in post-order).</li>
+                <li>General recursion is expensive in speed and memory (deep trees overflow the call stack). Every recursion can be made iterative by keeping the stack yourself. Tree-sitter offers a <strong>cursor</strong> with <code>goto_first_child</code>, <code>goto_next_sibling</code> and <code>goto_parent</code>.</li>
+                <li>The cursor-based traversal from the notes:
+<pre><code class="language-python">def traverse(item: ts.Tree) -> Iterator[ts.Node]:
+    cursor = item.walk()
+    godeeper = True
+    while True:
+        node = cursor.node
+        if godeeper:
+            yield node # (A)
+            if not cursor.goto_first_child():
+                godeeper = False
+        elif cursor.goto_next_sibling():
+            godeeper = True
+        elif cursor.goto_parent():
+            yield node # (B)
+            godeeper = False
+        else:
+            break</code></pre>
+                  <strong>(A) is pre-order</strong>: a node is yielded the first time the cursor arrives at it. (B) is meant as post-order but yields <code>node</code>, read <em>before</em> climbing: the last child we are leaving. So (B) only yields the last child of every parent, which is not a full post-order. To fix it, yield every node at the moment its subtree is finished (the lab shows both).</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/syntactic-analysis/tree-traversal.svg" alt="A binary tree F, B, G, A, D, I, C, E, H with a path around it; red dots mark pre-order, green in-order, blue post-order" width="348" height="297"></div>
+              <figcaption><b>Wikimedia Commons, "Sorted binary tree ALL RGB".</b> Pre-order (red), in-order (green) and post-order (blue) positions, as used in the course notes.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 2.27</span> Traversal orders</p>
+            <p>For a tree $t = n(t_1, \ldots, t_k)$ with root $n$ and subtrees $t_i$:</p>
+            $$\mathit{pre}(t) = n \cdot \mathit{pre}(t_1) \cdots \mathit{pre}(t_k) \qquad \mathit{post}(t) = \mathit{post}(t_1) \cdots \mathit{post}(t_k) \cdot n$$
+            <p>and for binary trees $\mathit{in}(n(l, r)) = \mathit{in}(l) \cdot n \cdot \mathit{in}(r)$.</p>
+            <p class="read">"pre-order writes the root before its subtrees, post-order after them."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.13</span> Properties</p>
+            <ul>
+              <li>Each order lists every node exactly once (induction on $t$).</li>
+              <li>A catamorphism finishes computing node $n$ exactly at $n$'s position in $\mathit{post}(t)$: all children are finished before their parent.</li>
+              <li>An iterative traversal with an explicit stack visits nodes in the same order as the recursive definition, using memory proportional to the depth of the tree.</li>
+            </ul>
+          </div>
+        </div>
+        <div data-lab="traverse"></div>
+        <div class="quiz" data-quiz="traversal"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 5</span><h2>Beyond context-free</h2></div>
+
+      <!-- 19 -->
+      <section class="topic" id="bespoke" data-part="Beyond context-free" data-short="Bespoke analyses and linters">
+        <header class="topic-head">
+          <span class="topic-num">19</span>
+          <div><h2>Bespoke analyses, linters and LLMs</h2><p class="kicker">When no ready-made matcher is strong enough</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>When no stencil fits, you write your own tool: walk the tree, remember what you have seen (declarations, the current method, which variables were checked) and decide. Almost every real linter is such a hand-made tool.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Beyond context-free languages there are some tools, but matching full languages efficiently gets harder and harder. Then you write a <strong>bespoke</strong> analysis in your favourite language: a traversal plus whatever bookkeeping you need (symbol tables, scopes, a little data flow).</li>
+                <li>Almost all syntactic static analysers fall into this category: <a href="https://spotbugs.github.io">SpotBugs</a> (bug patterns in Java bytecode) and <a href="https://eslint.org">ESLint</a> (one visitor per rule over the JavaScript AST). An ESLint-style rule:
+<pre><code class="language-javascript">module.exports = {
+  create(context) {
+    return {
+      BinaryExpression(node) {
+        if (node.operator === "/" &amp;&amp; node.right.type === "Literal" &amp;&amp; node.right.value === 0)
+          context.report({ node, message: "Division by literal zero" });
+      },
+    };
+  },
+};</code></pre></li>
+                <li>Research still looks for easy and intuitive ways to pattern match normal programming constructs: Rafnsson et al. (2020) fix vulnerabilities automatically with linters; Tomasdottir et al. (2020) study how developers adopt ESLint.</li>
+                <li><strong>LLMs</strong>: with a fixed input window they can, in theory, only recognise regular languages; in practice they do well on simple analysis tasks because they recognise common patterns.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 2.14</span> Finite languages are regular</p>
+            <p>Every finite language $L = \{w_1, \ldots, w_k\}$ is regular: $L = \sem{w_1 + \cdots + w_k}$.</p>
+            <p class="read">"list the words as alternatives." A model that only reads windows of at most $W$ tokens computes its answer from a finite set of possible inputs, so the inputs it accepts form (the image of) a finite, hence regular, language. The automaton would be astronomically large, which is why this bound says little about practice.</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="bespoke"></div>
+      </section>
+
+      <!-- 20 -->
+      <section class="topic" id="java-language" data-part="Beyond context-free" data-short="Which language is Java?">
+        <header class="topic-head">
+          <span class="topic-num">20</span>
+          <div><h2>The trick question: what kind of language is Java?</h2><p class="kicker">Regular, context-free, or recursively enumerable?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>It depends on what you call "a Java program". A file the parser accepts? A file the compiler accepts? A program that also finishes? Each answer is one doll further out in the Chomsky hierarchy.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Tokens</strong>: identifiers, literals and keywords are described by regular expressions. Regular.</li>
+                <li><strong>Parsable programs</strong>: the Java Language Specification gives a context-free grammar; hand-written parsers handle it in (essentially) linear time. Context-free.</li>
+                <li><strong>Compiling programs</strong>: variables must be declared before use, in scope, with matching types; definite assignment must hold. That needs context (Proposition 2.8): context-sensitive at least.</li>
+                <li><strong>Well-typed programs with generics</strong>: Grigore (POPL 2017, "Java Generics are Turing Complete") showed that subtyping with wildcards can encode Turing machines, so a type checker that is always correct and always terminates cannot exist. The set of well-typed programs is recognizable (search for a typing derivation) but not decidable.</li>
+                <li><strong>Programs with a semantic property</strong> (terminating, never dividing by zero): recursively enumerable at best, undecidable by Rice's theorem.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>Reading $L_{\mathit{lex}}$ as the token-level language, $L_{\mathit{syn}}$ the parsable programs, $L_{\mathit{comp}}$ the compiling ones and $L_{\mathit{halt}}$ the terminating ones:</p>
+          $$L_{\mathit{lex}} \in \mathsf{REG}, \qquad L_{\mathit{syn}} \in \mathsf{CFL}, \qquad L_{\mathit{comp}} \notin \mathsf{CFL}, \qquad L_{\mathit{comp}},\, L_{\mathit{halt}} \in \mathsf{RE} \setminus \mathsf{DEC}$$
+          <p class="read">"the syntax is context-free, the compiling programs are not even context-free, and with generics, whether a program type checks is only recognizable, just like termination."</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>When asked "which class is language X", first ask which membership question is meant: the lexer's, the parser's, the type checker's or the program's behaviour.</div>
+        <div class="quiz" data-quiz="java-language"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and symbols worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Syntax pipeline</h3><div class="mathbox">$\mathit{Bits} \to \Sigma^* \to \mathit{Tok}^* \to \mathit{CST} \to \mathit{AST} \to \mathit{IR} \to \mathit{BC}$</div><p>Left keeps intention, right gives structure. Information only gets lost (Prop. 2.2).</p></div>
+          <div class="cheat-item"><h3>Language</h3><div class="mathbox">$L \subseteq \Sigma^* = \bigcup_{n} \Sigma^n$</div><p>Analysis questions are membership questions: is $p \in L_{\mathit{good}}$?</p></div>
+          <div class="cheat-item"><h3>Decider vs recognizer</h3><div class="mathbox">$L$ decidable $\iff L, \overline{L}$ recognizable</div><p>Halting is recognizable, non-halting is not.</p></div>
+          <div class="cheat-item"><h3>Analysis as decider</h3><div class="mathbox">sound: $L_{SA} \subseteq L$, complete: $L \subseteq L_{SA}$</div><p>For undecidable $L$: never both (Thm. 2.3).</p></div>
+          <div class="cheat-item"><h3>Grammar</h3><div class="mathbox">$G = (N, \Sigma, \to, S)$, $L_G = \{ w \in \Sigma^* \mid S \to^* w \}$</div><p>Rewrite until no non-terminal is left.</p></div>
+          <div class="cheat-item"><h3>Chomsky hierarchy</h3><div class="mathbox">$\mathsf{REG} \subsetneq \mathsf{CFL} \subsetneq \mathsf{CSL} \subsetneq \mathsf{RE}$</div><p>Finite automaton, pushdown, linear bounded, Turing machine.</p></div>
+          <div class="cheat-item"><h3>Regex semantics</h3><div class="mathbox">$\sem{e_1 e_2} = \sem{e_1}\sem{e_2}$, $\sem{e_1 + e_2} = \sem{e_1} \cup \sem{e_2}$, $\sem{e^*} = \bigcup_n \sem{e}^n$</div><p>The star is the least fixpoint of $X = \{\epsilon\} \cup \sem{e} X$.</p></div>
+          <div class="cheat-item"><h3>Pumping lemma</h3><div class="mathbox">$w = xyz,\ |xy| \leq p,\ |y| \geq 1,\ xy^iz \in L$</div><p>Used to show $\texttt{(}^n\texttt{)}^n$ is not regular: regexes cannot nest.</p></div>
+          <div class="cheat-item"><h3>Parsing costs</h3><div class="mathbox">CFG: $O(n^3)$, deterministic CFL: $O(n)$</div><p>First-match semantics and layered grammars avoid ambiguity.</p></div>
+          <div class="cheat-item"><h3>Query</h3><div class="mathbox">$Q_P(t) = \bigcup_{n \in \mathit{nodes}(t)} \mathit{match}(P, n)$</div><p>A regex over trees, tried at every node. Restrict to a subtree for context.</p></div>
+          <div class="cheat-item"><h3>Catamorphism</h3><div class="mathbox">$h(\mathtt{Bin}(op, l, r)) = \varphi(\mathtt{Bin}(op, h(l), h(r)))$</div><p>Fold the children first, then the node. Computes in post-order.</p></div>
+          <div class="cheat-item"><h3>Traversals</h3><div class="mathbox">$\mathit{pre}(t) = n \cdot \mathit{pre}(t_i)^*$, $\mathit{post}(t) = \mathit{post}(t_i)^* \cdot n$</div><p>Down: pass context. Up: combine results.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table class="gloss">
+            <tr><td>$\Sigma$</td><td>alphabet</td><td>finite set of symbols (characters, token kinds)</td></tr>
+            <tr><td>$\Sigma^*$</td><td>all words</td><td>finite sequences over $\Sigma$, including $\epsilon$</td></tr>
+            <tr><td>$\epsilon$</td><td>empty word</td><td>neutral element of concatenation</td></tr>
+            <tr><td>$L$</td><td>language</td><td>any subset of $\Sigma^*$</td></tr>
+            <tr><td>$N, S$</td><td>non-terminals, start</td><td>placeholders of a grammar, and where derivations begin</td></tr>
+            <tr><td>$\to, \to^*$</td><td>rule, derivation</td><td>one rewriting step, zero or more steps</td></tr>
+            <tr><td>$\sem{e}$</td><td>denotation</td><td>the set of words a regex $e$ stands for</td></tr>
+            <tr><td>$e^*$, $e^+$</td><td>star, plus</td><td>zero or more, one or more repetitions</td></tr>
+            <tr><td>$\mathsf{REG}, \mathsf{CFL}, \mathsf{CSL}, \mathsf{RE}$</td><td>language classes</td><td>types 3, 2, 1, 0 of the Chomsky hierarchy</td></tr>
+            <tr><td>CST, AST</td><td>syntax trees</td><td>with every token, or with only what matters</td></tr>
+            <tr><td>$F(A)$, $\varphi$</td><td>node shape, algebra</td><td>a node with children of type $A$, and how to combine it</td></tr>
+            <tr><td>$\mathtt{cata}$</td><td>catamorphism</td><td>the fold determined by an algebra</td></tr>
+            <tr><td>$@c$, <code>#eq?</code></td><td>capture, predicate</td><td>tree-sitter query syntax</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>What are the limitations of a syntactic analysis?</summary>
+          <p>A syntactic analysis only sees the structure of the program, never its meaning (<a href="#what">topic 01</a>). Two programs with the same meaning can look different (<code>1 + 2</code> and <code>2 + 1</code>), and two programs with the same pattern can behave differently (<code>1 / n</code> versus <code>1 / (n * n + 1)</code>). Every semantic property is therefore only approximated by a syntactic stand-in, and since non-trivial semantic properties are undecidable (Rice) while syntactic patterns are decidable, the approximation is never exact.</p>
+          <p>In practice it cannot be usefully sound: to guarantee "no division by zero" it would have to reject almost every program with a division. So syntactic analyses aim for few false alarms and accept missed bugs (<a href="#goal">topic 04</a>). They cannot follow values, paths, loops or calls: whether <code>a / b</code> is safe depends on the value of <code>b</code>.</p>
+          <p>The matching machinery has limits too. Regular expressions cannot handle nesting (<a href="#nesting">topic 13</a>) and see comments and strings as code; tree queries describe fixed shapes and need explicit scoping (<a href="#context">topic 16</a>); anything context-sensitive (scopes, types) needs bespoke code. Finally the choice of level matters: low levels are brittle to formatting, high levels have lost the developer's intention (<a href="#levels">topic 02</a>).</p>
+        </details>
+        <details class="proof"><summary>When is syntactic analysis a good tool?</summary>
+          <p>When the property really is about syntax or about the developer's intention: style and formatting rules, confusing constructions such as <code>a &amp;&amp; b || c</code>, use of deprecated or dangerous APIs, string concatenation into SQL queries, missing annotations. There a syntactic check is exact, not an approximation.</p>
+          <p>When speed and feedback matter: syntactic checks run in linear time, on every keystroke in an editor, and point at the exact source location, which developers value (Christakis and Bird). They need no build environment and never run the code, so they are safe on programs with side effects.</p>
+          <p>As a cheap first pass or as a helper for other analyses: a quick baseline for JPAMB (does the method contain <code>assert</code>, <code>/</code>, an array access?), a filter that decides which methods need an expensive analysis, or a source of constants for a fuzzer's dictionary (<a href="dynamic-analysis.html#dictionary">dynamic analysis</a>).</p>
+        </details>
+        <details class="proof"><summary>Trick question: is the language of Java programs regular, context-free or recursively enumerable?</summary>
+          <p>It depends on which language you mean (<a href="#java-language">topic 20</a>). The tokens are regular. The programs the parser accepts form a context-free language: the JLS gives a context-free grammar, and it is not regular because blocks and parentheses nest without bound (pumping lemma, <a href="#nesting">topic 13</a>).</p>
+          <p>The programs the compiler accepts are not context-free: declare-before-use and type agreement are copy-language-like constraints (<a href="#chomsky">topic 10</a>). With generics and wildcards, subtyping is undecidable (Grigore, 2017), so the well-typed programs are recursively enumerable but not decidable. And sets defined by behaviour, such as the terminating Java programs, are recursively enumerable and undecidable. So the honest short answer: syntactically context-free; as "programs that compile", recursively enumerable.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Syntactic Analysis" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute. Figures: levels of syntax and Chomsky hierarchy from the course notes; xkcd 1171 by Randall Munroe (CC BY-NC 2.5); traversal figure from Wikimedia Commons. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/syntactic-analysis.js"></script>
+</body>
+</html>

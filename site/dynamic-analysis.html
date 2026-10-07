@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dynamic Analysis · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on dynamic analysis: traces, may and must, trace selection, prediction and coverage, testing, and fuzzing strategies.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/dynamic-analysis.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 4: Dynamic Analysis</div>
+        <h1>Dynamic Analysis</h1>
+        <p class="hero-lead">Let's run it and see. How to learn about a program by executing it: which runs to pick, what to look for in a run, what a handful of runs can and cannot prove, and how fuzzers choose inputs that reach the interesting corners of the code.</p>
+        <div class="hero-meta">
+          <span class="chip">24 topics</span>
+          <span class="chip">12 interactive labs</span>
+          <span class="chip" data-qcount>67 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>Vocabulary: runs, may and must</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="what" data-part="Vocabulary" data-short="What is dynamic analysis?">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>What is dynamic analysis?</h2><p class="kicker">Learning about a program by running it</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Suppose you want to know whether a vending machine ever gives the wrong change. You could study its circuit diagrams (that would be a <em>static</em> analysis), or you could simply put coins in and watch what comes out. That second approach is <strong>dynamic analysis</strong>: every experiment teaches you one true fact about the machine.</p>
+              <p>The catch is that you only learn about the experiments you actually did. You have been doing this for years: every unit test, every print statement and every hunt through a log file is a dynamic analysis.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Dynamic analysis</strong> finds out information about a program by <strong>executing</strong> it and examining what happened during the execution.</li>
+                <li>Everyday examples: writing a <strong>test</strong> (run with an input, check the result), inserting <strong>log statements</strong> (record what happened), searching a production log to <strong>recreate a bug</strong>, profilers, memory sanitizers and fuzzers.</li>
+                <li>Running is the easy part. The two hard questions are: <em>which</em> executions should we run (which inputs, which environment), and <em>what</em> may we conclude from them about all the executions we did not run?</li>
+                <li>In theory, dynamic analysis is about extracting information about <strong>all</strong> behaviours of a program (its whole, usually infinite, set of traces) from a <strong>few</strong> executions.</li>
+                <li>Roadmap of this page: Part 1 fixes the vocabulary (may, must, sound, complete), Part 2 the three phases of a dynamic analysis, Part 3 the practicalities of running programs and testing, Part 4 the strategies for choosing inputs (fuzzing).</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame dg-frame">
+                <svg class="dg" viewBox="0 0 360 236" role="img" aria-label="Many possible runs of a program drawn as faint lines inside a box labelled Sem(p); three of them, the observed runs, are highlighted.">
+                  <text x="12" y="16" class="b">Sem(p): every possible run</text>
+                  <rect class="box soft" x="6" y="26" width="348" height="172" rx="14"/>
+                  <path class="ln faint" d="M24 60 C 110 40, 220 90, 340 54"/>
+                  <path class="ln faint" d="M24 74 C 120 100, 210 60, 340 82"/>
+                  <path class="ln faint" d="M24 92 C 100 70, 240 120, 340 104"/>
+                  <path class="ln faint" d="M24 110 C 140 140, 200 90, 340 126"/>
+                  <path class="ln faint" d="M24 128 C 110 110, 230 160, 340 146"/>
+                  <path class="ln faint" d="M24 146 C 130 170, 220 120, 340 166"/>
+                  <path class="ln faint" d="M24 164 C 120 150, 240 190, 340 184"/>
+                  <path class="ln faint" d="M24 182 C 90 160, 260 170, 340 190"/>
+                  <path class="ln hl" d="M24 66 C 120 70, 220 50, 340 66"/>
+                  <path class="ln hl" d="M24 120 C 120 100, 220 150, 340 116"/>
+                  <path class="ln hl" d="M24 172 C 140 190, 200 150, 340 176"/>
+                  <circle class="dot" cx="24" cy="66" r="4"/><circle class="dot" cx="24" cy="120" r="4"/><circle class="dot" cx="24" cy="172" r="4"/>
+                  <text x="292" y="60" class="b t-acc">&#964;&#185;</text><text x="292" y="112" class="b t-acc">&#964;&#178;</text><text x="292" y="170" class="b t-acc">&#964;&#179;</text>
+                  <text x="12" y="218" class="sm">Highlighted: the few runs we actually execute (T).</text>
+                  <text x="12" y="232" class="sm">Faint: everything we did not see.</text>
+                </svg>
+              </div>
+              <figcaption><b>Own figure.</b> A dynamic analysis sees a finite subset $T$ of the program's runs and must reason about the rest.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.1</span> Dynamic analysis</p>
+            <p>A dynamic analysis of a program $p$ chooses finitely many initial states $\sigma_1, \ldots, \sigma_k \in I_p$, executes $p$ from each of them and obtains a finite set of <em>observed traces</em> $T = \{\tau^1, \ldots, \tau^k\}$ with $\tau^j_0 = \sigma_j$. Its verdict $\DA(p)$ is computed from $T$ alone. Because every observed trace is a real execution,
+            $$T \subseteq \Sem(p) \qquad\text{and}\qquad |T| \lt \infty.$$</p>
+            <p class="read">"The runs we look at are genuine runs of the program, and there are only finitely many of them."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.2</span> Observed witnesses are real</p>
+            <p>For every trace property $Q$: $$\big(\exists \tau \in T.\ Q(\tau)\big) \implies p \models^{\may} Q.$$</p>
+            <p class="read">"If one of the runs we observed has the property, then the program really can exhibit it."</p>
+            <details class="proof"><summary>Proof</summary><p>Take the observed $\tau \in T$ with $Q(\tau)$. Since $T \subseteq \Sem(p)$, $\tau$ is a trace of $p$, so it witnesses $\exists \tau \in \Sem(p).\ Q(\tau)$, which is the definition of $p \models^{\may} Q$ (<a href="#may-must">topic 02</a>). <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>The converse fails: if no trace in $T$ has $Q$, we know nothing about the traces outside $T$. This asymmetry between "found it" and "did not find it" runs through the whole lecture.</p>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>A dynamic analysis looks at a subset of the real traces. What it finds is real; what it misses can still exist.</div>
+        <div class="quiz" data-quiz="what"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="may-must" data-part="Vocabulary" data-short="Traces, may and must">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>Traces, may and must</h2><p class="kicker">The vocabulary from the trace terminology note</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Think of a program as a choose-your-own-adventure book. Every way of reading it from the first page to an ending is a <strong>trace</strong>. A "may" statement says <em>at least one</em> reading meets a dragon. A "must" statement says <em>every</em> reading meets a dragon.</p>
+              <p>To show "may", you only need to point at one reading. To show "must", you have to check all of them. And "it is not true that some reading has a dragon" is just another way of saying "every reading is dragon-free".</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Recap from <a href="semantics.html#transition-system">Semantics</a>: a program is a <strong>transition system</strong>: a set of states, a single-step relation $\delta_p$ (one small step of the interpreter) and a set of initial states $I_p$ (one per possible input).</li>
+                <li>A <strong>trace</strong> $\tau$ is the sequence of states one execution visits: $\tau_0$ is an initial state, and each next state is a successor of the previous one. $\tau_i$ is the state after $i$ steps; we write $\tau_{-1}$ for the last state of a finite trace.</li>
+                <li>$\Sem(p)$, the <a href="semantics.html#traces">maximal trace semantics</a>, is the set of all complete runs: each one runs until it cannot step any more (it returned <code>ok</code> or hit an error), or it runs forever.</li>
+                <li>A <strong>property</strong> $Q$ is a yes/no question about a single trace: "does it end in <code>ok</code>?", "does it ever execute instruction 4?", "does it throw an assertion error?".</li>
+                <li>A <strong>may</strong> property holds for at least one trace, a <strong>must</strong> property for all traces.</li>
+                <li><strong>Duality</strong>: negating a may property gives a must property of the negated question. "The program can not divide by zero" is the same as "every run avoids dividing by zero".</li>
+                <li>Example, <code>assertPositive(int num)</code> with $Q$ = "ends in an assertion error": may holds (input 0), must fails (input 1), and therefore "must not end in an assertion error" also fails.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.3</span> Transition system</p>
+            <p>A transition system is a triple $\langle \State_p, \delta_p, I_p \rangle$: the program states $\State_p$, the transition relation $\delta_p \subseteq \State_p \times \State_p$ given by the single-step semantics, and the initial states $I_p \subseteq \State_p$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.4</span> Traces and the maximal trace semantics</p>
+            <p>A trace is a finite or infinite sequence of states, $\Trace_p \subseteq \State_p^{\,n}$ for $n \in [1, \infty]$. The semantics of $p$ is
+            $$\Sem(p) = \{\, \tau \in \State_p^{\,n} \mid n \in [1, \infty],\ \tau_0 \in I_p,\ \forall i \in [1, n-1].\ \delta_p(\tau_{i-1}, \tau_i) \,\}$$
+            restricted to <em>maximal</em> traces: if $n \lt \infty$, the last state $\tau_{n-1}$ has no successor.</p>
+            <p class="read">"A trace of $p$ starts in an initial state, every consecutive pair is one legal step, and a finished trace stops only where the program cannot step any more."</p>
+          </div>
+          <div class="callout warn"><span class="co-tag">Careful</span>The formula in the notes does not state the maximality condition explicitly; without it, every prefix of a run would also count as a trace and "ends in <code>ok</code>" would be false for most of them. The word <em>maximal</em> is what rules prefixes out.</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.5</span> May property</p>
+            <p>$$p \models^{\may} Q \;\equiv\; \exists \tau \in \Sem(p).\ Q(\tau)$$</p>
+            <p class="read">"$Q$ may happen in $p$: at least one trace of $p$ satisfies $Q$."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.6</span> Must property</p>
+            <p>$$p \models^{\must} Q \;\equiv\; \forall \tau \in \Sem(p).\ Q(\tau)$$</p>
+            <p class="read">"$Q$ must happen in $p$: every trace of $p$ satisfies $Q$."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.7</span> Duality of may and must</p>
+            <p>$$\neg\big(p \models^{\may} Q\big) \equiv p \models^{\must} \neg Q \qquad\qquad \neg\big(p \models^{\must} Q\big) \equiv p \models^{\may} \neg Q$$</p>
+            <p class="read">"$Q$ cannot happen exactly when not-$Q$ always happens; and $Q$ does not always happen exactly when not-$Q$ can happen."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Unfold the definitions and push the negation through the quantifier (De Morgan for quantifiers):</p>
+              <p>$$\neg\big(p \models^{\may} Q\big) \equiv \neg \exists \tau \in \Sem(p).\ Q(\tau) \equiv \forall \tau \in \Sem(p).\ \neg Q(\tau) \equiv p \models^{\must} \neg Q.$$</p>
+              <p>The second equivalence is the same argument with $\neg\forall \equiv \exists\neg$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+        </div>
+        <div data-lab="mustmay"></div>
+        <div class="quiz" data-quiz="may-must"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="terminology" data-part="Vocabulary" data-short="Sound, complete, not-may, not-must">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Sound, complete, not-may and not-must</h2><p class="kicker">What exactly an analysis promises</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A smoke detector can fail in two ways: it can beep when there is no fire (a <strong>false alarm</strong>), or stay silent during a fire (a <strong>miss</strong>). "Sound" and "complete" are the two promises an analysis can make: "whenever I say something, it is true" versus "whenever something is true, I will say it".</p>
+              <p>For the interesting questions about programs you cannot keep both promises at once, so every analysis picks a side.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>An analysis $\mathbf{A}$ is an automatic procedure tailored to one property $Q$. We write $p \vdash_{\mathbf{A}}^{\may} Q$ when it <em>claims</em> "$Q$ may happen", and $p \vdash_{\mathbf{A}}^{\must} Q$ when it claims "$Q$ must happen". The turnstile $\vdash$ means "the analysis derives"; $\models$ means "is actually true".</li>
+                <li><strong>Sound</strong>: never wrong when it claims something. <strong>Complete</strong>: never misses something true.</li>
+                <li>Static analyses accept or reject <em>programs</em> (questions over all traces, must), dynamic analyses accept or reject <em>traces</em> (questions about some trace, may). So "a sound static analysis" usually means must-sound and "a sound dynamic analysis" means may-sound.</li>
+                <li>To keep the complete analyses apart, the course calls them <strong>not-may</strong> ($\vdash^{\notmay}$) and <strong>not-must</strong> ($\vdash^{\notmust}$) analyses: they over-approximate the property, so they are implied by the truth instead of implying it.</li>
+                <li><strong>Duality of analyses</strong>: the negation of a complete may analysis is a sound must analysis of the negated property. If a not-may analysis for "divide by zero" cannot find any division by zero, then no run divides by zero.</li>
+                <li><strong>Warnings vs positives</strong>: "false positive" is ambiguous (positive about programs or about traces?). The course says <em>warning</em> for a reported bug, a classification over traces. A sound dynamic analysis never produces false warnings; a sound static analysis may.</li>
+              </ul>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th></th><th>sound (no wrong claims)</th><th>complete (no misses)</th></tr></thead>
+                  <tbody>
+                    <tr><td><b>may</b> ($Q$ for some trace)</td><td>$p \vdash^{\may} Q \Rightarrow p \models^{\may} Q$<br><span class="tiny">a fuzzer that reports a crash it actually produced</span></td><td>$p \models^{\may} Q \Rightarrow p \vdash^{\notmay} Q$<br><span class="tiny">a sign analysis flagging every possible division by zero</span></td></tr>
+                    <tr><td><b>must</b> ($Q$ for all traces)</td><td>$p \vdash^{\must} Q \Rightarrow p \models^{\must} Q$<br><span class="tiny">a verifier proving "never divides by zero"</span></td><td>$p \models^{\must} Q \Rightarrow p \vdash^{\notmust} Q$<br><span class="tiny">"$Q$ held in every test we ran" (<a href="#not-must">topic 07</a>)</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.8</span> Analysis judgements</p>
+            <p>An analysis $\mathbf{A}$ for a property $Q$ produces judgements $p \vdash_{\mathbf{A}}^{\may} Q$, $p \vdash_{\mathbf{A}}^{\must} Q$ (claims that should imply the truth) or $p \vdash_{\mathbf{A}}^{\notmay} Q$, $p \vdash_{\mathbf{A}}^{\notmust} Q$ (claims that should be implied by the truth).</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.9</span> Soundness</p>
+            <p>$$p \vdash_{\mathbf{A}}^{\must} Q \implies p \models^{\must} Q \qquad\qquad p \vdash_{\mathbf{A}}^{\may} Q \implies p \models^{\may} Q$$</p>
+            <p class="read">"Every property the analysis reports is really a property of the program."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.10</span> Completeness</p>
+            <p>$$p \models^{\may} Q \implies p \vdash_{\mathbf{A}}^{\notmay} Q \qquad\qquad p \models^{\must} Q \implies p \vdash_{\mathbf{A}}^{\notmust} Q$$</p>
+            <p class="read">"Whenever the property truly holds, the analysis reports it (it may also report it when it does not hold)."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.11</span> Duality of analyses</p>
+            <p>$$\neg\big(p \vdash_{\mathbf{A}}^{\notmay} Q\big) \implies p \models^{\must} \neg Q \qquad\qquad \neg\big(p \vdash_{\mathbf{A}}^{\notmust} Q\big) \implies p \models^{\may} \neg Q$$</p>
+            <p>So "not $p \vdash^{\notmay} Q$" is a sound must analysis for $\neg Q$, written $p \vdash_{\mathbf{A}}^{\must} \neg Q$, and "not $p \vdash^{\notmust} Q$" is a sound may analysis for $\neg Q$.</p>
+            <p class="read">"When a never-missing may analysis stays silent, $Q$ really cannot happen; when a never-missing must analysis says no, $\neg Q$ really can happen."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Take the completeness requirement and flip the implication by negating both sides (contraposition):</p>
+              <p>$$p \models^{\may} Q \implies p \vdash_{\mathbf{A}}^{\notmay} Q \qquad\text{gives}\qquad \neg\big(p \vdash_{\mathbf{A}}^{\notmay} Q\big) \implies \neg\big(p \models^{\may} Q\big).$$</p>
+              <p>By Proposition 4.7, $\neg(p \models^{\may} Q) \equiv p \models^{\must} \neg Q$. The second statement is identical with may and must swapped. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 4.12</span> Sound or complete, never both</p>
+            <p>Let $Q$ be a property such that $p \models^{\may} Q$ is non-trivial (true for some programs of a Turing-complete language and false for others). Then no analysis that always terminates is both sound and complete for it.</p>
+            <details class="proof"><summary>Proof sketch</summary>
+              <p>Sound and complete together give $p \vdash_{\mathbf{A}} Q \iff p \models^{\may} Q$ for every $p$. A terminating $\mathbf{A}$ would therefore <em>decide</em> a non-trivial semantic property, contradicting <a href="introduction.html#rice">Rice's theorem</a>. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.13</span> Bounded semantics and properties</p>
+            <p>Bounding the trace length by $k$ gives $\Sem^k(p) = \{\tau \in \State_p^{\,n} \mid n \in [1, k],\ \tau_0 \in I_p,\ \forall i \in [1, n-1].\ \delta_p(\tau_{i-1}, \tau_i)\}$ and bounded properties $p, k \models^{\may} Q$, $p, k \models^{\must} Q$ (quantifying over $\Sem^k(p)$). Bounded results do not transfer:
+            $$p, k \models^{\must} Q \;\nRightarrow\; p \models^{\must} Q \qquad\qquad p \models^{\may} Q \;\nRightarrow\; p, k \models^{\may} Q.$$</p>
+            <p class="read">"Something true for all runs up to $k$ steps can break at step $k+1$, and the only witness of a may property can be longer than $k$." Bounded analyses are the topic of <a href="bounded-static-analysis.html#bounded">next week</a>.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The words flip with the question. A bug finder with "no false warnings" (sound over traces) and a verifier that "accepts every correct program" (complete over programs) are the same promise seen from two sides. Practitioners therefore often say "sound = no false negatives" for static tools, which contradicts the definitions above. Always ask: is the claim about some trace (may) or about all traces (must)?</div>
+        <div class="quiz" data-quiz="terminology"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>The three phases of a dynamic analysis</h2></div>
+
+      <!-- 04 -->
+      <section class="topic" id="phases" data-part="The three phases" data-short="The three phases">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>The three phases</h2><p class="kicker">Select a run, predict its class, analyse, repeat</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A detective cannot follow every person in a city. They pick one person to follow for a day (<strong>selection</strong>), use what they saw to guess how similar people behave (<strong>prediction</strong>), and check the observations for anything suspicious (<strong>analysis</strong>). If nothing turns up, they pick someone new, preferably someone unlike the people they already followed.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Trace selection</strong> (figure: 1.1): choose an initial state $\sigma \in I_P$ (the inputs and the environment) and execute, which picks a trace $\tau \in \Select(P, \sigma)$. See <a href="#selection">topic 05</a>.</li>
+                <li><strong>Trace abstraction and prediction</strong> (figure: 1.2): generalise from the one trace to a <em>class</em> $[\tau]_X$ of traces that behave the same for the question $X$, so one execution speaks for many. See <a href="#prediction">topic 09</a>.</li>
+                <li><strong>Trace analysis</strong> (figure: 1.3): decide the question on the trace (or the class) and turn it into a statement about the program: $\TA_X([\tau]_X) \implies \DA_X(P)$. See <a href="#trace-analysis">topic 06</a>.</li>
+                <li><strong>Repeat</strong> (figure: 2.1): if nothing was found, pick a new start $\sigma'$, ideally one whose trace lands in a class we have not seen yet.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/dynamic-analysis/three-phases.png" alt="Diagram: from an initial state sigma in I_P, a trace tau is selected (1.1); a class [tau]_X of similar traces is predicted around it (1.2); the analysis TA_X([tau]_X) implies DA_X(P) (1.3); a second initial state sigma prime starts another round (2.1)." width="954" height="625"></div>
+              <figcaption><b>Course notes, Dynamic Analysis.</b> The steps of dynamic analysis: 1.1 select a trace, 1.2 predict the class it came from, 1.3 analyse; if nothing is found, repeat from a new $\sigma'$ (2.1).</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.14</span> The dynamic analysis loop</p>
+            <p>A dynamic analysis for a question $X$ repeatedly picks $\sigma_j \in I_P$, selects $\tau^j \in \Select(P, \sigma_j)$, forms its class $[\tau^j]_X$ and evaluates the trace analysis on it. The program-level verdict follows from the class-level ones:
+            $$\TA_X\big([\tau]_X\big) \implies \DA_X(P).$$</p>
+            <p class="read">"If the trace analysis finds $X$ on the class of the observed trace, the dynamic analysis may conclude $X$ about the program."</p>
+          </div>
+          <pre><code class="language-plaintext">T := {}                         # observed traces
+repeat until the budget is spent:
+    pick sigma in I_P              # 1.1 selection (ideally from an unseen class)
+    run P from sigma, get tau      #     tau in Select(P, sigma)
+    C := [tau]_X                   # 1.2 prediction / abstraction
+    if TA_X(C): report DA_X(P)     # 1.3 analysis
+    T := T + {tau}                 # 2.1 otherwise, go again</code></pre>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes number the sections 1.1 selection, 1.2 trace <em>analysis</em>, 1.3 trace <em>abstraction and prediction</em>, while the figure labels prediction 1.2 and analysis 1.3. Both are fine; the figure's order is the logical one (you predict the class before you analyse it). This page follows the notes' order of topics: selection, analysis, then prediction.</div>
+        <div class="quiz" data-quiz="phases"></div>
+      </section>
+
+      <!-- 05 -->
+      <section class="topic" id="selection" data-part="The three phases" data-short="Trace selection">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>Trace selection</h2><p class="kicker">Pick a start, press play, get a trace</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Selecting a trace is pressing "play" with a particular input. For a deterministic program, the same input always plays the same movie. For a program with several threads, the same input can play different movies, depending on which thread happens to get the processor first. That is why some tests fail only "sometimes".</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Selecting means choosing an initial state $\sigma \in I_P$ and executing. $\sigma$ contains the method's arguments but also the <strong>environment</strong>: heap contents, files, the clock, random seeds, the thread schedule.</li>
+                <li><strong>Deterministic</strong> programs have exactly one trace per initial state. Our JPAMB interpreter is deterministic, so selecting a trace is the same as selecting an input.</li>
+                <li><strong>Non-deterministic</strong> programs (parallel threads, random numbers, input from the outside world) can produce many traces from one initial state. Which one you get depends on luck, which leads to flaky tests and "heisenbugs" that vanish when you look.</li>
+                <li>Selection is not trivial in practice: setting up the environment can be hard (<a href="#run-or-not">topic 13</a>), and picking good inputs is the whole of Part 4 (fuzzing).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.15</span> Trace selection</p>
+            <p>$$\tau \in \Select(P, \sigma) \;\equiv\; \tau \in \Sem(P) \wedge \tau_0 = \sigma$$</p>
+            <p class="read">"The traces we can select from $\sigma$ are exactly the program's traces that start in $\sigma$."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.16</span> The semantics is the union of all selections</p>
+            <p>$$\Sem(P) = \bigcup_{\sigma \in I_P} \Select(P, \sigma)$$</p>
+            <p class="read">"Trying every possible start gives you every possible run."</p>
+            <details class="proof"><summary>Proof</summary><p>($\supseteq$) Each $\Select(P, \sigma)$ is a subset of $\Sem(P)$ by definition. ($\subseteq$) Every $\tau \in \Sem(P)$ starts in $\tau_0 \in I_P$, so $\tau \in \Select(P, \tau_0)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.17</span> Determinism</p>
+            <p>$P$ is deterministic if every state has at most one successor: $\forall s, s', s''.\ \delta_P(s, s') \wedge \delta_P(s, s'') \implies s' = s''$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.18</span> One trace per start</p>
+            <p>If $P$ is deterministic, then $|\Select(P, \sigma)| = 1$ for every $\sigma \in I_P$.</p>
+            <details class="proof"><summary>Proof</summary><p>A maximal trace from $\sigma$ is built by repeatedly taking the successor of the last state until there is none. With at most one successor at each step, the $i$-th state is uniquely determined by induction on $i$ ($\tau_0 = \sigma$; $\tau_{i+1}$ is the unique successor of $\tau_i$), and so is the point where the trace stops (or that it never stops). Hence exactly one maximal trace starts in $\sigma$. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="selection"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="trace-analysis" data-part="The three phases" data-short="Trace analysis">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Trace analysis</h2><p class="kicker">Questions you can answer from one recording</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Once you have a recording of a run, you can ask it questions, like reading a plane's flight recorder: did the flight land safely? Was a door opened and never closed again? Did the plane ever fly over this city? Each answer comes from reading the one recording, nothing else.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Did it end in success?</strong> Look at the last state: $\TA_{\ok}$.</li>
+                <li><strong>Did some opened resource never get closed?</strong> Find an "open $f$" event with no "close $f$" at or after it: $\TA_{\mathtt{res}}$. $\mathbf{O}(s, f)$ means "state $s$ opens resource $f$", $\mathbf{C}(s, f)$ "state $s$ closes $f$".</li>
+                <li><strong>Did we execute instruction $i$?</strong> Check whether $i$ is among the program counters of the trace: $\TA_{\mathtt{cover}(i)}$.</li>
+                <li>The notes "slightly abuse notation": $\tau_{-1}$ is the last element, $e.\iota$ is the program counter of state $e$, and $e \in \tau$ means "$e$ is one of the states of $\tau$".</li>
+                <li>These are <strong>temporal</strong> questions ("eventually", "from then on, never"), the territory of <em>linear temporal logic</em> (LTL), where $\Diamond\varphi$ means "eventually $\varphi$" and $\Box\varphi$ "from now on, always $\varphi$".</li>
+                <li>An infinite trace has no last state, so $\TA_{\ok}$ is false for it. In practice we only ever see a finite prefix before our step budget runs out.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.19</span> Trace analyses</p>
+            <p>A trace analysis for a question $X$ is a predicate $\TA_X : \Trace \to \{\mathtt{tt}, \mathtt{ff}\}$ on single traces. Three examples:</p>
+            <p>$$\TA_{\ok}(\tau) \equiv \tau_{-1} = \ok$$</p>
+            <p class="read">"The last state of the trace is the success state."</p>
+            <p>$$\TA_{\mathtt{res}}(\tau) \equiv \exists f, i.\ \mathbf{O}(\tau_i, f) \wedge \forall j \geq i.\ \neg \mathbf{C}(\tau_j, f)$$</p>
+            <p class="read">"Some resource $f$ is opened at step $i$, and at no step from $i$ on is it closed."</p>
+            <p>$$\TA_{\mathtt{cover}(i)}(\tau) \equiv i \in \{\, e.\iota \mid e \in \tau \,\}$$</p>
+            <p class="read">"Instruction $i$ is the program counter of at least one state in the trace."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.20</span> Two LTL operators</p>
+            <p>For a trace $\tau$ and a position $k$: $\tau, k \models \Diamond \varphi$ iff $\exists j \geq k.\ \tau, j \models \varphi$, and $\tau, k \models \Box \varphi$ iff $\forall j \geq k.\ \tau, j \models \varphi$. Then
+            $$\TA_{\ok}(\tau) \iff \tau, 0 \models \Diamond\, \ok \qquad \TA_{\mathtt{res}}(\tau) \iff \exists f.\ \tau, 0 \models \Diamond\big(\mathbf{O}_f \wedge \Box \neg \mathbf{C}_f\big)$$</p>
+            <p class="read">"Eventually ok", and "eventually some $f$ is opened and from then on never closed".</p>
+          </div>
+        </div>
+        <div data-lab="ta"></div>
+        <div class="quiz" data-quiz="trace-analysis"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="not-must" data-part="The three phases" data-short="From one trace to the program">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>From one trace to the whole program</h2><p class="kicker">One counterexample is enough to kill a "must"</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If someone claims "all swans are white", a single black swan proves them wrong, but a thousand white swans prove nothing. Runs work the same way: one bad run disproves "the program always works", while many good runs never prove it. As Dijkstra put it: testing can show the presence of bugs, never their absence.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Any question we can answer correctly on one trace becomes a <strong>not-must analysis</strong> for the whole program: run some inputs, and if any observed trace fails $X$, then $X$ is not a must property of the program.</li>
+                <li>Example: we find a trace that does not end in <code>ok</code>, so the program does not always succeed. Equivalently (by duality), a failure may happen.</li>
+                <li>Seen the other way round: "$X$ held on every trace I observed" is <em>complete</em> for must (a true must property always passes all your tests) but not <em>sound</em> (passing tests does not prove it).</li>
+                <li>Running more inputs makes the analysis more precise, and in the limit, if we could run every trace, a dynamic analysis captures any property exactly. The catch: most programs have infinitely many traces (or $2^{32}$ for one <code>int</code>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.21</span> Refutation by one trace (as in the notes)</p>
+            <p>$$\exists \sigma \in I_p,\ \tau \in \Select(p, \sigma).\ \neg \TA_X(\tau) \implies \neg \DA_X^{\must}(p)$$</p>
+            <p>and, for $X = $ "ends in ok": $\ \exists \sigma \in I_p,\ \tau \in \Select(p, \sigma).\ \neg \TA_{\ok}(\tau) \implies \neg \DA_{\ok}^{\must}(p)$.</p>
+            <p class="read">"If some run we can select fails $X$, the analysis concludes that $X$ is not a must property of $p$."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.22</span> The dynamic must check</p>
+            <p>For observed traces $T$, define $\ p \vdash_{\DA}^{\notmust} X \;\equiv\; \forall \tau \in T.\ \TA_X(\tau)$.</p>
+            <p class="read">"$X$ held on every run we observed."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.23</span> It is a complete (not-must) analysis</p>
+            <p>$$p \models^{\must} X \implies p \vdash_{\DA}^{\notmust} X, \qquad\text{hence}\qquad \neg\big(p \vdash_{\DA}^{\notmust} X\big) \implies p \models^{\may} \neg X.$$</p>
+            <p class="read">"A true must property passes every test; so a failed test is a sound proof that $\neg X$ can happen."</p>
+            <details class="proof"><summary>Proof</summary><p>If $X$ holds for all of $\Sem(p)$ it holds for the subset $T \subseteq \Sem(p)$. The second part is Proposition 4.11 (duality of analyses). <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.24</span> In the limit, dynamic analysis is exact</p>
+            <p>$$\Big(\forall \sigma \in I_p,\ \tau \in \Select(p, \sigma).\ \TA_X(\tau)\Big) \iff p \models^{\must} X$$</p>
+            <p class="read">"If we could run every trace, checking $X$ on each of them would decide the property." (The notes write the right side as $\mathcal{L}_X(p)$, membership in the language of programs with property $X$.)</p>
+            <details class="proof"><summary>Proof</summary><p>By Proposition 4.16 the selections over all $\sigma \in I_p$ cover exactly $\Sem(p)$, so the left side quantifies over the same set of traces as Definition 4.6. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write the conclusion as $\neg \DA^{\must}_X(p)$, "not a must property". In the words of the trace terminology note, the analysis that checks $X$ on all observed traces is a <em>not-must</em> analysis (complete for must), and its negation is a sound <em>may</em> analysis of $\neg X$. Same mathematics, two names.</div>
+        <div class="quiz" data-quiz="not-must"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="story" data-part="The three phases" data-short="No analysis is truly sound">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>No analysis is truly sound</h2><p class="kicker">A story about memory leaks and coding conventions</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A smoke detector mounted above the toaster is technically right every time it beeps: there really is smoke. But if the family makes toast every morning, the detector ends up in a drawer. Being correct and being useful are two different things.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The plan: fuzz the firmware of an embedded device while running a memory sanitizer (like <a href="https://clang.llvm.org/docs/AddressSanitizer.html">AddressSanitizer</a> and its leak checker), and warn about every allocation that is never freed.</li>
+                <li>Sound in our sense: every warning came with a real trace in which memory was allocated and never freed.</li>
+                <li>But the company deliberately never freed the very first allocation: it lives as long as the device and disappears when the power goes off. To them, every one of those warnings was a false positive.</li>
+                <li>Lesson: soundness is always relative to the <em>formal property</em> you check, and that property must match the team's <em>coding conventions</em>. Real tools need suppressions, annotations or configuration. No analysis is fire-and-forget.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="callout story"><span class="co-tag">Story</span>"I was convinced that we could create a sound dynamic memory analysis for a company focusing on embedded devices. [...] The analysis per se was sound; every trace we warned about contained a memory error, but the company in question had a coding style where they didn't clean up the initial memory allocation because it was cleaned up when the device was shut off." (Course notes)</div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.25</span> Real versus relevant warnings</p>
+            <p>Let $Q$ be the property the analysis checks and $S$ the property the developers actually consider a bug. A warning is a trace $\tau$ with $Q(\tau)$. It is <em>real</em> if $\tau \in \Sem(p)$ and <em>relevant</em> if also $S(\tau)$. Soundness (Proposition 4.2) guarantees real warnings only; relevant warnings additionally need
+            $$\forall \tau.\ Q(\tau) \implies S(\tau).$$</p>
+            <p class="read">"Every trace the tool complains about must also be a trace the team complains about."</p>
+          </div>
+          <p>In the story, $Q(\tau)$ = "some allocation is never freed" and $S(\tau)$ = "some allocation made after start-up is never freed". Since $Q \not\Rightarrow S$, real $Q$-warnings were irrelevant. The fix is to check $S$ instead, which requires knowing the convention.</p>
+        </div>
+        <div class="quiz" data-quiz="story"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="prediction" data-part="The three phases" data-short="Trace prediction">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Trace prediction</h2><p class="kicker">Learn about many traces from a single run</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If you watch one person take bus 5 home and arrive safely, you can predict that everyone else on bus 5 gets home the same way, even though you never watched them. They belong to the same <strong>class</strong> of journeys. Prediction lets one experiment stand in for a whole group of experiments.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The trace space is huge or infinite, so we cannot run everything. The trick is to map each trace $\tau$ to a class $[\tau]$ out of a (hopefully finite) set of classes, chosen so that traces in the same class behave the same for our question.</li>
+                <li>If what we conclude about a class is guaranteed to be witnessed by some trace in it, one run covers the whole class. Next time we select a trace from a class we have not covered yet, and with finitely many classes we can eventually cover all traces.</li>
+                <li>This is especially powerful for <strong>concurrent</strong> programs. Deadlocks and data races depend on the exact interleaving of threads and are very hard to hit by chance. From one observed run we can predict other feasible interleavings (reorderings of independent events) and report a race or deadlock the run did not actually hit. This is the idea behind sound deadlock prediction (Kalhauge and Palsberg 2018).</li>
+                <li>Example: thread 1 writes <code>x</code>, then much later thread 2 writes <code>x</code>, and nothing (no lock, no join) orders the two writes. The observed run did not show a conflict, but the reordered trace where both writes are adjacent is in the same class: a data race is predicted.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.26</span> Trace classes</p>
+            <p>A trace classification is an equivalence relation $\sim$ on traces; the class of $\tau$ is $[\tau] = \{\tau' \in \Sem(p) \mid \tau' \sim \tau\}$. It is useful when $\Sem(p)$ splits into few classes.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.27</span> Sound prediction</p>
+            <p>A prediction of $X$ on classes is sound if what it claims about a class is witnessed inside the class:
+            $$\TA_X([\tau]) \implies \exists \tau' \in [\tau].\ \TA_X(\tau').$$</p>
+            <p class="read">"If we predict that the class contains an $X$-trace, there really is one." (The notes write $\mathbf{Trace}_X$ for $\TA_X$ here.)</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.28</span> Covering all classes decides a may property</p>
+            <p>Suppose the prediction is exact, $\TA_X([\tau]) \iff \exists \tau' \in [\tau].\ \TA_X(\tau')$, and the observed traces $\tau^1, \ldots, \tau^k$ hit every class, $\Sem(p) = \bigcup_j [\tau^j]$. Then
+            $$p \models^{\may} X \iff \exists j.\ \TA_X([\tau^j]).$$</p>
+            <details class="proof"><summary>Proof</summary><p>$p \models^{\may} X \iff \exists \tau \in \Sem(p).\ X(\tau) \iff \exists j.\ \exists \tau' \in [\tau^j].\ X(\tau')$ (the classes cover $\Sem(p)$) $\iff \exists j.\ \TA_X([\tau^j])$ (exactness). <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="prediction"></div>
+      </section>
+
+      <!-- 10 -->
+      <section class="topic" id="paths" data-part="The three phases" data-short="Path-equivalence classes">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Path-equivalence classes</h2><p class="kicker">Same road through the code, same class</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Millions of cars drive through a city, but if two cars take exactly the same streets in the same order, they followed the same route. Inputs are the cars and the route through the code is the <strong>path</strong>. Many bugs depend only on the route taken, not on which car took it.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Two traces are <strong>path-equivalent</strong> when they execute the same instruction offsets in the same order.</li>
+                <li><code>checkTheWrongThing(int a)</code> checks the wrong part of the division:
+                  <pre><code class="language-java">int checkTheWrongThing(int a) {
+  if (a != 0) {
+    return a / 0;
+  } else {
+    return 0;
+  }
+}</code></pre>
+                  It has $2^{32}$ traces (one per <code>int</code>: 0, 1, -1, 2, ...) but only <strong>two</strong> path classes: offsets 0 1 2 3 4 ending in <code>divide by zero</code> for every $a \neq 0$, and 0 1 6 7 ending in <code>ok</code> for $a = 0$.</li>
+                <li>Many errors are path-dependent: once the run takes the path, the error happens whatever the exact values. That is why paths are the most interesting trace class.</li>
+                <li>A value-dependent error still gets its own class, but a tiny one: in <code>divideByN</code> the run with $n = 0$ stops at the division, so its path differs from all others. That class contains one input out of $2^{32}$.</li>
+                <li>Loops break the finiteness: <code>countdown(n)</code> has a different path for every number of iterations, so infinitely many (or $2^{31}$) classes.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame dg-frame">
+                <svg class="dg" viewBox="0 0 360 214" role="img" aria-label="All 2 to the 32 inputs of checkTheWrongThing map to two paths: every non-zero a goes along offsets 0 1 2 3 4 to divide by zero; only a equal to zero goes along 0 1 6 7 to ok.">
+                  <defs><marker id="da-arr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+                  <text x="10" y="16" class="b">Inputs a: 4,294,967,296 values</text>
+                  <rect class="box t" x="10" y="26" width="340" height="28" rx="6"/>
+                  <rect class="box ok" x="214" y="26" width="8" height="28"/>
+                  <text x="218" y="70" class="sm" text-anchor="middle">a = 0</text>
+                  <path class="ln" d="M90 56 L90 118" marker-end="url(#da-arr1)"/>
+                  <path class="ln" d="M240 66 C 260 84, 270 96, 272 118" marker-end="url(#da-arr1)"/>
+                  <rect class="box bad" x="10" y="122" width="168" height="58" rx="8"/>
+                  <text x="22" y="145" class="mono">path 0 1 2 3 4</text>
+                  <text x="22" y="167" class="b t-bad">divide by zero</text>
+                  <rect class="box ok" x="196" y="122" width="154" height="58" rx="8"/>
+                  <text x="208" y="145" class="mono">path 0 1 6 7</text>
+                  <text x="208" y="167" class="b t-ok">ok</text>
+                  <text x="10" y="202" class="sm">2^32 - 1 traces, one class</text>
+                  <text x="196" y="202" class="sm">1 trace, one class</text>
+                </svg>
+              </div>
+              <figcaption><b>Own figure.</b> Billions of traces, two path classes.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.29</span> Path-equivalence class</p>
+            <p>$$[\tau]_\pi = \{\, \tau' \in \Sem(p) \mid \forall i \in [0, \infty).\ (\tau'_i).\iota = (\tau_i).\iota \,\}$$</p>
+            <p class="read">"All traces of $p$ that have the same program counter as $\tau$ at every step", with both traces of the same length (a trace that stops earlier, for example in an error, differs at the first missing position). The notes start at $i = 1$; since every run starts at offset 0 this makes no difference.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.30</span> It is an equivalence relation</p>
+            <p>Writing $\pi(\tau) = (\tau_0.\iota)(\tau_1.\iota)(\tau_2.\iota)\cdots$ for the path of $\tau$, we have $\tau' \in [\tau]_\pi \iff \pi(\tau') = \pi(\tau)$. Equality of paths is reflexive, symmetric and transitive, so the classes partition $\Sem(p)$.</p>
+          </div>
+          <p><b>Worked example.</b> For <code>checkTheWrongThing</code>, $\pi(\tau) = 0\,1\,2\,3\,4$ for every $a \neq 0$ (then $\err(\text{`divide by zero'})$) and $\pi(\tau) = 0\,1\,6\,7$ for $a = 0$ (then $\ok$). So $\Sem(p)$ has exactly two classes, of sizes $2^{32} - 1$ and $1$.</p>
+        </div>
+        <div data-lab="paths"></div>
+        <div class="quiz" data-quiz="paths"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="coverage" data-part="The three phases" data-short="Coverage">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>Coverage</h2><p class="kicker">How much of the program did we actually see?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Coverage is the highlighter you drag over a textbook as you read: at the end you can see which pages you never touched. An unhighlighted page means either you never went there, or there is no way to get there at all.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Coverage measures how much of the program our traces exercised. Common variants: <strong>line coverage</strong> (source lines), <strong>branch coverage</strong> (each conditional jump taken both ways, or each control-flow edge) and <strong>instruction coverage</strong> (bytecode offsets).</li>
+                <li>Instruction coverage is especially nice: every trace in a path class visits the same instructions, so <strong>one run per path class</strong> already gives the coverage of the whole class.</li>
+                <li>So if some instruction is still uncovered, either we have not yet found the class that reaches it, or it is <strong>dead code</strong> that no input reaches.</li>
+                <li>Example: in <code>assertFalse</code> the final <code>return</code> is only reachable when assertions are disabled. Our semantics always reads <code>$assertionsDisabled</code> as false, so it is dead (in real Java it runs under <code>java -da</code>).</li>
+                <li>Full coverage is not full correctness: <code>return 100 / (x - 7)</code> is fully covered by the input $x = 1$, yet $x = 7$ divides by zero.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.31</span> Instruction coverage</p>
+            <p>$$\#_\iota(T) = \{\, \tau_i.\iota \mid i \in [0, \infty],\ \tau \in T \,\}$$</p>
+            <p class="read">"The set of program counters that appear anywhere in the set of traces $T$."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.32</span> One trace covers its whole path class</p>
+            <p>$$\#_\iota\big([\tau]_\pi\big) = \#_\iota\big(\{\tau\}\big)$$</p>
+            <details class="proof"><summary>Proof</summary><p>($\supseteq$) $\tau \in [\tau]_\pi$ and $\#_\iota$ is monotone. ($\subseteq$) Any $\tau' \in [\tau]_\pi$ has $\tau'_i.\iota = \tau_i.\iota$ for all $i$, so every program counter of $\tau'$ is already a program counter of $\tau$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 4.33</span> Uncovered means unexplored or dead</p>
+            <p>$\#_\iota$ is monotone ($T \subseteq T' \implies \#_\iota(T) \subseteq \#_\iota(T')$) and $\#_\iota(\Sem(p))$ is exactly the set of reachable instructions. Hence if $\iota \notin \#_\iota(T)$, either some unexplored class covers $\iota$, or $\iota \notin \#_\iota(\Sem(p))$ and $\iota$ is dead code.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.34</span> Branch (edge) coverage</p>
+            <p>$\mathbf{E}(T) = \{\, (\tau_i.\iota,\ \tau_{i+1}.\iota) \mid \tau \in T,\ i \geq 0 \,\}$, the control-flow edges taken. Coverage is often reported as a ratio, e.g. $|\#_\iota(T)| \,/\, |\text{instructions}|$.</p>
+          </div>
+        </div>
+        <div data-lab="coverage"></div>
+        <div class="quiz" data-quiz="coverage"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="trace-abstraction" data-part="The three phases" data-short="Trace abstraction">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>Trace abstraction</h2><p class="kicker">Record only what the question needs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A security camera that films everything in 4K forever fills its disk in a day. If all you want to know is whether the door opened, a counter on the door is enough. Recording less makes analysis cheaper, as long as you keep exactly what the question needs.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Storing the full state (locals, stack, heap) at every step is expensive and wasteful; most questions need very little of it.</li>
+                <li>To find an error, store only the final outcome. For coverage, store only the program counter of each step. For leaks, store only open and close events.</li>
+                <li>At one end of the spectrum, the analysis runs <strong>during</strong> the execution and can even react to it (stop the program, raise an alarm): this is <strong>runtime verification</strong> or runtime monitoring. (The notes left this name as <code>??</code>.)</li>
+                <li>At the other end, the analysis is so heavy, or only makes sense after a bug or an intrusion, that we record just enough of the trace and analyse it <strong>afterwards</strong> (post-mortem analysis, record and replay, forensics).</li>
+                <li>In an interpreter: do not keep a list of states; keep a set of program counters for coverage, or just the outcome.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.35</span> Trace abstraction</p>
+            <p>An abstraction of states $h : \State \to O$ is lifted pointwise to traces, $h(\tau) = h(\tau_0)\,h(\tau_1)\,h(\tau_2) \cdots$. A trace analysis $\TA_X$ can be computed from $h$ if there is $\TA'_X$ with
+            $$\forall \tau.\ \TA_X(\tau) = \TA'_X\big(h(\tau)\big).$$</p>
+            <p class="read">"Recording only $h$ of each state loses nothing that matters for $X$."</p>
+          </div>
+          <p>Examples: $h_{\mathtt{cover}}(s) = s.\iota$ suffices for $\TA_{\mathtt{cover}(i)}$ (check $i \in h_{\mathtt{cover}}(\tau)$); for $\TA_{\ok}$ it suffices to keep the last state. For $\TA_{\mathtt{res}}$ a <em>monitor</em> can even work online with a small memory: keep the set $m$ of currently open resources, $m_0 = \emptyset$, $m_{i+1} = (m_i \cup \text{opened}_i) \setminus \text{closed}_i$; a finite trace leaks iff its final $m$ is non-empty.</p>
+        </div>
+        <div class="quiz" data-quiz="trace-abstraction"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Running the program</h2></div>
+
+      <!-- 13 -->
+      <section class="topic" id="run-or-not" data-part="Running the program" data-short="To run or not to run">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>To run or not to run</h2><p class="kicker">What executing the program buys you, and what it costs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A test drive tells you a lot about a car, and if it breaks down you have undeniable proof. But you cannot test drive a car whose garage you cannot reach, a test drive of a car with no brakes is dangerous, and driving for an hour never proves it will not break down in the second hour.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p><b>Why we should run the program</b></p>
+              <ul>
+                <li>Most languages come with an interpreter or a runtime, so running can be <em>easier</em> than parsing and analysing the code (no syntactic analysis needed).</li>
+                <li>The analysis can hand you a <strong>concrete trace</strong> that produces the error: the input, the steps, the crash. That makes the bug easy to debug and impossible to dismiss.</li>
+                <li>A dynamic analysis under-approximates the set of traces, so <strong>every warning is real</strong> (Proposition 4.2).</li>
+              </ul>
+              <p><b>Why we should not (or cannot) run it</b></p>
+              <ul>
+                <li>Setting up the right <strong>environment</strong> (databases, configuration, hardware, network) can be hard, or impossible outside production.</li>
+                <li>Warning that something can happen by <em>doing</em> it is a problem when the program has <strong>side effects</strong>: deleting the database, sending emails, firing the missiles. You need sandboxes or mocks.</li>
+                <li>Running can <strong>never show that something cannot happen</strong>, for example that the program runs forever. A timeout is a guess, not a proof.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.36</span> Absence is not observable</p>
+            <p>If $T \subsetneq \Sem(p)$ and $\forall \tau \in T.\ \neg Q(\tau)$, then both $p \models^{\may} Q$ and $\neg(p \models^{\may} Q)$ remain possible.</p>
+            <p class="read">"Not having seen $Q$ in some runs says nothing about the runs you did not see."</p>
+            <details class="proof"><summary>Proof (by example)</summary><p>Take $T$ = the runs of <code>divideByN</code> for $n \in \{1, 2, 3\}$: none divides by zero, yet $n = 0$ does. Take the same inputs for <code>divideAfterCheck</code>: none divides by zero, and indeed no input does. The observations are identical in kind, the truths differ. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.37</span> Non-termination is not observable in finite time</p>
+            <p>For every step budget $N$ there are a terminating trace and a non-terminating trace that agree on their first $N$ states. So no procedure that inspects only $N$ steps can tell them apart.</p>
+            <details class="proof"><summary>Proof (by example)</summary><p><code>countdown(n)</code> loops while $n \neq 0$ and needs about $4n + 1$ steps. With $n = N$ it terminates, but after $N$ steps it looks exactly like a run that never stops (in the idealised semantics, $n = -1$). Our interpreter reports both as <code>*</code>. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="run-or-not"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="testing" data-part="Running the program" data-short="Testing">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>Testing: an interpreter as an analysis</h2><p class="kicker">The simplest dynamic analysis there is</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A test is one experiment with a known expected result: put in two coins, expect a soda. An interpreter, like the one the semantics lecture builds, already performs experiments: give it a method and an input and it tells you what happens. Turning it into an analysis is mostly a matter of deciding what to say about the experiments you did not run.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>test</strong> runs the program with a given input and checks that it succeeds. Real tests usually care about more than "did not crash"; in most languages extra checks are written as <strong>assertions</strong> (<a href="#assertions">topic 16</a>).</li>
+                <li>An interpreter is already a dynamic analysis for methods <strong>without inputs</strong>: there is only one initial state, and the JVM is deterministic, so the one run you make <em>is</em> the whole semantics.</li>
+                <li>So for a method with no arguments you may say <code>yes</code> to the outcome you observed and <code>no</code> to all the others. For methods with arguments, one run proves only what it found.</li>
+                <li>The only gap: if the run hits your step limit you observe <code>*</code>, which is a guess (<a href="#run-or-not">topic 13</a>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.38</span> Test</p>
+            <p>A test is a pair $(\sigma, O)$ of an initial state and an oracle $O : \Trace \to \{\mathit{pass}, \mathit{fail}\}$. Program $p$ passes it iff $\forall \tau \in \Select(p, \sigma).\ O(\tau) = \mathit{pass}$. The default oracle is $\TA_{\ok}$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.39</span> No inputs means one run is exact</p>
+            <p>If $p$ is deterministic and $I_p = \{\sigma_0\}$ (no parameters, fixed environment), then $\Sem(p) = \{\tau\}$ with $\tau \in \Select(p, \sigma_0)$, and for every outcome $o$:
+            $$p \models^{\may} (\tau_{-1} = o) \iff \tau_{-1} = o.$$</p>
+            <p class="read">"For a method without inputs, what the single run does is exactly what the method can do."</p>
+            <details class="proof"><summary>Proof</summary><p>Proposition 4.16 gives $\Sem(p) = \Select(p, \sigma_0)$ and Proposition 4.18 says this set has exactly one element. A may property over a one-element set is just the property of that element. (If $\tau$ is infinite we only ever observe a prefix, see Proposition 4.37.) <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="testing"></div>
+      </section>
+
+      <!-- 15 -->
+      <section class="topic" id="snapshot" data-part="Running the program" data-short="Snapshot testing">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>Characterization and snapshot testing</h2><p class="kicker">When you do not know the right answer, freeze today's</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Before renovating an old house without blueprints, you photograph every room. After the work you take the photos again and compare: anything that changed but was not supposed to is a mistake you introduced. You never needed to know what the "correct" house looks like, only what it looked like before.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Often it is too complicated, or subjective, to check that an output is <em>correct</em> (a rendered page, a compiler's output, legacy code nobody understands).</li>
+                <li>Instead, save the output, or a trace of the steps that produced it, to a file. Check it once by hand, then commit it to the repository: the <strong>snapshot</strong> or <strong>golden master</strong>.</li>
+                <li>Every later run compares against the stored file. If nothing changed, the behaviour is the same; if something changed, you either introduced a <strong>regression</strong> or you update the snapshot on purpose.</li>
+                <li>A <strong>characterization test</strong> documents what the code <em>does</em>, not what it <em>should</em> do. Perfect for catching regressions, for example before refactoring legacy code; useless for finding bugs that were already there when the snapshot was taken.</li>
+                <li>What you store matters: storing only the output misses changes in how it was computed; storing the full trace catches more but breaks on harmless refactorings. Good snapshots are small and focused.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.40</span> Snapshot test</p>
+            <p>Fix an abstraction $h$ of traces (<a href="#trace-abstraction">topic 12</a>) and inputs $\sigma_1, \ldots, \sigma_k$. For the old program $p$ record the golden master $G_j = h(\tau^j)$ with $\tau^j \in \Select(p, \sigma_j)$. A new version $p'$ passes iff
+            $$\forall j.\ \forall \tau' \in \Select(p', \sigma_j).\ h(\tau') = G_j.$$</p>
+            <p class="read">"On every recorded input, the new version produces the same recorded view of the run as the old one."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.41</span> Finer snapshots catch more regressions</p>
+            <p>If $h_1 = g \circ h_2$ for some function $g$ ($h_2$ records at least as much as $h_1$), then every change detected by $h_1$ is also detected by $h_2$.</p>
+            <details class="proof"><summary>Proof</summary><p>Contrapositive: if $h_2(\tau) = h_2(\tau')$ then $g(h_2(\tau)) = g(h_2(\tau'))$, i.e. $h_1(\tau) = h_1(\tau')$. So whenever $h_2$ sees no difference, neither does $h_1$. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div data-lab="golden"></div>
+        <div class="quiz" data-quiz="snapshot"></div>
+      </section>
+
+      <!-- 16 -->
+      <section class="topic" id="assertions" data-part="Running the program" data-short="Assertions and sanitizers">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>Assertions, Tiger Style and sanitizers</h2><p class="kicker">Make bugs crash early, loudly and close to the cause</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A bug that silently corrupts data is discovered weeks later, far away from where it happened. An assertion is a tripwire you stretch across the code: "at this point, this must be true". When the tripwire snaps, the crash points right at the problem instead of somewhere downstream.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><code>assert e</code> throws an <code>AssertionError</code> when <code>e</code> is false. Tests then check much more than "did not crash": every assertion on the way is checked too.</li>
+                <li>The big win: programmer errors are caught <strong>early</strong> and <strong>close to the bug</strong>, instead of as part of a confusing crash later on.</li>
+                <li><strong>Tiger Style</strong> (the style guide of the TigerBeetle database) requires at least <strong>two assertions per function</strong>, checking both the <em>positive space</em> (what you expect) and the <em>negative space</em> (what you do not expect).
+                  <pre><code class="language-java">public static int square(int height, int width) {
+  assert height > 0;
+  assert width > 0;
+  return height * width;
+}</code></pre></li>
+                <li>Java is memory safe: array bounds, null dereferences and division by zero are checked at runtime. These are <strong>automatically inserted assertions</strong>, and they are exactly the JPAMB outcomes <code>out of bounds</code>, <code>null pointer</code> and <code>divide by zero</code>.</li>
+                <li>C and C++ have no such checks. <strong>Sanitizers</strong> (AddressSanitizer, UndefinedBehaviorSanitizer, MemorySanitizer, LeakSanitizer) compile extra runtime checks into the binary and are typically combined with fuzzing.</li>
+                <li>Java assertions are disabled by default (enable with <code>java -ea</code>). That is what the static field <code>$assertionsDisabled</code> in the bytecode is for; JPAMB runs with assertions enabled.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.42</span> Assertion semantics</p>
+            <p>An assertion $\mathtt{assert}\ \varphi$ at program point $\iota_a$ (with $\varphi$ free of side effects) adds the transition
+            $$\frac{s.\iota = \iota_a \quad \neg\varphi(s)}{s \to \err(\text{`assertion error'})}$$
+            and otherwise continues as if it were not there. Compiled to bytecode it is the pattern <code>get $assertionsDisabled</code>, <code>ifz ne</code>, the test of $\varphi$, then <code>new AssertionError</code>, <code>dup</code>, <code>invoke special</code>, <code>throw</code> (see <a href="semantics.html#reading-bytecode">reading bytecode</a>).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.43</span> Assertions only cut runs short</p>
+            <p>Let $p'$ be $p$ with a side-effect-free assertion inserted. Then every trace of $p'$ is either a trace of $p$ (up to the extra bookkeeping steps of the check) or a prefix of a trace of $p$ followed by $\err(\text{`assertion error'})$.</p>
+            <p class="read">"An assertion never invents new behaviour; it only turns a run that reaches a bad state into an immediate, visible failure."</p>
+            <details class="proof"><summary>Proof sketch</summary><p>Where $\varphi$ holds, the assertion's steps only read the state and fall through, so the run continues exactly as in $p$. At the first point where $\varphi$ fails, $p'$ stops with the error while $p$ would continue; the part before is a prefix of $p$'s trace. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="assertions"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 4</span><h2>Selecting input: fuzzing</h2></div>
+
+      <!-- 17 -->
+      <section class="topic" id="fuzzing" data-part="Selecting input" data-short="Fuzzing">
+        <header class="topic-head">
+          <span class="topic-num">17</span>
+          <div><h2>Fuzzing: automated trace selection</h2><p class="kicker">Let the computer pick the inputs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of writing test inputs by hand, you hire a tireless monkey to type random things into your program all night, and in the morning you only look at the cases where it broke something. Smarter monkeys remember which kinds of typing got them further into the program.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>One of the most successful dynamic analysis strategies is <strong>fuzzing</strong>. Following Zeller et al., <em>The Fuzzing Book</em> (2024): fuzz testing is about automating software testing by <strong>automatically generating tests</strong>.</li>
+                <li>In terms of the three phases, fuzzing is all about <strong>trace selection</strong>. The analysis part is usually simple: did it crash, did an assertion or a sanitizer fire.</li>
+                <li>The strategies in this lecture: <a href="#random">random inputs</a>, <a href="#dictionary">dictionaries</a>, <a href="#coverage-guided">coverage-guided fuzzing</a>, <a href="#small-scope">small-scope enumeration</a>, and <a href="#pbt">property-based testing</a> as the way to check the results of random inputs.</li>
+                <li>Every strategy is a way of spreading probability over the inputs. The art is to put enough probability on the rare classes where the bugs live.</li>
+                <li>Real tools: AFL++ and libFuzzer (C/C++), Jazzer (Java), Hypothesis (Python, property-based).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.44</span> Fuzzer</p>
+            <p>A fuzzer is a (possibly randomised) procedure that produces initial states $\sigma_1, \sigma_2, \ldots, \sigma_N \in I_p$, where $\sigma_{k+1}$ may depend on the traces observed so far. It is <em>black-box</em> if $\sigma_{k+1}$ ignores the traces, and <em>feedback-driven</em> (grey-box, e.g. coverage-guided) otherwise. The fuzzer's dynamic analysis uses $T = \{\tau^1, \ldots, \tau^N\}$ with $\tau^k \in \Select(p, \sigma_k)$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.45</span> Hit probability</p>
+            <p>A black-box strategy is a probability distribution $\mu$ over $I_p$. For a set of inputs $C$ (for example all inputs whose trace lies in one path class, or all inputs that trigger a bug), its hit probability per try is $\mu(C) = \sum_{\sigma \in C} \mu(\sigma)$.</p>
+            <p class="read">"How likely one generated input is to land in $C$."</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="fuzzing"></div>
+      </section>
+
+      <!-- 18 -->
+      <section class="topic" id="random" data-part="Selecting input" data-short="Random inputs">
+        <header class="topic-head">
+          <span class="topic-num">18</span>
+          <div><h2>Random inputs</h2><p class="kicker">Roll the dice and hope the classes are big</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Throwing darts blindfolded at a dartboard: you will quickly hit the big areas, but you could spend a lifetime trying to hit the tiny bullseye. Random testing finds the behaviours that many inputs share and misses the ones that only a few inputs trigger.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The easiest way to start fuzzing: pick each argument at random from its type's domain and see whether the run fails.</li>
+                <li>It works because many programs' traces are approximated by relatively few inputs. The hypothesis is that the <strong>input space roughly corresponds to the path space</strong>, which is true for code like
+<pre><code class="language-java">void split(int i) {
+  if (i > 0) {
+    ...
+  } else {
+    ...
+  }
+}</code></pre>
+                  with two path classes, $i > 0$ and $i \leq 0$, each hit with probability about $\tfrac12$.</li>
+                <li>It fails for small classes: <code>assert i != 1000000</code> is violated by one input out of $2^{32}$; the expected number of tries is over four billion.</li>
+                <li>Rule of thumb: a class with hit probability $p$ needs about $1/p$ tries, and $N$ tries find it with probability $1 - (1-p)^N$.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.46</span> Uniform random selection</p>
+            <p>Over a finite domain $D$ (e.g. all $2^{32}$ values of an <code>int</code>), $\mu(\sigma) = 1/|D|$, so a class $C$ is hit with probability $p_C = |C \cap D| \,/\, |D|$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.47</span> Waiting for a hit (geometric distribution)</p>
+            <p>With independent tries that each hit $C$ with probability $p \gt 0$:
+            $$\Pr[\text{first hit at try } k] = (1-p)^{k-1}\,p, \qquad \Pr[\text{hit within } N \text{ tries}] = 1 - (1-p)^N, \qquad \mathbb{E}[\text{tries}] = \frac{1}{p}.$$</p>
+            <details class="proof"><summary>Proof</summary><p>Missing $k-1$ times and then hitting has probability $(1-p)^{k-1}p$ by independence. Missing all $N$ tries has probability $(1-p)^N$, giving the second formula. For the expectation, $\sum_{k \geq 1} k (1-p)^{k-1} p = p \cdot \frac{1}{(1-(1-p))^2} = \frac{1}{p}$, using $\sum_{k\geq1} k x^{k-1} = \frac{1}{(1-x)^2}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p><b>Worked example.</b> For <code>isNotAMillion</code>, $p = 2^{-32} \approx 2.3 \cdot 10^{-10}$. A 50% chance needs $N \approx \ln 2 / p \approx 3 \cdot 10^9$ tries. For <code>split</code>, $p \approx \tfrac12$: two tries on average.</p>
+        </div>
+        <div data-lab="random"></div>
+        <div class="quiz" data-quiz="random"></div>
+      </section>
+
+      <!-- 19 -->
+      <section class="topic" id="dictionary" data-part="Selecting input" data-short="Dictionaries">
+        <header class="topic-head">
+          <span class="topic-num">19</span>
+          <div><h2>Dictionaries</h2><p class="kicker">Steal the magic numbers from the code</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If a safe's combination is written on a sticky note on the same desk, you try that number before any random ones. Programs very often compare their inputs to constants written right there in the code, so the code itself tells you which values are worth trying.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Not all branches split the input space in halves; some check for one specific value:
+<pre><code class="language-java">void isEqualToZero(int i) {
+  if (i == 0) {
+    ...
+  } else {
+    ...
+  }
+}</code></pre></li>
+                <li>The trick: first run a <a href="syntactic-analysis.html#what">syntactic analysis</a> that scans the code for constants such as <code>1</code>, <code>1000000</code> or <code>"test"</code>, put them in a <strong>dictionary</strong>, and sample from the dictionary some of the time when choosing values.</li>
+                <li>Adding the neighbours $c - 1$ and $c + 1$ helps with <code>&lt;</code> and <code>&lt;=</code> comparisons (boundary values).</li>
+                <li>Using a syntactic analysis to feed a dynamic one makes this a <strong>hybrid</strong> analysis.</li>
+                <li>Limits: constants computed at runtime (<code>x * 7 == 1001</code> needs 143, which is not in the code), checksums, and comparisons between two inputs.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.48</span> Dictionary sampling</p>
+            <p>Let the dictionary be the constants of $p$, $D_p = \{v \mid (\mathtt{push{:}I}\ v) \in p\}$ (optionally closed under $\pm 1$). With mixing weight $q \in [0, 1]$:
+            $$\mu = q \cdot \mathrm{Unif}(D_p) + (1 - q) \cdot \mathrm{Unif}(\mathtt{int32}).$$</p>
+            <p class="read">"With probability $q$ take a constant from the code, otherwise a random int."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.49</span> Constants become likely</p>
+            <p>For every $c \in D_p$: $\ \mu(\{c\}) \geq q \,/\, |D_p|$.</p>
+            <details class="proof"><summary>Proof</summary><p>The dictionary branch alone contributes $q \cdot 1/|D_p|$; the random branch adds a non-negative amount. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p><b>Worked example.</b> <code>isNotAMillion</code> has $D_p = \{1000000\}$. With $q = \tfrac12$ the bug input is hit with probability at least $\tfrac12$ per try: about 2 tries instead of about $4.3 \cdot 10^9$.</p>
+        </div>
+        <div data-lab="dictionary"></div>
+        <div class="quiz" data-quiz="dictionary"></div>
+      </section>
+
+      <!-- 20 -->
+      <section class="topic" id="coverage-guided" data-part="Selecting input" data-short="Coverage-guided fuzzing">
+        <header class="topic-head">
+          <span class="topic-num">20</span>
+          <div><h2>Coverage-guided fuzzing</h2><p class="kicker">Keep the inputs that teach you something new</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Picture a combination lock that clicks every time one more digit is right. Guessing all five digits at once is hopeless. But if you keep every guess that produced a new click and keep tweaking from there, you open the lock digit by digit.</p>
+              <p>Coverage-guided fuzzing uses "reached new code" as the click.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Random and dictionary inputs are bad at steering the execution down a specific path. Consider:
+<pre><code class="language-java">@Case("([C: 'h','e','l','l','o']) -> ok")
+@Case("([C: 'x']) -> assertion error")
+@Case("([C: ]) -> out of bounds")
+@Tag({ ARRAY })
+public static void arraySpellsHello(char[] array) {
+  assert array[0] == 'h'
+      && array[1] == 'e'
+      && array[2] == 'l'
+      && array[3] == 'l'
+      && array[4] == 'o';
+}</code></pre>
+                  Random bytes spell "hello" with probability $256^{-5} \approx 10^{-12}$.</li>
+                <li><strong>Coverage-guided fuzzing</strong> (as in AFL++, Fioraldi et al. 2020) manipulates a list of byte strings called <strong>test cases</strong>. The user supplies a function that parses a byte string into an input for the program.</li>
+                <li>Start with the empty byte string, run it, record its coverage (the bytecode offsets it executes) and put it in the list of <strong>interesting</strong> cases. Then, while we have interesting test cases:
+                  <ol>
+                    <li>pick a test case and mutate it: change a byte, remove a byte or append a byte;</li>
+                    <li>run it and see if it adds coverage compared to the previous cases;</li>
+                    <li>if it does, add it to the interesting cases, otherwise ignore it;</li>
+                    <li>repeat.</li>
+                  </ol></li>
+                <li>Why it finds "hello": getting character $k$ right makes the run reach the instructions that compare character $k+1$, which is new coverage, so the input is kept and later mutations build on it. Five small searches of about 256 tries replace one search of $256^5$.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame dg-frame">
+                <svg class="dg" viewBox="0 0 360 262" role="img" aria-label="Coverage-guided fuzzing loop: the corpus of interesting inputs, pick one and mutate it, run it and record coverage, if it adds new coverage add it to the corpus, otherwise discard it.">
+                  <defs><marker id="da-arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+                  <rect class="box a" x="8" y="10" width="150" height="56" rx="10"/>
+                  <text x="20" y="34" class="b">corpus</text>
+                  <text x="20" y="54" class="sm">interesting inputs</text>
+                  <rect class="box" x="202" y="10" width="150" height="56" rx="10"/>
+                  <text x="214" y="34" class="b">pick + mutate</text>
+                  <text x="214" y="54" class="sm">change, remove, append</text>
+                  <rect class="box t" x="202" y="104" width="150" height="56" rx="10"/>
+                  <text x="214" y="128" class="b">run p</text>
+                  <text x="214" y="148" class="sm">record coverage</text>
+                  <rect class="box f" x="202" y="198" width="150" height="56" rx="10"/>
+                  <text x="214" y="222" class="b">new coverage?</text>
+                  <text x="214" y="242" class="sm">vs. all seen so far</text>
+                  <path class="ln" d="M160 38 L198 38" marker-end="url(#da-arr2)"/>
+                  <path class="ln" d="M277 68 L277 100" marker-end="url(#da-arr2)"/>
+                  <path class="ln" d="M277 162 L277 194" marker-end="url(#da-arr2)"/>
+                  <path class="ln ok" d="M200 226 C 110 226, 83 160, 83 70" marker-end="url(#da-arr2)"/>
+                  <text x="60" y="196" class="b t-ok">yes: add</text>
+                  <text x="60" y="212" class="sm">to the corpus</text>
+                  <text x="60" y="250" class="sm">no: discard and try again</text>
+                </svg>
+              </div>
+              <figcaption><b>Own figure.</b> The coverage-guided loop from the notes.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.50</span> Corpus and coverage</p>
+            <p>Let $\mathit{parse} : \mathbf{Bytes}^* \to I_p$ turn byte strings into inputs and $\mathit{cov}(b) = \#_\iota\big(\Select(p, \mathit{parse}(b))\big)$. The fuzzer keeps a corpus $C \subseteq \mathbf{Bytes}^*$ and the total coverage $K = \bigcup_{b \in C} \mathit{cov}(b)$. A mutant $b'$ of some $b \in C$ is added iff
+            $$\mathit{cov}(b') \not\subseteq K.$$</p>
+            <p class="read">"Keep a new input only if it executes at least one instruction no earlier input executed."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.51</span> The corpus stays small</p>
+            <p>Starting from one seed, $|C| \leq 1 + |\text{instructions of } p|$.</p>
+            <details class="proof"><summary>Proof</summary><p>The seed covers at least one instruction, and every later addition strictly enlarges $K \subseteq \text{instructions}$ by at least one element. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p><b>Back of the envelope for "hello".</b> To make progress at the frontier we must pick the deepest test case (about $1/|C|$), choose a useful mutation (about $1/3$ to $2/3$) and the right byte ($1/256$). That is roughly $|C| \cdot 3 \cdot 256 \approx 10^4$ executions per character, so $10^4$ to $10^5$ in total, against $\approx 10^{12}$ for blind random search.</p>
+        </div>
+        <div data-lab="cgf"></div>
+        <div class="quiz" data-quiz="coverage-guided"></div>
+      </section>
+
+      <!-- 21 -->
+      <section class="topic" id="pbt" data-part="Selecting input" data-short="Property-based testing">
+        <header class="topic-head">
+          <span class="topic-num">21</span>
+          <div><h2>Property-based testing</h2><p class="kicker">Random inputs need properties, not expected values</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If a robot invents a million random test inputs, nobody can write down the expected answer for each one. Instead you write rules that every correct answer must obey, like "the output of a sort is in order and contains the same elements as the input". When a rule breaks, the robot then shrinks the failing input until it is as small as possible, so you can see the bug at a glance.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>With generated inputs we cannot test for <em>equality with a fixed expected value</em>; we test <strong>properties</strong> that must hold for every input. This is property-based testing.</li>
+                <li>Typical properties: agreement with a reference implementation, invariants ("the output is ordered", "same length"), round trips (<code>parse(pretty(x)) == x</code>), idempotence (<code>sort(sort(x)) == sort(x)</code>).</li>
+                <li>The Python library <a href="https://hypothesis.readthedocs.io/en/latest/index.html">Hypothesis</a> does this. Its documentation tests that <code>my_sort</code> agrees with the built-in sort on all lists of integers and floats:
+<pre><code class="language-python">from hypothesis import given, strategies as st
+
+@given(st.lists(st.integers() | st.floats()))
+def test_sort_correct(lst):
+    # lst is a random list of numbers
+    assert my_sort(lst) == sorted(lst)
+
+test_sort_correct()</code></pre></li>
+                <li>When a property fails, Hypothesis <strong>shrinks</strong> the counterexample: it keeps trying smaller variants (fewer elements, numbers closer to zero) that still fail, and reports the smallest one.</li>
+                <li>The course repository uses Hypothesis to test the fuzzer itself (the extra-fuzzer commit, <a href="#coverage-guided">topic 20</a>) and the sign abstraction next week.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>With <code>st.floats()</code>, Hypothesis also generates <code>nan</code>, and <code>nan != nan</code>. So <code>my_sort(lst) == sorted(lst)</code> can fail even for a perfect sort (and Python's <code>sorted</code> does not order lists containing <code>nan</code> consistently). Properties have to be written with the data type's corner cases in mind; here, exclude NaN with <code>st.floats(allow_nan=False)</code>.</div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.52</span> Property-based test</p>
+            <p>A generator $G$ (a distribution over a domain $D$) and a predicate $P : D \to \{\mathtt{tt}, \mathtt{ff}\}$. The test draws $x_1, \ldots, x_N \sim G$ and fails with counterexample $x_k$ if $\neg P(x_k)$. It checks the must claim $\forall x \in D.\ P(x)$ dynamically: passing is complete but not sound, failing is a sound refutation (Proposition 4.23).</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.53</span> Shrinking</p>
+            <p>Fix a well-founded "simpler than" relation $\prec$ on $D$ (shorter list, smaller absolute values). Given a counterexample $x$, repeatedly replace it by some $x' \prec x$ with $\neg P(x')$ until no such $x'$ is found among the candidates.</p>
+            <p class="read">"Keep simplifying the failing input as long as it still fails."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.54</span> Shrinking terminates</p>
+            <p>Shrinking stops after finitely many steps, at an input that is <em>locally</em> minimal (no candidate simplification still fails).</p>
+            <details class="proof"><summary>Proof</summary><p>Each step moves strictly down $\prec$; since $\prec$ is well-founded there is no infinite descending chain. Local minimality is the stopping condition. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div data-lab="pbt"></div>
+        <div class="quiz" data-quiz="pbt"></div>
+      </section>
+
+      <!-- 22 -->
+      <section class="topic" id="small-scope" data-part="Selecting input" data-short="Small-scope hypothesis">
+        <header class="topic-head">
+          <span class="topic-num">22</span>
+          <div><h2>The small-scope hypothesis</h2><p class="kicker">Most bugs show up on small inputs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Most cooking disasters can be reproduced in a small pot: you do not need to cook for 500 people to discover that the recipe burns. So instead of throwing huge random inputs at a program, systematically try <em>every</em> small input first.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The alternative to random fuzzing: test all inputs up to some small size, deterministically. Model checkers like Alloy (Jackson 2006) and testing frameworks like SmallCheck (Runciman et al. 2008) use this idea. Andoni et al. (2003) evaluated the hypothesis; Prikler and Wotawa (2025) revisited it for answer set programs.</li>
+                <li>Advantages: it is <strong>deterministic</strong> (always tests the same inputs and covers all small values up to depth $d$), and the first buggy input found is the <strong>smallest</strong> one that causes the error (no shrinking needed).</li>
+                <li>It excels at boundary cases: empty lists, zero, one element, <code>isEqualToZero</code>.</li>
+                <li>The clear disadvantage: an error hiding behind a big value.
+<pre><code class="language-java">void isEqualToAMillion(int i) {
+  if (i == 1000000) {
+    ...
+  } else {
+    ...
+  }
+}</code></pre></li>
+                <li>The number of inputs explodes with the number of parameters: $k$ ints at depth $d$ give $(2d+1)^k$ combinations.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.55</span> The small-scope hypothesis</p>
+            <p>Most bugs in a program can be found by investigating only a small section of the inputs: if $p$ has a bug, it usually has one triggered by an input of small size.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.56</span> Depth-bounded domains</p>
+            <p>For integers, $D_d = \{-d, \ldots, -1, 0, 1, \ldots, d\}$, exactly what <code>gen_int(d)</code> yields. For $k$ integer parameters the depth-$d$ inputs are $D_d^{\,k}$, with
+            $$|D_d^{\,k}| = (2d+1)^k.$$</p>
+            <p class="read">"Each parameter has $2d+1$ small values, and all combinations are tried."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.57</span> Iterative deepening finds a smallest counterexample</p>
+            <p>Run depths $d = 0, 1, 2, \ldots$ in order. The first failing input found has the minimal size $\max_i |x_i|$ among all failing inputs (up to the depth bound $D$).</p>
+            <details class="proof"><summary>Proof</summary><p>Suppose the first failure is found at depth $d$. Every input of size $\lt d$ lies in $D_{d-1}^{\,k}$, which was tested completely without failure at earlier depths. So no failing input is smaller than $d$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>Iterative deepening re-runs the smaller inputs at each depth; the total work up to $D$ is $\sum_{d=0}^{D} (2d+1)^k \leq (D+1)(2D+1)^k$, at most a factor $D+1$ more than the last depth alone. For <code>isEqualToAMillion</code> we need $d = 10^6$: about $2 \cdot 10^6$ inputs at that depth, and about $10^{12}$ with re-runs.</p>
+        </div>
+        <div data-lab="smallcheck"></div>
+        <div class="quiz" data-quiz="small-scope"></div>
+      </section>
+
+      <!-- 23 -->
+      <section class="topic" id="showdown" data-part="Selecting input" data-short="Strategy showdown">
+        <header class="topic-head">
+          <span class="topic-num">23</span>
+          <div><h2>Strategy showdown</h2><p class="kicker">Which fuzzer finds which bug?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Different fishing nets catch different fish. A wide net catches the common ones, bait catches the one fish that likes that specific bait, and a net with small holes catches the small ones. A good fisher carries several nets.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Random</strong> wins when bug classes are big (<code>checkTheWrongThing</code>: every $a \neq 0$, <code>assertPositive</code>: half of all ints).</li>
+                <li><strong>Dictionaries</strong> win when the bug sits at a constant written in the code (<code>isNotAMillion</code>).</li>
+                <li><strong>Small-scope enumeration</strong> wins at boundaries and small values (<code>divideByN</code> at 0) and gives minimal counterexamples.</li>
+                <li><strong>Coverage guidance</strong> wins when a deep path is guarded by a sequence of checks that can be passed one at a time (<code>arraySpellsHello</code>).</li>
+                <li>Non-termination (<code>countdown</code> with a negative input) is only ever <em>guessed</em> through timeouts, and large positive inputs that are merely slow time out too.</li>
+                <li>Since no strategy dominates, practical fuzzers mix them, and the lab below lets you see each one's strengths on the same programs.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.58</span> A mixture is never much worse than its parts</p>
+            <p>Let $\mu_{\mathit{mix}} = \sum_j w_j \mu_j$ with weights $w_j \geq 0$, $\sum_j w_j = 1$. For every set of inputs $C$ and every $j$:
+            $$\mu_{\mathit{mix}}(C) \geq w_j\, \mu_j(C), \qquad\text{so}\qquad \mathbb{E}_{\mathit{mix}}[\text{tries to hit } C] \leq \frac{1}{w_j}\, \mathbb{E}_{j}[\text{tries to hit } C].$$</p>
+            <p class="read">"Mixing four strategies equally costs at most a factor four against the best of them, on every bug."</p>
+            <details class="proof"><summary>Proof</summary><p>All terms of the sum are non-negative, so dropping all but the $j$-th gives the first inequality. The second follows from Proposition 4.47, $\mathbb{E} = 1/\mu(C)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div data-lab="showdown"></div>
+        <div class="quiz" data-quiz="showdown"></div>
+      </section>
+
+      <!-- 24 -->
+      <section class="topic" id="predictions" data-part="Selecting input" data-short="From observations to predictions">
+        <header class="topic-head">
+          <span class="topic-num">24</span>
+          <div><h2>From observations to predictions</h2><p class="kicker">Turning what the runs showed into JPAMB bets</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>In the end you have to place bets. Things you saw happen are safe bets. Things you could not have missed (because there was only one possible run) are safe "no" bets. Everything else gets a careful "maybe", and JPAMB works out how much each kind of bet is really worth.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><b>From observations to categories.</b> For each of the six outcomes (<code>ok</code>, <code>divide by zero</code>, <code>assertion error</code>, <code>out of bounds</code>, <code>null pointer</code>, <code>*</code>):
+                  <ul>
+                    <li>observed in some run: <code>yes</code> (sound, Proposition 4.2);</li>
+                    <li><code>*</code> observed only as a timeout: its own category such as <code>timeout</code>, because it is a guess;</li>
+                    <li>not observed and the method has no inputs: <code>no</code> (exact, Proposition 4.39);</li>
+                    <li>not observed otherwise: <code>maybe</code>.</li>
+                  </ul></li>
+                <li><b>Scoring</b> (<a href="introduction.html#scoring">details</a>): JPAMB groups your predictions by category, computes for each category the fraction that is actually true, converts it into a wager, and scores every prediction: $1 - \frac{1}{|w|+1}$ points if you are right, $-|w|$ if you are wrong.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.59</span> Predictions from observations</p>
+            <p>For observed traces $T$ and outcome $o$, let $\mathit{found}(o) \equiv \exists \tau \in T.\ \tau_{-1} = o$. The category is
+            $$\mathit{cat}(o) = \begin{cases} \mathtt{yes} & \text{if } \mathit{found}(o) \\ \mathtt{no} & \text{if } \neg \mathit{found}(o) \wedge |I_p| = 1 \\ \mathtt{maybe} & \text{otherwise.} \end{cases}$$</p>
+            <p class="read">"Say yes to what you saw, no to what you could not have missed, maybe to the rest."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 4.60</span> Which predictions are safe</p>
+            <p>For $o \neq \mathtt{*}$, a <code>yes</code> is never wrong (Proposition 4.2). For a deterministic method without inputs whose run terminates, a <code>no</code> is never wrong (Proposition 4.39). Only <code>maybe</code> (and timeout-based <code>*</code>) predictions carry real uncertainty.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 4.61</span> JPAMB wagers and points</p>
+            <p>A category whose predictions are true with frequency $p$ is turned into a wager
+            $$w(p) = \begin{cases} \pm\infty & p \in \{1, 0\} \\ \operatorname{sign} \cdot \dfrac{2p' - 1}{2(1 - p')} & \text{otherwise, with } p' = \max(p, 1-p), \end{cases}$$
+            positive when $p \geq \tfrac12$, negative otherwise. A prediction with wager $w$ earns $1 - \frac{1}{|w| + 1}$ points if it is right (for $w \gt 0$ the outcome happens, for $w \lt 0$ it does not) and $-|w|$ if it is wrong.</p>
+            <p class="read">"Confident categories bet more; a right bet earns at most 1 point, a wrong bet loses the whole stake."</p>
+          </div>
+        </div>
+        <div data-lab="analysis"></div>
+        <div class="quiz" data-quiz="predictions"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">The definitions and numbers worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>May and must</h3><div class="mathbox">$p \models^{\may} Q \equiv \exists \tau \in \Sem(p).\ Q(\tau)$<br>$p \models^{\must} Q \equiv \forall \tau \in \Sem(p).\ Q(\tau)$</div><p>Duality: $\neg(p \models^{\may} Q) \equiv p \models^{\must} \neg Q$.</p></div>
+          <div class="cheat-item"><h3>Sound and complete</h3><div class="mathbox">sound: $p \vdash^{\may} Q \Rightarrow p \models^{\may} Q$<br>complete: $p \models^{\may} Q \Rightarrow p \vdash^{\notmay} Q$</div><p>Same with must. Never both for non-trivial properties (Rice). $\neg(p \vdash^{\notmay} Q)$ is a sound $p \vdash^{\must} \neg Q$.</p></div>
+          <div class="cheat-item"><h3>Selection</h3><div class="mathbox">$\tau \in \Select(P, \sigma) \equiv \tau \in \Sem(P) \wedge \tau_0 = \sigma$</div><p>$\Sem(P) = \bigcup_{\sigma \in I_P} \Select(P, \sigma)$. Deterministic: one trace per $\sigma$.</p></div>
+          <div class="cheat-item"><h3>Trace analyses</h3><div class="mathbox">$\TA_{\ok}(\tau) \equiv \tau_{-1} = \ok$<br>$\TA_{\mathtt{cover}(i)}(\tau) \equiv i \in \{e.\iota \mid e \in \tau\}$</div><p>$\TA_{\mathtt{res}}$: some $f$ opened at $i$, never closed at any $j \geq i$.</p></div>
+          <div class="cheat-item"><h3>One trace refutes must</h3><div class="mathbox">$\exists \sigma, \tau \in \Select(p, \sigma).\ \neg\TA_X(\tau) \Rightarrow \neg\DA^{\must}_X(p)$</div><p>Found = real (sound may). Not found = nothing, unless all traces were seen.</p></div>
+          <div class="cheat-item"><h3>Path class and coverage</h3><div class="mathbox">$[\tau]_\pi = \{\tau' \in \Sem(p) \mid \forall i.\ \tau'_i.\iota = \tau_i.\iota\}$<br>$\#_\iota([\tau]_\pi) = \#_\iota(\{\tau\})$</div><p>Uncovered instruction: unexplored class or dead code.</p></div>
+          <div class="cheat-item"><h3>Random testing</h3><div class="mathbox">$\mathbb{E}[\text{tries}] = 1/p \qquad \Pr[\text{hit in } N] = 1 - (1-p)^N$</div><p>One int value: $p = 2^{-32}$, about $4.3 \cdot 10^9$ tries.</p></div>
+          <div class="cheat-item"><h3>Dictionary</h3><div class="mathbox">$\mu = q\,\mathrm{Unif}(D_p) + (1-q)\,\mathrm{Unif}(\mathtt{int32})$</div><p>Each constant $c \in D_p$ has $\mu(\{c\}) \geq q/|D_p|$.</p></div>
+          <div class="cheat-item"><h3>Small scope</h3><div class="mathbox">$|D_d^{\,k}| = (2d+1)^k$</div><p>Iterative deepening: the first counterexample is a smallest one.</p></div>
+          <div class="cheat-item"><h3>Coverage-guided fuzzing</h3><div class="mathbox">keep $b'$ iff $\mathit{cov}(b') \not\subseteq K$</div><p>Mutations: change, remove, append a byte. Corpus size at most 1 + number of instructions.</p></div>
+          <div class="cheat-item"><h3>JPAMB scoring</h3><div class="mathbox">right: $1 - \frac{1}{|w|+1}$ &nbsp; wrong: $-|w|$</div><p>$w(p) = \pm\frac{2p'-1}{2(1-p')}$ with $p' = \max(p, 1-p)$; $p = 0.75$ gives $w = 1$.</p></div>
+          <div class="cheat-item"><h3>Predictions</h3><div class="mathbox">found $\to$ yes; no inputs $\to$ no; else maybe</div><p>Timeouts (<code>*</code>) are guesses: give them their own category.</p></div>
+        </div>
+        <div class="table-wrap">
+          <table class="gloss">
+            <tr><td>$\tau,\ \tau_i,\ \tau_{-1}$</td><td>trace, its $i$-th state, its last state</td><td>a run as a sequence of states</td></tr>
+            <tr><td>$\Sem(p)$</td><td>maximal trace semantics</td><td>all complete runs of $p$</td></tr>
+            <tr><td>$I_p,\ \delta_p$</td><td>initial states, transition relation</td><td>the inputs, and one interpreter step</td></tr>
+            <tr><td>$\Select(P, \sigma)$</td><td>trace selection</td><td>the runs that start in $\sigma$</td></tr>
+            <tr><td>$\models^{\may},\ \models^{\must}$</td><td>may / must truth</td><td>some trace / every trace has the property</td></tr>
+            <tr><td>$\vdash^{\may},\ \vdash^{\must}$</td><td>sound analysis claims</td><td>imply the truth</td></tr>
+            <tr><td>$\vdash^{\notmay},\ \vdash^{\notmust}$</td><td>not-may, not-must</td><td>complete analyses: implied by the truth</td></tr>
+            <tr><td>$\TA_X,\ \DA_X$</td><td>trace analysis, dynamic analysis</td><td>question on one trace; verdict on the program</td></tr>
+            <tr><td>$[\tau]_X,\ [\tau]_\pi$</td><td>trace class, path class</td><td>traces that behave like $\tau$; same pcs in the same order</td></tr>
+            <tr><td>$\#_\iota(T)$</td><td>instruction coverage</td><td>program counters visited by $T$</td></tr>
+            <tr><td>$\Diamond,\ \Box$</td><td>LTL eventually, always</td><td>temporal operators over a trace</td></tr>
+            <tr><td>$\mu,\ \mu(C)$</td><td>input distribution, hit probability</td><td>how a fuzzer spreads its tries</td></tr>
+            <tr><td>$D_p,\ D_d$</td><td>dictionary, depth-$d$ domain</td><td>constants from the code; values of size at most $d$</td></tr>
+            <tr><td>$w$</td><td>wager</td><td>JPAMB's bet derived from a category's frequency</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <p>These questions close the lecture notes and may be asked at the oral exam. Try to answer each one aloud before opening the model answer.</p>
+        <details class="proof"><summary>Name cases where the choice of a dynamic analysis makes the most sense.</summary>
+          <p><b>When you need certainty that a bug exists.</b> A dynamic analysis only reports behaviour it actually observed, so every warning is real and comes with a concrete input and trace (Proposition 4.2). That is ideal for bug finding, crash reproduction, security testing (fuzzing parsers and network code) and anywhere false alarms are expensive: developers ignore tools with more than 15 to 20% false positives.</p>
+          <p><b>When the program is easy to run but hard to reason about.</b> Large code bases, dynamic features (reflection, dynamic loading, native code), complex libraries and heap structures defeat static analyses but are no problem for an interpreter or the real runtime. Running is often easier than a syntactic or static analysis (<a href="#run-or-not">topic 13</a>).</p>
+          <p><b>When there are few inputs, or few path classes.</b> For a method without arguments one run is exact (Proposition 4.39); for loop-free code with large path classes, a handful of random or small inputs covers everything. Concurrency bugs are another sweet spot when combined with trace prediction (<a href="#prediction">topic 9</a>).</p>
+          <p><b>When the specification is hard to write down.</b> Snapshot and characterization tests (<a href="#snapshot">topic 15</a>) and property-based tests (<a href="#pbt">topic 21</a>) use the program's own behaviour or simple properties as the oracle; regression testing before a refactoring is the classic case.</p>
+        </details>
+        <details class="proof"><summary>What are the primary limitations and challenges of dynamic analysis?</summary>
+          <p><b>It can only show presence, never absence.</b> Observed traces are a finite subset of $\Sem(p)$; not finding a bug proves nothing about unobserved runs (Proposition 4.36). In the course's terms, a dynamic analysis is a sound may analysis (equivalently a not-must analysis): it refutes must properties but cannot establish them unless every trace is explored (Proposition 4.24), which is impossible for most programs (about $2^{32}$ traces for a single <code>int</code>).</p>
+          <p><b>Non-termination cannot be observed.</b> A timeout cannot distinguish "never stops" from "stops later" (Proposition 4.37), so <code>*</code> predictions are guesses.</p>
+          <p><b>Trace selection is hard.</b> Bugs often live in tiny input classes (one value out of $2^{32}$, a specific string, a rare thread interleaving). Random testing hits a class of probability $p$ only after about $1/p$ tries; dictionaries, small-scope enumeration, coverage guidance and prediction each help only for certain shapes of code.</p>
+          <p><b>Running has practical costs.</b> The environment (databases, devices, configuration) may be hard to reproduce; side effects may be dangerous (deleting data, firing missiles); executions take time, so precision is traded against running time. Non-determinism makes results flaky.</p>
+          <p><b>The oracle.</b> Without assertions or properties a run only tells you whether it crashed, and even sound warnings can be irrelevant if the checked property does not match the team's conventions (the sanitizer story, <a href="#story">topic 8</a>).</p>
+        </details>
+        <details class="proof"><summary>When is random sampling of inputs better than testing small values, and vice versa?</summary>
+          <p><b>Random is better</b> when the interesting classes are large but not located near zero, for example a branch like <code>x &gt; 1000</code> (half of all ints take it; small-scope enumeration needs depth above 1000), or when there are many parameters: random sampling costs the same per try whatever the dimension, while small-scope enumeration grows as $(2d+1)^k$. Random sampling also explores huge values (overflow, very long inputs) that enumeration never reaches.</p>
+          <p><b>Small values are better</b> when bugs sit at boundaries and special small cases: zero divisors (<code>divideByN</code> at $n = 0$, probability $2^{-32}$ for random), empty arrays, single elements, off-by-one errors. Enumeration is deterministic (reproducible results), exhaustive up to its depth, and the first counterexample is the smallest one (Proposition 4.57), which makes debugging easy.</p>
+          <p><b>Neither</b> finds bugs guarded by a specific large constant (<code>isNotAMillion</code>): that calls for a dictionary. And deep sequences of checks (<code>arraySpellsHello</code>) call for coverage guidance. Because a mixture of strategies is never much worse than any of its parts (Proposition 4.58), good analyses combine them.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Dynamic Analysis" and "Trace Terminology" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute, and the JPAMB rules (github.com/kalhauge/jpamb). The three-phases figure is from the course notes; the other figures and all labs are made for this site. References: Zeller et al. (2024) <i>The Fuzzing Book</i>; Fioraldi et al. (2020) <i>AFL++</i>; Runciman et al. (2008) <i>SmallCheck and Lazy SmallCheck</i>; Jackson (2006) <i>Software Abstractions</i>; Andoni et al. (2003) <i>Evaluating the Small Scope Hypothesis</i>; Prikler and Wotawa (2025); Kalhauge and Palsberg (2018) <i>Sound Deadlock Prediction</i>. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/dynamic-analysis.js"></script>
+</body>
+</html>

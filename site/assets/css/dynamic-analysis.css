@@ -1,0 +1,98 @@
+/* Week 4, Dynamic Analysis: page-specific styles (loaded after style.css). */
+
+/* Own diagrams: theme-aware, so they sit on a card-coloured frame instead of the white figure frame. */
+.fig-frame.dg-frame { background: var(--card); padding: 10px; }
+.dg { width: 100%; height: auto; display: block; font-family: var(--font); overflow: visible; }
+.dg text { fill: var(--ink); font-size: 13px; }
+.dg text.sm { font-size: 11px; fill: var(--muted); }
+.dg text.b { font-weight: 700; }
+.dg text.mono { font-family: var(--mono); font-size: 11.5px; }
+.dg text.t-ok { fill: var(--ok); }
+.dg text.t-bad { fill: var(--bad); }
+.dg text.t-acc { fill: var(--accent); }
+.dg .box { fill: var(--card); stroke: var(--ink-2); stroke-width: 1.5; }
+.dg .box.soft { fill: var(--lab-bg); stroke: var(--line-2); }
+.dg .box.t { fill: var(--tech-soft); stroke: var(--tech); }
+.dg .box.a { fill: var(--accent-soft); stroke: var(--accent); }
+.dg .box.f { fill: var(--formal-soft); stroke: var(--formal); }
+.dg .box.ok { fill: var(--ok-soft); stroke: var(--ok); }
+.dg .box.bad { fill: var(--bad-soft); stroke: var(--bad); }
+.dg .ln { stroke: var(--ink-2); stroke-width: 1.5; fill: none; }
+.dg .ln.faint { stroke: var(--line-2); stroke-width: 1.2; }
+.dg .ln.hl { stroke: var(--accent); stroke-width: 2.6; }
+.dg .ln.ok { stroke: var(--ok); stroke-width: 2.2; }
+.dg .ln.bad { stroke: var(--bad); stroke-width: 2.2; }
+.dg .ln.dash { stroke-dasharray: 5 4; }
+.dg .arr { fill: var(--ink-2); }
+.dg .dot { fill: var(--accent); }
+
+/* Class colours shared by the labs (path classes, outcomes) */
+.cls-0 { --c: var(--tech); }
+.cls-1 { --c: var(--warn); }
+.cls-2 { --c: var(--formal); }
+.cls-3 { --c: var(--accent); }
+.cls-4 { --c: var(--ok); }
+.cls-5 { --c: var(--muted); }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--c); vertical-align: -1px; margin-right: 6px; }
+
+/* Number line (paths lab) */
+.nl { width: 100%; height: auto; display: block; }
+.nl .nlc { stroke: var(--card); stroke-width: 1.5; }
+.nl text { fill: var(--muted); font-size: 10.5px; font-family: var(--mono); }
+.nl .hit { fill: var(--ink); }
+.nl .axis { stroke: var(--line-2); stroke-width: 1; }
+
+/* Event chips (resource trace) */
+.events { display: flex; flex-wrap: wrap; gap: 5px; }
+.ev {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--lab-bg); color: var(--ink-2);
+}
+.ev.open { color: var(--tech); border-color: var(--tech); background: var(--tech-soft); }
+.ev.close { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.ev.leak { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); box-shadow: inset 0 0 0 1px var(--bad); }
+
+/* Corpus list (coverage-guided fuzzing) */
+.corpus { max-height: 240px; overflow-y: auto; display: grid; gap: 3px; }
+.corpus-row {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+  font-family: var(--mono); font-size: 12.5px; padding: 3px 8px; border-radius: 6px; background: var(--lab-bg); border: 1px solid var(--line);
+}
+.corpus-row .ix { color: var(--muted); font-size: 11px; }
+.corpus-row .bytes { overflow-wrap: anywhere; color: var(--ink); font-weight: 600; }
+.corpus-row .cwhy { font-size: 11px; color: var(--muted); font-family: var(--font); white-space: nowrap; }
+.corpus-row.new { border-color: var(--ok); background: var(--ok-soft); }
+.chart { width: 100%; height: 200px; display: block; }
+
+/* Mutation line */
+.mut { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mut b { color: var(--ink); }
+
+/* Small value chips (smallcheck, dictionary) */
+.vals { display: flex; flex-wrap: wrap; gap: 4px; }
+.val {
+  font-family: var(--mono); font-size: 12px; font-weight: 700; min-width: 30px; text-align: center;
+  padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--lab-bg); color: var(--ink-2);
+}
+.val.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.val.err { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.val.star { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.val.dict { color: var(--formal); border-color: var(--formal); background: var(--formal-soft); }
+
+/* Showdown matrix */
+table.dt td.cellres { font-size: 12px; line-height: 1.5; min-width: 120px; }
+table.dt td.full { background: var(--ok-soft); }
+table.dt td.part { background: var(--warn-soft); }
+table.dt td.none { background: var(--bad-soft); }
+table.dt td.cellres .pill { margin: 1px 2px 1px 0; font-size: 11px; padding: 1px 6px; }
+.scroll-x { overflow-x: auto; min-width: 0; }
+
+/* Prediction output block */
+.predout {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55; white-space: pre;
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; overflow-x: auto;
+}
+.okmark { color: var(--ok); font-weight: 800; }
+.badmark { color: var(--bad); font-weight: 800; }
+.tiny { font-size: 12px; color: var(--muted); }
+.nl .nlc { fill: var(--c); }

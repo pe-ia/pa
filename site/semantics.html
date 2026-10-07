@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Semantics · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on semantics: natural deduction, axiomatic, denotational and operational semantics, transition systems and traces, and a small-step semantics of JVM bytecode.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/semantics.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 3: Semantics</div>
+        <h1>Semantics</h1>
+        <p class="hero-lead">Let's give meaning to it all. Before a tool can say anything about what a program <em>does</em>, we need a precise definition of what programs mean. This lecture shows three classic ways to write that definition down, and then builds the one we use all semester: a small-step operational semantics of JVM bytecode, written both as inference rules and as a Python interpreter.</p>
+        <div class="hero-meta">
+          <span class="chip">22 topics</span>
+          <span class="chip">9 interactive labs</span>
+          <span class="chip">68 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>The language of rules</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="deduction" data-part="The language of rules" data-short="Natural deduction">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>Natural deduction: rules, premises and conclusions</h2><p class="kicker">The notation every semantics on this page is written in</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Think of a rule as a recipe for a conclusion: "if you have flour and you have eggs, then you can have dough". We write the ingredients above a line and the result below it, and give the recipe a short name.</p>
+              <p>A proof is a tower of such recipes. Each one turns things you already have into something new, until you arrive at the thing you wanted. Checking a proof is boring on purpose: you only check that every step matches a recipe.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>rule</strong> has <strong>premises</strong> above a horizontal line, one <strong>conclusion</strong> below it, and a <strong>name</strong> to the right. It means: <em>if all premises hold, the conclusion holds</em>. A rule with no premises is an <strong>axiom</strong>: its conclusion holds outright.</li>
+                <li>Read <strong>top-down</strong> it says how to build new facts. Read <strong>bottom-up</strong> it is a plan: "to prove the conclusion, it is enough to prove every premise". Bottom-up is how you search for a proof, and (as we will see) how an interpreter runs a program.</li>
+                <li>If there are several ways to reach a conclusion, we write <strong>several rules</strong>. Conjunction $A \land B$ needs both parts, so it has one rule with two premises. Disjunction $A \lor B$ needs either part, so it has two rules, $\lor_L$ and $\lor_R$, each with one premise.</li>
+                <li>The things we derive are called <strong>judgements</strong>: pieces of syntax that claim something, like "$A \land B$" or, later, "$\psi \vdash e \downarrow v$". The turnstile $x \vdash y$ is read "<strong>in the context $x$, $y$ holds</strong>"; the context collects the assumptions (or environment) we may use.</li>
+                <li>A finished proof is a <strong>derivation tree</strong>: the goal sits at the bottom (the root), every line is an instance of a rule, and the leaves at the top are axioms or assumptions.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.1</span> Inference rule</p>
+            <p>An inference rule with premises $J_1, \ldots, J_n$ and conclusion $J$ is written</p>
+            <div class="mathbox">$$\frac{J_1 \quad J_2 \quad \cdots \quad J_n}{J}\rulename{name}$$</div>
+            <p>and states $J_1 \land \cdots \land J_n \implies J$. When $n = 0$ it is an <em>axiom</em>. Rules are <em>schemas</em>: letters like $A$, $B$, $v$ or $\sigma$ are metavariables that may be replaced by any concrete formula, value or state, and every such replacement is an <em>instance</em> of the rule.</p>
+            <p class="read">"If I can show $J_1$ and $J_2$ and ... and $J_n$, then I may conclude $J$ (using the rule called name)."</p>
+          </div>
+          <p>The three rules from the notes, for conjunction and disjunction:</p>
+          <div class="mathbox">$$\frac{A \quad B}{A \land B}\rulename{\land} \qquad\quad \frac{A}{A \lor B}\rulename{\lor_L} \qquad\quad \frac{B}{A \lor B}\rulename{\lor_R}$$</div>
+          <p class="read">"From $A$ and $B$ conclude $A$ and $B$. From $A$ alone conclude $A$ or $B$. From $B$ alone, also conclude $A$ or $B$."</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.2</span> Derivation and derivability</p>
+            <p>A <em>derivation</em> of $J$ from assumptions $\Gamma$ is a finite tree whose root is $J$, in which every node together with its children is an instance of a rule (node = conclusion, children = premises), and whose leaves are axiom instances or members of $\Gamma$. We write $\Gamma \vdash J$ when such a tree exists and say $J$ is <em>derivable</em> from $\Gamma$.</p>
+            <p class="read">"Starting from the assumptions in Gamma, I can build a proof tree that ends in $J$."</p>
+          </div>
+          <p>For example, from the assumptions $\Gamma = \{A, C\}$ we can derive $A \land (B \lor C)$:</p>
+          <div class="mathbox">$$\cfrac{A \qquad \cfrac{C}{B \lor C}\rulename{\lor_R}}{A \land (B \lor C)}\rulename{\land}$$</div>
+          <p class="read">"$A$ is an assumption; $C$ is an assumption, so $B \lor C$ holds by the right-or rule; together they give the conjunction by the and rule."</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.3</span> Rules define the least closed set</p>
+            <p>The set $D$ of judgements derivable from $\Gamma$ is the smallest set that contains $\Gamma$ and is <em>closed under the rules</em>: whenever all premises of a rule instance are in the set, so is its conclusion.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p><em>$D$ is closed:</em> if each premise $J_i$ has a derivation, put those trees side by side under a common line; that is a derivation of the conclusion. <em>$D$ is the smallest:</em> let $S$ be any closed set containing $\Gamma$. By induction on the height of a derivation, its root is in $S$: leaves are axioms (premise-free rule instances, so in $S$ by closure) or in $\Gamma \subseteq S$; an inner node is the conclusion of a rule whose premises are in $S$ by the induction hypothesis, so it is in $S$ by closure. Hence $D \subseteq S$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>This is why we may prove facts about "everything a semantics can derive" by induction over derivation trees (<em>rule induction</em>), a technique used in every soundness proof of the course.</p>
+        </div>
+
+        <div class="callout key"><span class="co-tag">Key idea</span>Rules are just "if ... then ..." statements written so that a person or a computer can check a proof mechanically. Every semantics in this lecture, including the JVM semantics we implement, is a set of such rules.</div>
+        <div data-lab="prooftree"></div>
+        <div class="quiz" data-quiz="deduction"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Three ways to give meaning</h2></div>
+
+      <!-- 02 -->
+      <section class="topic" id="what" data-part="Three ways to give meaning" data-short="What are semantics?">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>What are semantics?</h2><p class="kicker">Syntax is what you write, semantics is what it means</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>"The cat sat on the mat" and "Le chat s'est assis sur le tapis" are different strings with the same meaning. "Colourless green ideas sleep furiously" is grammatical but means nothing. Programs are the same: the text is the <strong>syntax</strong>, what the program does is its <strong>semantics</strong>.</p>
+              <p>A semantics is a precise dictionary from program text to meaning, written in mathematics so nobody can argue about it.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Every approach turns a program's syntax into mathematical logic, so we can reason about it. Once we can say what a piece of syntax means, we can say what a program does, and therefore what an analysis should predict.</li>
+                <li><strong>Axiomatic</strong> semantics: meaning = what is true before and after each statement (Hoare triples). Great for proving one program correct.</li>
+                <li><strong>Denotational</strong> semantics: meaning = a mathematical object the program stands for, e.g. a function from stores to numbers. Great for expression languages and equational reasoning.</li>
+                <li><strong>Operational</strong> semantics: meaning = how a machine executes the program, step by step. Written like an interpreter, which is exactly what we need for JVM bytecode. This is the style used for the rest of the course.</li>
+                <li>Semantics give us a notion of <em>equivalence</em>: <code>1 + 2</code> and <code>2 + 1</code> are different syntax (a <a href="syntactic-analysis.html#what">syntactic analysis</a> sees them as different) but have the same meaning.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="diagram" role="img" aria-label="Program text maps to three kinds of meaning: axiomatic (pre and post conditions), denotational (a mathematical function), operational (machine steps)">
+                <svg viewBox="0 0 360 250" class="dg">
+                  <rect class="dg-box dg-acc" x="115" y="10" width="130" height="40" rx="8"/>
+                  <text x="180" y="35" text-anchor="middle" class="dg-t mono">x := x + 1</text>
+                  <path class="dg-line" d="M150 50 L60 110 M180 50 L180 110 M210 50 L300 110"/>
+                  <rect class="dg-box" x="5" y="110" width="110" height="80" rx="8"/>
+                  <rect class="dg-box" x="125" y="110" width="110" height="80" rx="8"/>
+                  <rect class="dg-box" x="245" y="110" width="110" height="80" rx="8"/>
+                  <text x="60" y="130" text-anchor="middle" class="dg-h">Axiomatic</text>
+                  <text x="180" y="130" text-anchor="middle" class="dg-h">Denotational</text>
+                  <text x="300" y="130" text-anchor="middle" class="dg-h">Operational</text>
+                  <text x="60" y="155" text-anchor="middle" class="dg-t mono">{x = 1}</text>
+                  <text x="60" y="175" text-anchor="middle" class="dg-t mono">C {x = 2}</text>
+                  <text x="180" y="155" text-anchor="middle" class="dg-t mono">&#963; &#8614; &#963;[x &#8614;</text>
+                  <text x="180" y="175" text-anchor="middle" class="dg-t mono">&#963;(x)+1]</text>
+                  <text x="300" y="155" text-anchor="middle" class="dg-t mono">&#10216;x=1&#10217;</text>
+                  <text x="300" y="175" text-anchor="middle" class="dg-t mono">&#8594; &#10216;x=2&#10217;</text>
+                  <text x="60" y="215" text-anchor="middle" class="dg-s">what is true</text>
+                  <text x="180" y="215" text-anchor="middle" class="dg-s">what it equals</text>
+                  <text x="300" y="215" text-anchor="middle" class="dg-s">how it runs</text>
+                  <text x="60" y="235" text-anchor="middle" class="dg-s">verification</text>
+                  <text x="180" y="235" text-anchor="middle" class="dg-s">equational reasoning</text>
+                  <text x="300" y="235" text-anchor="middle" class="dg-s">interpreters, analysis</text>
+                </svg>
+              </div>
+              <figcaption><b>Three styles, one statement.</b> The same assignment explained by each kind of semantics.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.4</span> Semantics (general shape)</p>
+            <p>A semantics of a language $L$ assigns to every program $p \in L$ a mathematical object $\sem{p} \in D$ in some well-understood domain $D$ of meanings:</p>
+            <div class="mathbox">$$\sem{\cdot} : L \to D$$</div>
+            <p class="read">"Double brackets around a program mean: the meaning of that program, an element of the domain $D$."</p>
+            <p>The three styles differ in their choice of $D$: sets of valid triples $\{P\}\,C\,\{Q\}$ (axiomatic), functions such as $\Sigma \to \N$ (denotational), transition relations and their sets of traces (operational).</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.5</span> Semantic equivalence</p>
+            <p>Programs $p, q \in L$ are semantically equivalent, $p \equiv q$, when $\sem{p} = \sem{q}$. Equivalence ignores syntax: $\sem{\mathtt{1+2}} = \sem{\mathtt{2+1}} = 3$ although the two strings differ.</p>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>In this course a program means the <strong>set of all its possible executions (traces)</strong>. Operational semantics gives us exactly that, and it doubles as the specification of the interpreter you write.</div>
+        <div class="quiz" data-quiz="what"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="hoare" data-part="Three ways to give meaning" data-short="Axiomatic: Hoare logic">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Axiomatic semantics and Hoare triples</h2><p class="kicker">Meaning as a contract: what holds before, what holds after</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A Hoare triple is a contract with a cook: "<em>if</em> the kitchen has eggs and flour when you start, <em>then</em> there will be a cake when you finish". It does not say how the cake is made, only what you can count on.</p>
+              <p>Contracts snap together. If the first cook promises dough, and the second cook only needs dough to bake a cake, then the two cooks together promise a cake.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>One of the first approaches to meaning (Floyd 1967, Hoare 1969): attach <strong>preconditions</strong> and <strong>postconditions</strong> to the statements of a program.</li>
+                <li>A <strong>Hoare triple</strong> $\{P\}\ C\ \{Q\}$ has a precondition $P$, a program $C$ and a postcondition $Q$. It means: if the world satisfies $P$ before running $C$, then it satisfies $Q$ after (if $C$ finishes).</li>
+                <li>Example: $\{x \geq 0\}\ \mathtt{y := x + 1}\ \{y \gt 0\}$. Any state with $x \geq 0$ ends with $y = x + 1 \geq 1$.</li>
+                <li>Triples <strong>compose</strong>: to prove $C_1 ; C_2$ correct, prove each part and check that what $C_1$ guarantees ($Q_1$) is enough for what $C_2$ needs ($P_2$), i.e. $Q_1 \Rightarrow P_2$.</li>
+                <li>Floyd's flowchart (right) sums an array: every arrow carries an assertion that holds whenever control passes along it. The assertion at the loop head, $S = \sum_{j=1}^{i-1} a_j$, is a <strong>loop invariant</strong>: true on entry, preserved by one iteration, so true at the exit where $i = n + 1$ gives $S = \sum_{j=1}^{n} a_j$.</li>
+                <li>This style excels at <strong>program verification</strong> (proving one specific program correct, with a human supplying the invariants), and is not typically used for automatic program analysis at large.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame tall"><img src="img/semantics/floyd-flowchart.png" alt="Floyd's flowchart summing an array a_1 to a_n: i set to 1, S set to 0, loop while not i greater than n adding a_i to S and incrementing i; every arrow is annotated with an assertion such as S equals the sum of a_j for j from 1 to i minus 1" width="1213" height="1054"></div>
+              <figcaption><b>Course notes, Semantics.</b> The flowchart from Robert W. Floyd's <i>Assigning Meanings to Programs</i>: it computes $S = \sum_{j=1}^{n} a_j$, with an assertion on every arrow.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>Take a tiny imperative language $C ::= x := e \mid C_1 ; C_2 \mid \mathtt{if}\ b\ \mathtt{then}\ C_1\ \mathtt{else}\ C_2 \mid \mathtt{while}\ b\ \mathtt{do}\ C$ over states $s : \mathit{Var} \to \Z$. Write $s \models P$ when assertion $P$ is true in $s$, and $\langle C, s\rangle \Downarrow s'$ when running $C$ from $s$ terminates in $s'$.</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.6</span> Hoare triple (partial correctness)</p>
+            <div class="mathbox">$$\models \{P\}\ C\ \{Q\} \iff \forall s, s'.\ \big(s \models P \ \land\ \langle C, s\rangle \Downarrow s'\big) \implies s' \models Q$$</div>
+            <p class="read">"For every start state satisfying $P$, if $C$ terminates, the end state satisfies $Q$."</p>
+            <p><em>Total correctness</em> $\models [P]\ C\ [Q]$ additionally demands termination: $\forall s.\ s \models P \implies \exists s'.\ \langle C, s\rangle \Downarrow s' \land s' \models Q$.</p>
+          </div>
+          <p>The composition rule from the notes, in natural-deduction form:</p>
+          <div class="mathbox">$$\frac{\{P_1\}\ C_1\ \{Q_1\} \qquad \{P_2\}\ C_2\ \{Q_2\} \qquad Q_1 \Rightarrow P_2}{\{P_1\}\ C_1 ; C_2\ \{Q_2\}}\rulename{seq}$$</div>
+          <p class="read">"If $C_1$ takes $P_1$ to $Q_1$, $C_2$ takes $P_2$ to $Q_2$, and $Q_1$ implies $P_2$, then running them in sequence takes $P_1$ to $Q_2$."</p>
+          <p>Three standard rules that make the system usable (not in the notes, but they complete the picture):</p>
+          <div class="mathbox">$$\frac{}{\{Q[e/x]\}\ x := e\ \{Q\}}\rulename{assign} \qquad \frac{P \Rightarrow P' \quad \{P'\}\ C\ \{Q'\} \quad Q' \Rightarrow Q}{\{P\}\ C\ \{Q\}}\rulename{cons}$$</div>
+          <div class="mathbox">$$\frac{\{I \land b\}\ C\ \{I\}}{\{I\}\ \mathtt{while}\ b\ \mathtt{do}\ C\ \{I \land \neg b\}}\rulename{while}$$</div>
+          <p class="read">"Assignment: whatever must hold of $x$ afterwards must hold of $e$ before. Consequence: you may strengthen the precondition and weaken the postcondition. While: an invariant $I$ preserved by the body still holds at the exit, where the condition is false."</p>
+          <p><em>Worked example.</em> By (assign), $\{x + 1 \gt 0\}\ \mathtt{y := x + 1}\ \{y \gt 0\}$. Since $x \geq 0 \Rightarrow x + 1 \gt 0$, (cons) gives $\{x \geq 0\}\ \mathtt{y := x + 1}\ \{y \gt 0\}$.</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.7</span> The sequencing rule is sound</p>
+            <p>If $\models \{P_1\}\,C_1\,\{Q_1\}$, $\models \{P_2\}\,C_2\,\{Q_2\}$ and $Q_1 \Rightarrow P_2$, then $\models \{P_1\}\,C_1;C_2\,\{Q_2\}$.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Let $s \models P_1$ and suppose $C_1;C_2$ terminates in $s_2$. Then $C_1$ terminated in some $s_1$ and $C_2$ ran from $s_1$ to $s_2$. By the first triple $s_1 \models Q_1$, so $s_1 \models P_2$ by the implication, and the second triple gives $s_2 \models Q_2$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>Here derivability $\vdash \{P\}C\{Q\}$ (built with the rules) and truth $\models \{P\}C\{Q\}$ (Definition 3.6) are exactly the <a href="introduction.html#turnstiles">$\vdash$ versus $\models$</a> distinction from week 1; soundness of Hoare logic is "$\vdash$ implies $\models$".</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes say composing the proofs gives "a proof of total correctness". The rules above compose <em>partial</em> correctness triples (they say nothing about termination). For total correctness you also need termination arguments, for example a quantity that decreases in every loop iteration.</div>
+        <div data-lab="hoare"></div>
+        <div class="quiz" data-quiz="hoare"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="denotational" data-part="Three ways to give meaning" data-short="Denotational semantics">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>Denotational semantics</h2><p class="kicker">Translate the program into mathematics you already trust</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Denotational semantics is a translator. It takes a sentence in a new language and translates it, word by word, into a language you already understand perfectly: ordinary mathematics. "<code>x + 5</code>" becomes "the function that looks up x and adds five".</p>
+              <p>The translation of a big phrase is built from the translations of its parts, like a dictionary that works on whole sentences.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Take the tiny expression language $\mathbb{EX}$ from the notes: additions, variables $x$ and natural numbers $n$.</li>
+                <li>The meaning of an expression is a <strong>function from stores to numbers</strong>: $\mathcal{E} : \mathbb{EX} \to (\Sigma \to \N)$. A store $\sigma \in \Sigma$ tells the value of every variable, e.g. $\sigma = [x \mapsto 3]$.</li>
+                <li>Three equations, one per syntax form: numbers mean themselves, variables mean "look me up in the store", and syntactic <code>+</code> means mathematical $+$ of the meanings of the two sides.</li>
+                <li>The definition is <strong>compositional</strong>: the meaning of $e_1 + e_2$ only depends on the meanings of $e_1$ and $e_2$. That is what lets us calculate the meaning of <code>x + 5</code> with ordinary algebra (worked out below).</li>
+                <li>If this looks like functional programming, that is right: the three equations <em>are</em> an evaluator. Denotational semantics fits expression-oriented languages especially well. You will meet another one for <a href="syntactic-analysis.html#regex">regular expressions</a>, where a regex denotes a set of strings.</li>
+              </ul>
+              <pre><code class="language-python">def E(e, store):                   # E : EX -&gt; (Sigma -&gt; N), curried by hand
+    match e:
+        case Num(n):       return n                     # E[[n]] s   = toNat([[n]])
+        case Var(x):       return store[x]              # E[[x]] s   = lookup([[x]], s)
+        case Add(e1, e2):  return E(e1, store) + E(e2, store)</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.8</span> The expression language $\mathbb{EX}$ and stores</p>
+            <div class="mathbox">$$e \in \mathbb{EX} ::= e_1 + e_2 \mid x \mid n \qquad\qquad \Sigma = \mathit{Var} \to \N$$</div>
+            <p class="read">"An expression is a sum of two expressions, a variable, or a number literal. A store maps every variable to a natural number."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.9</span> Denotation of expressions</p>
+            <div class="mathbox">$$\begin{aligned}
+              \Den{\mathtt{n}}\,\sigma &= \mathrm{toNat}(\sem{\mathtt{n}}) \\
+              \Den{\mathtt{x}}\,\sigma &= \mathrm{lookup}(\sem{\mathtt{x}}, \sigma) \\
+              \Den{\mathtt{e_1 + e_2}}\,\sigma &= \Den{\mathtt{e_1}}\,\sigma + \Den{\mathtt{e_2}}\,\sigma
+            \end{aligned}$$</div>
+            <p class="read">"The meaning of a numeral is the number it spells; the meaning of a variable is its value in the store; the meaning of a sum is the sum of the meanings." The typewriter <code>+</code> on the left is syntax; the $+$ on the right is addition of natural numbers.</p>
+          </div>
+          <p>Worked example from the notes, with $\sigma = [x \mapsto 3]$:</p>
+          <div class="mathbox">$$\begin{aligned}
+            \Den{\mathtt{x + 5}}\,\sigma &= \Den{\mathtt{x}}\,\sigma + \Den{\mathtt{5}}\,\sigma && \text{(sum)}\\
+            &= \mathrm{lookup}(\sem{\mathtt{x}}, \sigma) + \Den{\mathtt{5}}\,\sigma && \text{(variable)}\\
+            &= 3 + \Den{\mathtt{5}}\,\sigma && \sigma(x) = 3\\
+            &= 3 + \mathrm{toNat}(\sem{\mathtt{5}}) && \text{(number)}\\
+            &= 3 + 5 = 8
+          \end{aligned}$$</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.10</span> $\mathcal{E}$ is well defined and compositional</p>
+            <p>For every $e \in \mathbb{EX}$, $\Den{e}$ is a total function $\Sigma \to \N$. Moreover, if $\Den{e_1} = \Den{e_1'}$ then $\Den{e_1 + e_2} = \Den{e_1' + e_2}$ (replacing a part by an equivalent part never changes the meaning).</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>By structural induction on $e$. Numerals and variables have exactly one equation each, which yields a natural number for every $\sigma$ (stores are total). For $e_1 + e_2$, the induction hypothesis gives total functions for $e_1$ and $e_2$, and the third equation adds their values, so it is total too. Every expression matches exactly one equation, so the meaning is unique. Compositionality is immediate from the third equation: it mentions $e_1$ only through $\Den{e_1}$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Greek letters get reused. Here $\sigma$ is a <strong>store</strong> (variables to values). In the JVM part of this lecture $\sigma$ is the <strong>operand stack</strong>, and in transition systems it is a general state. Always check which one is meant.</div>
+        <div data-lab="denote"></div>
+        <div class="quiz" data-quiz="denotational"></div>
+      </section>
+
+      <!-- 05 -->
+      <section class="topic" id="operational" data-part="Three ways to give meaning" data-short="Operational semantics">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>Operational semantics: small-step and big-step</h2><p class="kicker">Meaning as the moves of a machine</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>To explain chess you can list the legal moves (one move at a time), or you can say who wins from a position (skip straight to the end). Small-step semantics is the move list. Big-step semantics is the final result.</p>
+              <p>Both describe the same game. The move list is more work to write, but it tells you everything that happens along the way, including games that never end.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Operational</strong> semantics describes the meaning of a program as <strong>changes to a state</strong>. That makes it ideal for imperative languages like JVM bytecode, and it reads like an interpreter, which is handy because you are going to write one.</li>
+                <li><strong>Structural operational semantics</strong> (SOS, Plotkin), also called <strong>small-step</strong> semantics, uses the judgement $\psi \vdash \sigma \to \bar\sigma$: in environment $\psi$, state $\sigma$ takes <em>one</em> step to $\bar\sigma$ (the bar means "the next one").</li>
+                <li><strong>Natural</strong> or <strong>big-step</strong> semantics uses $\psi \vdash \sigma \downarrow v$: running $\sigma$ to completion gives the final value $v$. It often looks simpler because it ignores the order of intermediate steps.</li>
+                <li>Example, arithmetic: small-step first rewrites the left operand until it is a number, then the right operand, then adds. Big-step has one rule: evaluate both sides fully, then add.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.11</span> Small-step and big-step judgements</p>
+            <p>Given an environment (context) $\psi$, a small-step semantics defines a relation $\psi \vdash \sigma \to \bar\sigma$ between states, and a big-step semantics a relation $\psi \vdash \sigma \downarrow v$ between states and final values, each as the least relation closed under a set of inference rules (Proposition 3.3).</p>
+            <p class="read">"Single arrow: one step. Down arrow: all the way to a value."</p>
+          </div>
+          <p>For arithmetic expressions $e ::= n \mid e_1 \oplus e_2$ (with $\oplus \in \{+, -, \times\}$; numbers $n$ are the values), the small-step rules are</p>
+          <div class="mathbox">$$\frac{e_1 \to \bar e_1}{e_1 \oplus e_2 \to \bar e_1 \oplus e_2}\rulename{\oplus_L} \qquad \frac{e_2 \to \bar e_2}{n_1 \oplus e_2 \to n_1 \oplus \bar e_2}\rulename{\oplus_R} \qquad \frac{n = n_1 \oplus n_2}{n_1 \oplus n_2 \to n}\rulename{\oplus_N}$$</div>
+          <p class="read">"Step inside the left operand; once the left is a number, step inside the right; once both are numbers, compute."</p>
+          <p>and the big-step rules are</p>
+          <div class="mathbox">$$\frac{}{n \downarrow n}\rulename{num} \qquad\qquad \frac{e_1 \downarrow n_1 \quad e_2 \downarrow n_2 \quad n = n_1 \oplus n_2}{e_1 \oplus e_2 \downarrow n}\rulename{op}$$</div>
+          <p class="read">"A number evaluates to itself. A compound expression evaluates to $n$ if its operands evaluate to $n_1$ and $n_2$ and $n$ is their combination."</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.12</span> The small-step relation is deterministic</p>
+            <p>For every expression $e$ there is at most one $\bar e$ with $e \to \bar e$.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>By induction on $e$. A number has no step. For $e_1 \oplus e_2$ exactly one rule can apply: $(\oplus_L)$ if $e_1$ is not a number, $(\oplus_R)$ if $e_1$ is a number and $e_2$ is not, $(\oplus_N)$ if both are numbers; the three cases are disjoint. Within $(\oplus_L)$ and $(\oplus_R)$ the premise has at most one result by the induction hypothesis. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>The rules fix an <em>evaluation order</em> (left to right). Determinism is why "the next state" is well defined and why an interpreter can be a function rather than a search.</p>
+        </div>
+        <div data-lab="smallbig"></div>
+        <div class="quiz" data-quiz="operational"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="lambda" data-part="Three ways to give meaning" data-short="Example: lambda calculus">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Example: function application in the lambda calculus</h2><p class="kicker">One big-step rule becomes three small-step rules</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The lambda calculus is the smallest programming language there is: it has only functions. "Calling" a function means plugging the argument into the function's body.</p>
+              <p>A big-step description says it in one breath: work out the function, work out the argument, run the body with the argument plugged in. A small-step description has to say <em>what to do next</em> at every moment, so the same idea splits into three smaller moves, and the machine must remember where it is in the middle.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Syntax: $e ::= x \mid \lambda x.e \mid e_1\, e_2$ (variable, function with parameter $x$ and body $e$, application). The environment $\psi$ maps variables to values; $\psi[x \mapsto v]$ is $\psi$ updated so that $x$ means $v$.</li>
+                <li>A function value is a <strong>closure</strong> $(\psi_1 \mid \lambda x.e)$: the function together with the environment $\psi_1$ it was created in, so it remembers the variables it captured.</li>
+                <li><strong>Big-step</strong>: $e_1\,e_2$ evaluates to $v$ if $e_1$ evaluates to a function, $e_2$ evaluates to $v_2$, and the body evaluates to $v$ with $x \mapsto v_2$. One rule, three premises.</li>
+                <li><strong>Small-step</strong> cannot do all that at once, so it carries partial progress inside the expression. We extend expressions with $(\psi_1 \mid e)$: "expression $e$ being evaluated in scope $\psi_1$". Then three rules: $\beta^1$ steps the function part, $\beta^2$ steps the argument once the function is a closure, $\beta^3$ enters the body with the argument bound. Two closure rules $\psi^1, \psi^2$ let evaluation continue inside $(\psi_1 \mid e)$ and finish it.</li>
+                <li>The order is built into the rules: function first, then argument, then call. That is <em>call-by-value, left to right</em>, the same order Java uses.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>The big-step application rule from the notes:</p>
+          <div class="mathbox">$$\frac{\psi \vdash e_1 \downarrow \lambda x.e_3 \qquad \psi \vdash e_2 \downarrow v_2 \qquad \psi[x \mapsto v_2] \vdash e_3 \downarrow v}{\psi \vdash e_1\, e_2 \downarrow v}\rulename{{\downarrow}\beta}$$</div>
+          <p class="read">"If the function part evaluates to a lambda with parameter $x$ and body $e_3$, the argument evaluates to $v_2$, and the body evaluates to $v$ when $x$ means $v_2$, then the application evaluates to $v$."</p>
+          <p>The small-step rules from the notes, where $\bar e$ is the result of one step:</p>
+          <div class="mathbox">$$\frac{\psi \vdash e_1 \to \bar e_1}{\psi \vdash e_1\, e_2 \to \bar e_1\, e_2}\rulename{\beta^1} \qquad \frac{\psi \vdash e_2 \to \bar e_2}{\psi \vdash (\psi_1 \mid \lambda x.e_1)\; e_2 \to (\psi_1 \mid \lambda x.e_1)\; \bar e_2}\rulename{\beta^2}$$</div>
+          <div class="mathbox">$$\frac{}{\psi \vdash (\psi_1 \mid \lambda x.e_1)\; v \to (\psi_1[x \mapsto v] \mid e_1)}\rulename{\beta^3}$$</div>
+          <div class="mathbox">$$\frac{\psi \cdot \psi_1 \vdash e_1 \to \bar e_1}{\psi \vdash (\psi_1 \mid e_1) \to (\psi_1 \mid \bar e_1)}\rulename{\psi^1} \qquad \frac{\psi \cdot \psi_1 \vdash e_1 \to v}{\psi \vdash (\psi_1 \mid e_1) \to v}\rulename{\psi^2}$$</div>
+          <p class="read">"$\beta^1$: step the function. $\beta^2$: once it is a closure, step the argument. $\beta^3$: once the argument is a value, continue with the body inside the closure's scope extended with $x \mapsto v$. $\psi^1$: inside a scoped expression, step using the combined environment ($\psi_1$ wins on conflicts). $\psi^2$: when the scoped expression reaches a value, drop the scope."</p>
+          <p>To run a full example we also need the two rules that turn syntax into values (implicit in the notes):</p>
+          <div class="mathbox">$$\frac{\psi(x) = v}{\psi \vdash x \to v}\rulename{var} \qquad\qquad \frac{}{\psi \vdash \lambda x.e \to (\psi \mid \lambda x.e)}\rulename{lam}$$</div>
+          <p><em>Worked reduction.</em> Let $\psi = [y \mapsto w]$ for some value $w$ and evaluate $(\lambda x.x)\; y$:</p>
+          <div class="mathbox">$$\begin{aligned}
+            \psi \vdash (\lambda x.x)\; y &\to (\psi \mid \lambda x.x)\; y && (\beta^1 \text{ with premise } \textsf{lam})\\
+            &\to (\psi \mid \lambda x.x)\; w && (\beta^2 \text{ with premise } \textsf{var}: \psi(y) = w)\\
+            &\to (\psi[x \mapsto w] \mid x) && (\beta^3)\\
+            &\to w && (\psi^2 \text{ with premise } \textsf{var}: (\psi\cdot\psi[x\mapsto w])(x) = w)
+          \end{aligned}$$</div>
+          <p>The big-step rule reaches the same $w$ with a single derivation: $\psi \vdash \lambda x.x \downarrow \lambda x.x$, $\psi \vdash y \downarrow w$, and $\psi[x \mapsto w] \vdash x \downarrow w$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The big-step rule runs the body in $\psi[x \mapsto v_2]$, the <em>caller's</em> environment. That is <strong>dynamic scoping</strong>. The small-step rules run it in the closure's $\psi_1$, the environment where the function was <em>written</em>: <strong>lexical scoping</strong>, which is what Java, Python and Haskell do. To make the big-step rule agree, let $e_1$ evaluate to a closure $(\psi_1 \mid \lambda x.e_3)$ and run the body in $\psi_1[x \mapsto v_2]$.</div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Small-step semantics must store "work in progress" inside the state. For the JVM that work in progress is the operand stack, the locals and the program counter, which is exactly what a frame is.</div>
+        <div class="quiz" data-quiz="lambda"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="small-to-big" data-part="Three ways to give meaning" data-short="Small-step to big-step">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>Recovering big-step from small-step</h2><p class="kicker">Why the course chooses small steps</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Small-step is a movie, big-step is a photo of the last frame. From the movie you can always get the last frame: just play it to the end. From a photo you can never get the movie back. And if the movie never ends, there is no last frame at all, so the photo version has nothing to say.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Big-step semantics is easier to read, but it has two weaknesses (from the notes): it <strong>cannot reason about programs that run forever</strong> (there is simply no derivation, exactly as for a program that gets stuck on an error), and it does not hand you a step-by-step implementation.</li>
+                <li>Small-step semantics turns directly into an interpreter: <code>while not finished: state = step(state)</code>. You can stop after $k$ steps, print every intermediate state, and look at programs that never terminate. Program analysis needs all three.</li>
+                <li>We lose nothing: two rules recover big-step from small-step by "keep stepping until you reach a value".</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>The rules from the notes:</p>
+          <div class="mathbox">$$\frac{\psi \vdash \sigma \to \bar\sigma \qquad \psi \vdash \bar\sigma \downarrow v}{\psi \vdash \sigma \downarrow v}\rulename{step} \qquad\qquad \frac{\psi \vdash \sigma \to v}{\psi \vdash \sigma \downarrow v}\rulename{done}$$</div>
+          <p class="read">"If one step takes $\sigma$ to $\bar\sigma$ and $\bar\sigma$ runs to $v$, then $\sigma$ runs to $v$. If one step already reaches the value $v$, $\sigma$ runs to $v$."</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.13</span> Many steps and divergence</p>
+            <p>$\to^*$ is the reflexive transitive closure of $\to$: $\sigma \to^* \sigma'$ if there are $n \geq 0$ states with $\sigma = \sigma_0 \to \sigma_1 \to \cdots \to \sigma_n = \sigma'$. A state <em>diverges</em> if there is an infinite chain $\sigma_0 \to \sigma_1 \to \sigma_2 \to \cdots$. A non-value state with no step is <em>stuck</em>.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.14</span> Big-step equals "run small steps to a value"</p>
+            <p>With the rules (step) and (done): $\psi \vdash \sigma \downarrow v$ if and only if $\sigma \to^* v$ in at least one step.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>($\Rightarrow$) By induction on the derivation of $\sigma \downarrow v$. If the last rule is (done) we have $\sigma \to v$. If it is (step) we have $\sigma \to \bar\sigma$ and, by induction, $\bar\sigma \to^* v$; prepend the step. ($\Leftarrow$) By induction on the length $n \geq 1$ of $\sigma \to \cdots \to v$. For $n = 1$ use (done). For $n \gt 1$ the chain is $\sigma \to \bar\sigma \to^* v$ with a shorter tail; the induction hypothesis gives $\bar\sigma \downarrow v$, and (step) gives $\sigma \downarrow v$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 3.15</span> Big-step is blind to divergence</p>
+            <p>If $\to$ is deterministic and $\sigma$ diverges, there is no $v$ with $\sigma \downarrow v$. The same holds when $\sigma$ gets stuck. So big-step semantics cannot tell "loops forever" apart from "crashes".</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>"Big-step cannot be implemented" is a slogan, not a theorem: a recursive evaluator (like the Python <code>E</code> in topic 04) <em>is</em> a big-step implementation. What it cannot do is pause after $k$ steps, show intermediate states, or report "still running", and those are what interpreters for analysis need.</div>
+        <div class="quiz" data-quiz="small-to-big"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Programs as transition systems</h2></div>
+
+      <!-- 08 -->
+      <section class="topic" id="transition-system" data-part="Programs as transition systems" data-short="Transition systems">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>Transition systems</h2><p class="kicker">States, moves, and where you may start</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A board game is fully described by three things: every position the board can be in, the legal moves between positions, and the starting positions. A program is the same kind of game. Once we have a small-step semantics, we have all three.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The <strong>states</strong> are everything the machine can be in: for the JVM, a heap and a call stack, plus the final outcomes <code>ok</code> and <code>err(...)</code>.</li>
+                <li>The <strong>transition relation</strong> $\delta_p$ is given by the single-step rules: $\delta_p(s, s')$ holds exactly when $\bc \vdash s \to s'$ can be derived.</li>
+                <li>The <strong>initial states</strong> $I_p$ are all the ways the program can start: one frame for the method, its parameters in the locals, an empty stack, the program counter at offset 0. One initial state per possible input.</li>
+                <li>A relation (not a function) allows several successors: that is how non-determinism (threads, random choices) is modelled. Our JVM is deterministic, so every state has at most one successor.</li>
+                <li>Example: <code>assertPositive(int num)</code> has $2^{32}$ initial states, one for each <code>int</code>, but only a handful of distinct paths through the code.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="diagram" role="img" aria-label="A small transition system for collatz: three initial states n equal to 4, 1 and 0; from 4 the run goes to 2, then 1, then ok; from 1 it goes straight to ok; 0 steps to itself forever">
+                <svg viewBox="0 0 340 235" class="dg">
+                  <defs><marker id="ar-ts" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="dg-arrowhead"/></marker></defs>
+                  <text x="10" y="18" class="dg-s">I_p: one initial state per input</text>
+                  <circle cx="40" cy="55" r="20" class="dg-box dg-init"/><text x="40" y="60" text-anchor="middle" class="dg-t mono">n=4</text>
+                  <path class="dg-line" marker-end="url(#ar-ts)" d="M60 55 L108 55"/>
+                  <circle cx="130" cy="55" r="20" class="dg-box"/><text x="130" y="60" text-anchor="middle" class="dg-t mono">2</text>
+                  <path class="dg-line" marker-end="url(#ar-ts)" d="M150 55 L188 55"/>
+                  <circle cx="210" cy="55" r="20" class="dg-box"/><text x="210" y="60" text-anchor="middle" class="dg-t mono">1</text>
+                  <path class="dg-line" marker-end="url(#ar-ts)" d="M230 55 L266 55"/>
+                  <rect x="268" y="40" width="58" height="30" rx="8" class="dg-box dg-ok"/><text x="297" y="60" text-anchor="middle" class="dg-t mono">ok</text>
+                  <circle cx="40" cy="128" r="20" class="dg-box dg-init"/><text x="40" y="133" text-anchor="middle" class="dg-t mono">n=1</text>
+                  <path class="dg-line" marker-end="url(#ar-ts)" d="M60 124 L284 72"/>
+                  <circle cx="40" cy="200" r="20" class="dg-box dg-init"/><text x="40" y="205" text-anchor="middle" class="dg-t mono">n=0</text>
+                  <path class="dg-line" marker-end="url(#ar-ts)" d="M58 191 C 118 166, 118 234, 60 210"/>
+                  <text x="122" y="198" class="dg-s">0 is even, 0 / 2 = 0:</text>
+                  <text x="122" y="214" class="dg-s">the same state forever</text>
+                </svg>
+              </div>
+              <figcaption><b>A transition system</b> for <code>collatz</code>, each state simplified to the value of <code>n</code>: initial states on the left, $\delta_p$ as arrows. From 4 or 1 the run reaches <code>ok</code>; from 0 the state steps to itself, an infinite trace.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.16</span> Transition system (course notes)</p>
+            <p>A transition system is a triple $\langle \State_p, \delta_p, I_p \rangle$ where $\State_p$ is the set of program states, $\delta_p \subseteq \State_p \times \State_p$ is the transition relation (defined by the single-step semantics) and $I_p \subseteq \State_p$ are the possible initial states.</p>
+            <p class="read">"A program's states, which state can follow which, and where it may begin."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.17</span> The transition system of a JVM method</p>
+            <p>For a method $m$ with bytecode $\bc$ (Part 5):</p>
+            <div class="mathbox">$$\begin{aligned}
+              \State_p &= \{\langle \eta, \mu \rangle\} \cup \{\ok\} \cup \{\err(\mathit{msg})\} \\
+              \delta_p(s, s') &\iff \bc \vdash s \to s' \\
+              I_p &= \{\, \langle \eta_0, \epsilon\langle \lambda_0, \epsilon, \langle m, 0\rangle\rangle \rangle \mid \lambda_0 \text{ holds a well-typed argument tuple} \,\}
+            \end{aligned}$$</div>
+            <p class="read">"States are heap plus call stack, or a final outcome. One state may follow another exactly when the rules derive the step. We start with a single frame whose locals are the arguments, an empty operand stack, at offset 0 of $m$."</p>
+          </div>
+          <p>The final configurations $\ok$ and $\err(\ldots)$ have no successors. Our JVM semantics is <em>deterministic</em>: for every $s$ there is at most one $s'$ with $\delta_p(s, s')$, so $\delta_p$ is a partial function.</p>
+        </div>
+        <div class="quiz" data-quiz="transition-system"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="traces" data-part="Programs as transition systems" data-short="Traces and Sem(p)">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Traces and the maximal trace semantics</h2><p class="kicker">The meaning of a program is the set of all its runs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A trace is a full replay of one game: every position, in order, from the start. The meaning of a program is the box containing every possible replay. Questions like "can it crash?" or "does it always finish?" are now questions about what is in the box.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>trace</strong> $\tau = \tau_0 \tau_1 \tau_2 \cdots$ is a sequence of states starting in an initial state, where each state is followed by one of its successors. $\tau_i$ is the $i$-th state, $|\tau|$ the length (possibly $\infty$).</li>
+                <li>Running the program from one input produces one trace (deterministic). Collecting the traces for all inputs gives $\Sem(p)$, the <strong>maximal trace semantics</strong>.</li>
+                <li>Finite traces end in <code>ok</code> or an error (or a stuck state); infinite traces are programs that never stop.</li>
+                <li>Program properties become math: "$p$ halts on every input" means "every trace in $\Sem(p)$ is finite". The set of such programs is $\mathcal{L}_{\mathit{halt}}$.</li>
+                <li>Preview of later weeks: the <strong>bounded</strong> semantics $\Sem^k(p)$ only keeps traces with at most $k$ states. It is finite to explore, which is what <a href="dynamic-analysis.html#what">dynamic</a> and <a href="bounded-static-analysis.html#bounded">bounded static analysis</a> exploit.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.18</span> Trace</p>
+            <p>The traces of $p$ are sequences of states $\Trace_p \subseteq \State_p^{n}$ for $n \in [1, \infty]$ (the notes write $\State_p^{\star}$; infinite sequences are included). We use $\tau$ for traces, $\tau_i$ for the $i$-th state, $\tau_0$ for the initial state and $|\tau|$ for the length.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.19</span> Maximal trace semantics</p>
+            <div class="mathbox">$$\begin{aligned}
+              &\Sem : \Prog \to \pset{\Trace} \\
+              &\Sem(p) = \{\, \tau \in \State_p^{n} \mid n \in [1, \infty],\ \tau_0 \in I_p,\ \forall i \in [1, n-1].\ \delta_p(\tau_{i-1}, \tau_i) \,\}
+            \end{aligned}$$</div>
+            <p class="read">"The meaning of $p$ is the set of all state sequences, finite or infinite, that start in an initial state and in which every state is followed by a legal successor."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.20</span> The halting programs</p>
+            <div class="mathbox">$$\mathcal{L}_{\mathit{halt}} = \{\, p \mid p \in \mathcal{L},\ \forall \tau \in \Sem(p).\ |\tau| \neq \infty \,\}$$</div>
+            <p class="read">"A program halts when none of its traces is infinite." Deciding membership is the <a href="introduction.html#halting">halting problem</a>: we wrote it down precisely, which does not make it decidable.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.21</span> Bounded trace semantics (Trace Terminology)</p>
+            <div class="mathbox">$$\Sem^{k}(p) = \{\, \tau \in \State_p^{n} \mid n \in [1, k],\ \tau_0 \in I_p,\ \forall i \in [1, n-1].\ \delta_p(\tau_{i-1}, \tau_i) \,\}$$</div>
+            <p class="read">"Same as before, but only sequences of at most $k$ states."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.22</span> Bounded semantics grow towards the finite traces</p>
+            <p>$\Sem^{k}(p) \subseteq \Sem^{k+1}(p)$, and $\bigcup_{k \geq 1} \Sem^{k}(p)$ is exactly the set of finite traces in $\Sem(p)$.</p>
+            <details class="proof"><summary>Proof</summary><p>The defining condition only changes $n \in [1,k]$ to $n \in [1,k+1]$, so the sets grow. A finite trace of length $n$ is in $\Sem^{n}$; conversely every element of some $\Sem^{k}$ is a finite trace of $\Sem(p)$. Infinite traces are in no $\Sem^{k}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>As written, the definition of $\Sem(p)$ does not require traces to be <em>maximal</em>: every prefix of a run (start, first two states, ...) is in the set too. The name "maximal trace semantics" usually means keeping only runs that cannot be extended (they end in a state with no successor, or are infinite). For the questions we ask (does some run end in an error? is some run infinite?) both readings give the same answers, because every prefix extends to a maximal run with the same start.</div>
+        <div data-lab="traceset"></div>
+        <div class="quiz" data-quiz="traces"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 4</span><h2>Java bytecode</h2></div>
+
+      <!-- 10 -->
+      <section class="topic" id="jvm" data-part="Java bytecode" data-short="The JVM and class files">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Why bytecode? The JVM and class files</h2><p class="kicker">Write once, run anywhere, and analyse one simple language</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Imagine publishing a book in a dozen countries. You could translate it a dozen times, or you could write it once in a simple shared language and give every country a cheap translator. Java does the second: the shared language is <strong>bytecode</strong>, and every computer runs a translator called the <strong>Java Virtual Machine</strong>.</p>
+              <p>For us that is great news: instead of analysing Java's rich syntax, we analyse a small, regular instruction language.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Processors speak different instruction sets (x86, ARM, RISC-V). Supporting them all means producing machine code for each.</li>
+                <li>Java wanted "write once, run everywhere", so <code>javac</code> compiles to <strong>JVM bytecode</strong> stored in <code>.class</code> files (<strong>class files</strong>). A virtual machine written once per platform runs that bytecode.</li>
+                <li>A class file contains the class name, its fields and its methods; each method contains a list of instructions. <code>javap -c</code> prints them.</li>
+                <li>The real JVM has about two hundred instructions, many of them typed variants (<code>iload</code>, <code>fload</code>, <code>aload</code>, <code>iload_0</code>, ...). The course uses <code>jvm2json</code>, which decompiles class files to JSON in an intermediate language of <strong>39 instructions</strong> (e.g. all loads become <code>load</code> with a type, all comparisons with zero become <code>ifz</code>) and applies some useful simplifications.</li>
+                <li>One more simplification: jvm2json numbers instructions <strong>0, 1, 2, ...</strong> (instruction indices), while <code>javap</code> prints <strong>byte offsets</strong>. Jump targets in our listings are instruction indices.</li>
+              </ul>
+              <pre><code class="language-plaintext">$ javap -cp target/classes -c jpamb.cases.Simple
+...
+public static void assertPositive(int);
+  Code:
+     0: getstatic     #7     // Field $assertionsDisabled:Z
+     3: ifne          18
+     6: iload_0
+     7: ifgt          18
+    10: new           #13    // class java/lang/AssertionError
+    13: dup
+    14: invokespecial #15    // Method java/lang/AssertionError."&lt;init&gt;":()V
+    17: athrow
+    18: return</code></pre>
+              <p class="code-cap">Byte offsets on the left (constant-pool numbers like <code>#7</code> vary). The same method in the course language is <code>get, ifz ne 8, load:I 0, ifz gt 8, new, dup, invoke special, throw, return</code> at indices 0 to 8.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.23</span> Bytecode</p>
+            <p>The bytecode of a program is a finite map from program counters to instructions, $\bc : \mathit{PC} \rightharpoonup \mathit{Instr}$, where a program counter names a method and an instruction index (topic 13). $\bc[\iota]$ is the instruction at $\iota$. $\mathit{Instr}$ is the course's instruction set ($\mathtt{push}$, $\mathtt{load}$, $\mathtt{store}$, $\mathtt{binary}$, $\mathtt{ifz}$, $\mathtt{if}$, $\mathtt{goto}$, $\mathtt{return}$, $\mathtt{get}$, $\mathtt{new}$, $\mathtt{dup}$, $\mathtt{invoke}$, $\mathtt{throw}$, ...).</p>
+            <p class="read">"Given a place in the program, $\bc$ tells you which instruction sits there."</p>
+          </div>
+          <p>$\bc$ never changes while the program runs, so it is the <em>context</em> (left of the turnstile) of every judgement: $\bc \vdash s \to s'$.</p>
+        </div>
+        <div class="quiz" data-quiz="jvm"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="reading-bytecode" data-part="Java bytecode" data-short="Reading bytecode">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>Reading decompiled bytecode</h2><p class="kicker"><code>opr</code> tells you what to do; the stack tells you to what</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Bytecode reads like a recipe for someone with a single stack of plates: "put a plate on top", "take the top two plates, combine them, put the result back", "if the top plate is empty, skip to step 6". Nothing has a name; everything happens on top of the stack.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The notes' example is <code>assertFalse</code> (Java: <code>assert false;</code>). Extracted with <code>jq '.methods[] | select(.name=="assertFalse") | .code.bytecode' target/decompiled/jpamb/cases/Simple.json</code>:</p>
+              <pre><code class="language-json">[
+ { "opr": "get", "field": { "class": "jpamb/cases/Simple", "name": "$assertionsDisabled", "type": "boolean" }, "static": true },
+ { "opr": "ifz", "condition": "ne", "target": 6 },
+ { "opr": "new", "class": "java/lang/AssertionError" },
+ { "opr": "dup", "words": 1 },
+ { "opr": "invoke", "access": "special", "method": { "args": [], "is_interface": false, "name": "&lt;init&gt;",
+   "ref": { "kind": "class", "name": "java/lang/AssertionError" }, "returns": null } },
+ { "opr": "throw" },
+ { "opr": "return", "type": null }
+]</code></pre>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>#</th><th>opr</th><th>stack before</th><th>what happens</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">00</td><td class="mono">get</td><td class="mono">[]</td><td>Read the static boolean <code>$assertionsDisabled</code> and push it.</td></tr>
+                    <tr><td class="mono">01</td><td class="mono">ifz</td><td class="mono">[bool]</td><td>Pop it; if it is not equal to zero (assertions are disabled), jump to instruction 6 (return).</td></tr>
+                    <tr><td class="mono">02</td><td class="mono">new</td><td class="mono">[]</td><td>Otherwise allocate a new <code>AssertionError</code> object and push a reference.</td></tr>
+                    <tr><td class="mono">03</td><td class="mono">dup</td><td class="mono">[ref]</td><td>Duplicate the reference.</td></tr>
+                    <tr><td class="mono">04</td><td class="mono">invoke</td><td class="mono">[ref, ref]</td><td>Call the constructor <code>&lt;init&gt;</code>, which consumes the top reference.</td></tr>
+                    <tr><td class="mono">05</td><td class="mono">throw</td><td class="mono">[ref]</td><td>Throw the assertion error.</td></tr>
+                    <tr><td class="mono">06</td><td class="mono">return</td><td class="mono">[]</td><td>Otherwise return normally.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>Why <code>dup</code>? The constructor call eats one reference, and <code>throw</code> needs another. Duplicating keeps a copy for <code>throw</code>.</li>
+                <li><code>jpamb inspect "jpamb.cases.Simple.assertBoolean:(Z)V"</code> shows a method; <code>--format=repr</code> shows the Python objects, <code>--format=real</code> the JVM mnemonics, <code>--format=json</code> the decompiled JSON.</li>
+                <li>In Python, parse one instruction with <code>jpamb.jvm.Opcode.from_json</code>, or a whole method with <code>jpamb.Suite.method_opcodes(methodid, eff=eff)</code>. The instruction classes live in <code>src/jvm/opcode.py</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.24</span> Stack effect</p>
+            <p>The stack effect of an instruction says how many values it pops and pushes, written $\sigma\, v_1 \cdots v_k \Rightarrow \sigma\, w_1 \cdots w_l$, where $\sigma$ is the untouched rest of the stack (top on the right). Examples:</p>
+            <div class="mathbox">$$\begin{aligned}
+              \mathtt{push}\ v &: \sigma \Rightarrow \sigma\, v & \mathtt{binary}\ \mathit{op} &: \sigma\, v_1\, v_2 \Rightarrow \sigma\, (v_1\ \mathit{op}\ v_2)\\
+              \mathtt{dup} &: \sigma\, v \Rightarrow \sigma\, v\, v & \mathtt{ifz}\ c\ t &: \sigma\, v \Rightarrow \sigma\\
+              \mathtt{new}\ C &: \sigma \Rightarrow \sigma\, r & \mathtt{throw} &: \sigma\, r \Rightarrow \text{(error)}
+            \end{aligned}$$</div>
+            <p class="read">"Push adds one value on top. Binary takes the top two and puts back one. Dup copies the top. Ifz consumes the top. New pushes a fresh reference. Throw consumes a reference and leaves the method with an error."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Fact</span> Stack heights are fixed per instruction</p>
+            <p>The JVM's bytecode verifier only accepts code in which, at each instruction index, the operand stack has the same height and the same types no matter which path reached it. This is why "the stack at instruction 4" makes sense, and it is what makes the per-instruction abstraction of <a href="bounded-static-analysis.html#pc-abs">week 5</a> work.</p>
+          </div>
+        </div>
+        <div data-lab="bytecode"></div>
+        <div class="quiz" data-quiz="reading-bytecode"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 5</span><h2>The semantics of the JVM</h2></div>
+
+      <!-- 12 -->
+      <section class="topic" id="judgements" data-part="The semantics of the JVM" data-short="What we define">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>What we are defining: the JVM step judgement</h2><p class="kicker">One rule per instruction, one Python case per rule</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>We are writing the rulebook of the JVM game: for every kind of instruction, one rule that says what the next position looks like. A step ends in one of three ways: the game continues in a new position, the game is over and all went well, or the game is over with an error.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Three judgement forms: $\bc \vdash s \to \bar s$ (continue in a new state), $\bc \vdash s \to \ok$ (finished normally) and $\bc \vdash s \to \err(\text{`msg'})$ (finished with an error such as <code>'divide by zero'</code>).</li>
+                <li>The same thing in Python is a function <code>step</code> that, given a state, returns a new state or a string naming the outcome.</li>
+                <li>We write each rule twice, in math and in Python, using the state classes of the course's Python library (<code>jvm.state</code>).</li>
+                <li>Our JVM is limited: no threads, no exception handlers, no <code>long</code>/<code>double</code>. The JPAMB outcomes are all we need.</li>
+              </ul>
+              <pre><code class="language-python">def step(bc: Bytecode, s: State) -&gt; State | str:
+    ...</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.25</span> Configurations and the step judgement</p>
+            <p>Let $\mathit{Conf} = \State \cup \{\ok\} \cup \{\err(m) \mid m \in \mathit{Msg}\}$ with $\mathit{Msg} = \{$<code>'assertion error'</code>, <code>'divide by zero'</code>, <code>'out of bounds'</code>, <code>'null pointer'</code>$\}$. The semantics defines the relation</p>
+            <div class="mathbox">$$\bc \vdash s \to c \qquad s \in \State,\ c \in \mathit{Conf}$$</div>
+            <p class="read">"With bytecode $\bc$, state $s$ steps to configuration $c$, which is either the next state, ok, or an error with a message."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.26</span> Determinism, and what "stuck" means</p>
+            <p>For each $s$ at most one rule instance applies, so there is at most one $c$ with $\bc \vdash s \to c$. If none applies (an instruction we did not define, or ill-typed values such as adding a reference), $s$ is <em>stuck</em>; in the Python interpreter this shows up as a <code>NotImplementedError</code> or a failing <code>assert</code>.</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="judgements"></div>
+      </section>
+
+      <!-- 13 -->
+      <section class="topic" id="pc" data-part="The semantics of the JVM" data-short="Program counter">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>The context and the program counter</h2><p class="kicker">Where am I? Which method, which instruction</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The program counter is a bookmark: it says which recipe (method) you are reading and which line of it. Most instructions move the bookmark one line down; jumps move it to a specific line.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Every rule runs in the context of the bytecode $\bc$. The lookup $\bc[\iota]$ gives the instruction at program counter $\iota$.</li>
+                <li>$\iota = \langle \iota_m, \iota_o \rangle$: the method name and the offset in that method. Two shorthands: $\iota + n$ moves forward by $n$, and $\iota \leftarrow n$ jumps to offset $n$ in the same method.</li>
+                <li>In Python, the <code>PC</code> class of <code>jvm.state</code> overloads <code>+=</code> and <code>%=</code> for exactly these two operations, and the bytecode is indexed with it.</li>
+              </ul>
+              <pre><code class="language-python">class PC:
+    method: jvm.AbsMethodID
+    offset: int
+
+&gt;&gt;&gt; pc = PC(method, offset)
+&gt;&gt;&gt; pc += n          # add n to the offset          (iota + n)
+&gt;&gt;&gt; pc %= n          # replace the offset with n    (iota &lt;- n)
+&gt;&gt;&gt; suite, eff = jpamb.setup()
+&gt;&gt;&gt; bc = jpamb.Bytecode(suite, eff, {})
+&gt;&gt;&gt; bc[pc]           # the instruction at pc        (bc[iota])</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.27</span> Program counters</p>
+            <div class="mathbox">$$\iota = \langle \iota_m, \iota_o \rangle \in \mathit{Method} \times \N \qquad \iota + n = \langle \iota_m, \iota_o + n \rangle \qquad \iota \leftarrow n = \langle \iota_m, n \rangle$$</div>
+            <p class="read">"A program counter is a method and an offset. Plus n moves the offset forward. Arrow n sets the offset to n, staying in the same method."</p>
+          </div>
+          <p>Calls are the only way to change $\iota_m$, and they do it by pushing a new frame with its own program counter (topic 17), never by editing the current one.</p>
+        </div>
+        <div class="quiz" data-quiz="pc"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="values" data-part="The semantics of the JVM" data-short="Values">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>Values: what can live on the stack and in the heap</h2><p class="kicker">Every value carries its type</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Every value in our machine wears a name tag saying what kind of thing it is: "int 5", "ref 3". Small, simple things (numbers, addresses) go on the stack. Big things (arrays, objects) live in a warehouse called the heap, and the stack only holds their address.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Values are <strong>dynamically typed</strong> in our interpretation: each value carries its type, so the interpreter can check "expected int, but got ref".</li>
+                <li><strong>Stack values</strong> $\mathbf{V}_\sigma$: signed 32-bit integers, 32-bit IEEE 754 floats, and 32-bit references to the heap.</li>
+                <li><strong>Heap values</strong> $\mathbf{V}_\eta$: anything a stack value can be, plus 8-bit bytes, 16-bit unsigned chars, signed 16-bit shorts, arrays (a type and a list of values) and objects (a class name and a map from field names to values).</li>
+                <li>Booleans are just ints 0 and 1 on the stack (the <code>Z</code> in <code>(Z)V</code>); chars are pushed as their int code.</li>
+                <li>We skip <code>long</code> and <code>double</code> (in the real JVM they take two stack slots) and avoid inner classes and bootstrap methods. The Python types live in <code>jvm.type</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.28</span> Stack and heap values</p>
+            <div class="mathbox">$$\begin{aligned}
+              \mathbf{V}_\sigma &::= (\mathtt{int}\ n) \mid (\mathtt{float}\ f) \mid (\mathtt{ref}\ r) \\
+              \mathbf{V}_\eta &::= \mathbf{V}_\sigma \mid (\mathtt{byte}\ b) \mid (\mathtt{char}\ c) \mid (\mathtt{short}\ s) \mid (\mathtt{array}\ t\ a) \mid (\mathtt{object}\ cn\ fs)
+            \end{aligned}$$</div>
+            <p>with $n \in \mathbb{I}_{32} = [-2^{31}, 2^{31}-1]$, $b \in [-2^7, 2^7-1]$, $c \in [0, 2^{16}-1]$, $s \in [-2^{15}, 2^{15}-1]$, $r \in \N \cup \{\mathtt{null}\}$, $t$ an element type, $a$ a list of values, $cn$ a class name and $fs$ a finite map from field names to $\mathbf{V}_\eta$.</p>
+            <p class="read">"A stack value is a tagged int, float or reference. A heap value is a stack value or a byte, char, short, array or object."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.29</span> 32-bit wrap-around</p>
+            <div class="mathbox">$$\mathrm{wrap}(x) = \big((x + 2^{31}) \bmod 2^{32}\big) - 2^{31} \qquad v_1 +_{i32} v_2 = \mathrm{wrap}(v_1 + v_2)$$</div>
+            <p class="read">"Do the arithmetic on mathematical integers, then fold the result back into the 32-bit range like a car odometer." So $2^{31} - 1 +_{i32} 1 = -2^{31}$.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>JVM ints are 32-bit and wrap around: <code>2147483647 + 1</code> is <code>-2147483648</code> in the JVM, while mathematical integers (and Python's) just keep growing. The semantics uses the 32-bit operations $+_{i32}$, $-_{i32}$, $\times_{i32}$.</div>
+        <div class="quiz" data-quiz="values"></div>
+      </section>
+
+      <!-- 15 -->
+      <section class="topic" id="frame" data-part="The semantics of the JVM" data-short="Stack, locals, frame">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>The operand stack, the locals, and the frame</h2><p class="kicker">$\langle \lambda, \sigma, \iota \rangle$: the state of one method call</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A method call works at a desk with three things on it: a row of labelled drawers (the <strong>locals</strong>: parameters and local variables), a pile of scratch paper (the <strong>operand stack</strong>: intermediate results, newest on top), and a bookmark (the <strong>program counter</strong>). Together they are a <strong>frame</strong>.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The JVM is <strong>stack-based</strong>: instead of named registers, intermediate values go on an operand stack. <code>1 + 2</code> is "push 1, push 2, add".</li>
+                <li>The stack is a list of stack values, $\sigma \in \mathbf{V}_\sigma^*$. $\epsilon$ is the empty stack and we add and remove at the right end: $\epsilon(\mathtt{int}\ 1)(\mathtt{int}\ 2)(\mathtt{int}\ 3)$ has 3 on top.</li>
+                <li>The <strong>locals</strong> $\lambda$ are an array indexed from 0. The method's arguments come first: in <code>assertPositive(int num)</code>, $\lambda[0]$ is <code>num</code>.</li>
+                <li>A <strong>frame</strong> is the triple $\langle \lambda, \sigma, \iota \rangle$. The initial frame of <code>assertPositive(5)</code> is $\langle [(\mathtt{int}\ 5)], \epsilon, \langle \mathit{assertPositive}, 0\rangle \rangle$.</li>
+              </ul>
+              <pre><code class="language-python">class OperandStack:
+    operands: deque[StackValue]
+
+class Locals:
+    locals: list[StackValue | None]
+
+class Frame:
+    locals: Locals
+    stack: OperandStack
+    pc: PC</code></pre>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="diagram" role="img" aria-label="A frame: locals as a row of boxes indexed 0 and 1, operand stack as a column with the top at the top, and a program counter pointing into the bytecode listing">
+                <svg viewBox="0 0 330 250" class="dg">
+                  <text x="10" y="22" class="dg-h">locals &#955;</text>
+                  <rect x="10" y="32" width="90" height="34" class="dg-box"/><rect x="100" y="32" width="90" height="34" class="dg-box"/>
+                  <text x="55" y="54" text-anchor="middle" class="dg-t mono">(int 7)</text><text x="145" y="54" text-anchor="middle" class="dg-t mono">(int 0)</text>
+                  <text x="55" y="82" text-anchor="middle" class="dg-s">&#955;[0]</text><text x="145" y="82" text-anchor="middle" class="dg-s">&#955;[1]</text>
+                  <text x="10" y="112" class="dg-h">stack &#963;</text>
+                  <rect x="10" y="122" width="110" height="32" class="dg-box dg-acc"/><rect x="10" y="154" width="110" height="32" class="dg-box"/><rect x="10" y="186" width="110" height="32" class="dg-box"/>
+                  <text x="65" y="143" text-anchor="middle" class="dg-t mono">(int 3)</text><text x="65" y="175" text-anchor="middle" class="dg-t mono">(int 2)</text><text x="65" y="207" text-anchor="middle" class="dg-t mono">(int 1)</text>
+                  <text x="128" y="143" class="dg-s">&#8592; top</text>
+                  <text x="10" y="238" class="dg-s mono">&#949;(int 1)(int 2)(int 3)</text>
+                  <text x="205" y="112" class="dg-h">pc &#953;</text>
+                  <rect x="205" y="122" width="120" height="96" class="dg-box"/>
+                  <text x="215" y="142" class="dg-t mono dg-small">2 load:I 0</text>
+                  <rect x="207" y="150" width="116" height="22" class="dg-hl"/>
+                  <text x="215" y="166" class="dg-t mono dg-small">3 push:I 0</text>
+                  <text x="215" y="190" class="dg-t mono dg-small">4 binary:I div</text>
+                  <text x="215" y="212" class="dg-t mono dg-small">5 return:I</text>
+                </svg>
+              </div>
+              <figcaption><b>One frame.</b> Locals are indexed from 0, the stack grows to the right in formulas (drawn upwards here), and the program counter points at the next instruction.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.30</span> Operand stack, locals and frame</p>
+            <div class="mathbox">$$\sigma \in \mathbf{V}_\sigma^{*} \qquad \lambda : \N \rightharpoonup \mathbf{V}_\sigma \qquad \mathit{Frame} = (\N \rightharpoonup \mathbf{V}_\sigma) \times \mathbf{V}_\sigma^{*} \times \mathit{PC} \ni \langle \lambda, \sigma, \iota \rangle$$</div>
+            <p>$\epsilon$ is the empty stack and $\sigma v$ is $\sigma$ with $v$ pushed on top (juxtaposition is concatenation). $\lambda[n]$ reads local $n$ and $\lambda[n \mapsto v]$ is $\lambda$ with local $n$ replaced by $v$.</p>
+            <p class="read">"A stack is a finite sequence of stack values; locals map indices to stack values; a frame is locals, stack and program counter."</p>
+          </div>
+          <p>Pattern matching on stacks is how rules pop: a rule whose left side mentions $\langle \lambda, \sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2), \iota\rangle$ only applies when the top two values are ints, and names them $v_1$ (below) and $v_2$ (top).</p>
+        </div>
+        <div class="quiz" data-quiz="frame"></div>
+      </section>
+
+      <!-- 16 -->
+      <section class="topic" id="push-load" data-part="The semantics of the JVM" data-short="Stepping: push, load, store">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>The stepping function: push, load and store</h2><p class="kicker">Our first rules, in math and in Python</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>"Push 5" means: write 5 on a new sheet, put it on top of the pile, move the bookmark one line down. "Load 0" means: copy what is in drawer 0 onto a new sheet on the pile. "Store 1" means the opposite: take the top sheet off the pile and put it in drawer 1.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Most instructions only touch the current frame, so the first judgement form is $\bc \vdash \langle \lambda, \sigma, \iota\rangle \to \langle \bar\lambda, \bar\sigma, \bar\iota\rangle$.</li>
+                <li>The Python <code>step</code> peeks at the top frame, looks up the instruction at its pc, and matches on it. Each <code>case</code> is one rule. By default it returns the (mutated) state.</li>
+                <li>Read the rule and the code side by side: the premise "$\bc[\iota] = (\mathtt{push{:}I}\ v)$" is the <code>case</code> pattern; the conclusion's new stack is the <code>push</code>; $\iota + 1$ is <code>frame.pc += 1</code>.</li>
+              </ul>
+              <pre><code class="language-python">def step(bc: jpamb.Bytecode, state: State) -&gt; tuple[PC, State | str]:
+    frame = state.frames.peek()
+    opr = bc[frame.pc]
+    pc, output = frame.pc, state        # default: output the (updated) state
+    print(f"Stepping {pc}:\n &gt; {opr}", file=sys.stderr)
+    match opr:
+        case jvm.Push(type=t, value=v):
+            if t is not jvm.Int():
+                raise NotImplementedError(f"Don't know how to handle {t}")
+            frame.stack.push(StackInt(v))
+            frame.pc += 1
+        case jvm.Load(type=jvm.Int(), index=n):
+            v = frame.locals[n]
+            frame.stack.push(v)
+            frame.pc += 1
+        # ... the other opcodes
+    return pc, output</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{push{:}I}\ v)}{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \lambda, \sigma(\mathtt{int}\ v), \iota + 1 \rangle}\rulename{push_I}$$</div>
+          <p class="read">"If the instruction at $\iota$ pushes the int $v$, the stack gains $(\mathtt{int}\ v)$ on top and the pc moves to the next instruction; the locals are unchanged."</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{load{:}I}\ n) \qquad (\mathtt{int}\ v) = \lambda[n]}{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \lambda, \sigma(\mathtt{int}\ v), \iota + 1 \rangle}\rulename{load_I}$$</div>
+          <p class="read">"If the instruction loads local $n$, and local $n$ holds the int $v$, push a copy of it."</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{store{:}I}\ n)}{\bc \vdash \langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \to \langle \lambda[n \mapsto (\mathtt{int}\ v)], \sigma, \iota + 1 \rangle}\rulename{store_I}$$</div>
+          <p class="read">"If the instruction stores into local $n$ and the top of the stack is the int $v$, pop it and put it into local $n$."</p>
+          <p><em>A concrete instance.</em> In <code>divideByN</code> with input 0, $\bc[\langle \mathit{divideByN}, 0\rangle] = (\mathtt{push{:}I}\ 1)$, so</p>
+          <div class="mathbox">$$\bc \vdash \langle [(\mathtt{int}\ 0)], \epsilon, \langle \mathit{divideByN}, 0\rangle \rangle \to \langle [(\mathtt{int}\ 0)], \epsilon(\mathtt{int}\ 1), \langle \mathit{divideByN}, 1\rangle \rangle$$</div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Each rule is one <code>case</code>. The premises become the pattern and guards, the conclusion becomes the updates. If you can read one, you can write the other.</div>
+        <div data-lab="stepper"></div>
+        <div class="quiz" data-quiz="push-load"></div>
+      </section>
+
+      <!-- 17 -->
+      <section class="topic" id="callstack" data-part="The semantics of the JVM" data-short="Call stack and heap">
+        <header class="topic-head">
+          <span class="topic-num">17</span>
+          <div><h2>The call stack and the heap</h2><p class="kicker">The full state is $\langle \eta, \mu \rangle$</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>When a method calls another, the caller's desk is not cleared: a new desk is stacked on top of it for the callee. When the callee finishes, its desk is removed and the caller continues where it left off. That stack of desks is the <strong>call stack</strong>.</p>
+              <p>Desks cannot see each other's drawers, so to share bigger things they use the warehouse everyone can reach: the <strong>heap</strong>.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The <strong>call stack</strong> $\mu$ is a sequence of frames, the active (top) frame on the right: $\mu \sim \ldots\langle\lambda_2, \sigma_2, \iota_2\rangle\langle\lambda_1, \sigma_1, \iota_1\rangle$.</li>
+                <li>The <strong>heap</strong> $\eta$ maps memory locations (natural numbers) to heap values. A <code>(ref r)</code> on a stack points to $\eta(r)$.</li>
+                <li>The full <strong>state</strong> is the pair $\langle \eta, \mu \rangle$, and the real step judgement is $\bc \vdash \langle \eta, \mu\rangle \to \langle \bar\eta, \bar\mu\rangle$.</li>
+                <li>We do not rewrite the frame rules: two <strong>lifting</strong> rules say "a frame step is also a state step, on the top frame, with the heap untouched".</li>
+                <li><code>invoke static</code> pops the arguments and pushes a new frame whose locals are those arguments; <code>return</code> (topic 18) pops it again.</li>
+              </ul>
+              <pre><code class="language-python">class State:
+    heap: Heap
+    frames: CallStack</code></pre>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="diagram" role="img" aria-label="The state: a heap mapping location 0 to an AssertionError object, and a call stack of two frames for factorial, the top frame being the active one">
+                <svg viewBox="0 0 330 240" class="dg">
+                  <text x="10" y="20" class="dg-h">call stack &#956;</text>
+                  <rect x="10" y="30" width="190" height="52" rx="6" class="dg-box dg-acc"/>
+                  <text x="20" y="50" class="dg-t mono dg-small">factorial(1)  pc 0</text>
+                  <text x="20" y="70" class="dg-t mono dg-small">&#955;=[1]  &#963;=&#949;</text>
+                  <text x="206" y="58" class="dg-s">&#8592; active</text>
+                  <rect x="10" y="88" width="190" height="52" rx="6" class="dg-box"/>
+                  <text x="20" y="108" class="dg-t mono dg-small">factorial(2)  pc 9</text>
+                  <text x="20" y="128" class="dg-t mono dg-small">&#955;=[2]  &#963;=&#949;(int 2)</text>
+                  <rect x="10" y="146" width="190" height="40" rx="6" class="dg-box"/>
+                  <text x="20" y="171" class="dg-t mono dg-small">factorial(3)  pc 9</text>
+                  <text x="10" y="222" class="dg-h">heap &#951;</text>
+                  <rect x="90" y="204" width="230" height="28" rx="6" class="dg-box"/>
+                  <text x="100" y="223" class="dg-t mono dg-small">0 &#8614; (object AssertionError)</text>
+                </svg>
+              </div>
+              <figcaption><b>The state $\langle \eta, \mu\rangle$.</b> Each call adds a frame on top; the heap is shared by all frames.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.31</span> Call stack, heap and state</p>
+            <div class="mathbox">$$\mu \in \mathit{Frame}^{*} \qquad \eta : \N \rightharpoonup \mathbf{V}_\eta \qquad s = \langle \eta, \mu \rangle \in \State$$</div>
+            <p class="read">"The call stack is a sequence of frames, top on the right. The heap is a finite map from locations to heap values. A state is a heap and a call stack."</p>
+          </div>
+          <p>The lifting rules from the notes:</p>
+          <div class="mathbox">$$\frac{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \bar\lambda, \bar\sigma, \bar\iota \rangle}{\bc \vdash \mu\langle \lambda, \sigma, \iota \rangle \to \mu\langle \bar\lambda, \bar\sigma, \bar\iota \rangle}\rulename{lift_\mu} \qquad \frac{\bc \vdash \mu \to \bar\mu}{\bc \vdash \langle \eta, \mu \rangle \to \langle \eta, \bar\mu \rangle}\rulename{lift_\eta}$$</div>
+          <p class="read">"A step of the top frame is a step of the whole call stack (frames below stay as they are). A step of the call stack is a step of the state (the heap stays as it is)."</p>
+          <p>Calling a static method with $k$ arguments (the rule our labs use):</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{invoke\ static}\ m) \qquad m \text{ takes } k \text{ arguments}}{\bc \vdash \langle \eta, \mu\langle \lambda, \sigma\, v_1 \cdots v_k, \iota \rangle \rangle \to \langle \eta, \mu\langle \lambda, \sigma, \iota \rangle\langle [v_1, \ldots, v_k], \epsilon, \langle m, 0\rangle \rangle \rangle}\rulename{invoke}$$</div>
+          <p class="read">"Pop the $k$ arguments, keep the caller's frame with its pc still on the call, and push a new frame for $m$ whose locals are the arguments, with an empty stack, at offset 0."</p>
+          <p>Rules that need the heap (like <code>new</code>, topic 21) are written directly on $\langle \eta, \mu\rangle$.</p>
+        </div>
+        <div data-lab="calls"></div>
+        <div class="quiz" data-quiz="callstack"></div>
+      </section>
+
+      <!-- 18 -->
+      <section class="topic" id="return" data-part="The semantics of the JVM" data-short="Returning">
+        <header class="topic-head">
+          <span class="topic-num">18</span>
+          <div><h2>Terminating the program: return</h2><p class="kicker">Hand the value back, or finish with ok</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Returning means: take the answer off your pile, clear your desk away, and put the answer on the pile of whoever called you; they then continue with their next line. If nobody called you (you were the first desk), the whole program is done and all went well.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Our simplified JVM terminates when it exits from the last method ($\ok$) or when it meets an error ($\err(\ldots)$).</li>
+                <li>Two return rules: $\mathsf{return}_\epsilon$ when the call stack below is empty, and $\mathsf{return}_\mu$ when there is a caller frame. In the second case the caller's pc moves past its <code>invoke</code>.</li>
+                <li>A <code>void</code> method's <code>return</code> is the same without a value.</li>
+              </ul>
+              <pre><code class="language-python">case jvm.Return(type=jvm.Int()):
+    v1 = frame.stack.pop()
+    state.frames.pop()
+    if state.frames:
+        frame = state.frames.peek()
+        frame.stack.push(v1)
+        frame.pc += 1
+    else:
+        output = "ok"</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I})}{\bc \vdash \langle \eta, \epsilon\langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \rangle \to \ok}\rulename{return_\epsilon}$$</div>
+          <p class="read">"Returning an int from the only frame finishes the program successfully."</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I}) \qquad \mu_1 = \langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \qquad \mu_2 = \langle \lambda_2, \sigma_2, \iota_2 \rangle}{\bc \vdash \langle \eta, \mu\,\mu_2\,\mu_1 \rangle \to \langle \eta, \mu\langle \lambda_2, \sigma_2(\mathtt{int}\ v), \iota_2 + 1 \rangle \rangle}\rulename{return_\mu}$$</div>
+          <p class="read">"Returning an int when a caller frame $\mu_2$ sits below: drop the callee frame $\mu_1$, push $v$ on the caller's stack and move the caller past the call."</p>
+        </div>
+        <div class="quiz" data-quiz="return"></div>
+      </section>
+
+      <!-- 19 -->
+      <section class="topic" id="errors" data-part="The semantics of the JVM" data-short="Errors and arithmetic">
+        <header class="topic-head">
+          <span class="topic-num">19</span>
+          <div><h2>Errors: division and 32-bit arithmetic</h2><p class="kicker">One instruction, two rules: the happy path and the error</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Dividing is normally boring: take two numbers off the pile, put their quotient back. But if the bottom of the fraction is zero, there is no answer, and the program stops with an error instead. In rules that is just a second rule for the same instruction, with the opposite condition.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><code>binary:I div</code> pops $v_2$ (top) and $v_1$ and computes $v_1 / v_2$. If $v_2 = 0$ the rule $\mathsf{bdiv}_{I0}$ ends in $\err(\text{`divide by zero'})$; otherwise $\mathsf{bdiv}_{I1}$ pushes the quotient. The two rules have contradictory side conditions, so exactly one applies.</li>
+                <li>The quotient is computed with $/_{i32}$, Java's 32-bit integer division: it <strong>truncates toward zero</strong> ($-7 / 2 = -3$), and $-2^{31} / -1$ wraps around to $-2^{31}$.</li>
+                <li>In Python, the binary case pops both values, asserts they are ints, and delegates to a <code>binary</code> helper that returns either an int or an error string.</li>
+              </ul>
+              <pre><code class="language-python">case jvm.Binary(type=jvm.Int(), operant=op):
+    v2, v1 = frame.stack.pop(), frame.stack.pop()
+    assert isinstance(v1, jvmc.StackInt), f"expected int, but got {v1}"
+    assert isinstance(v2, jvmc.StackInt), f"expected int, but got {v2}"
+    value: int | str = binary(op, v1.value, v2.value)
+    if isinstance(value, str):
+        output = value                     # e.g. "divide by zero"
+    else:
+        frame.stack.push(jvmc.StackInt(value))
+        frame.pc += 1
+
+def binary(op, v1: int, v2: int) -&gt; int | str:
+    match op:
+        case jvm.BinaryOpr.Div:
+            try:
+                return v1 // v2
+            except ZeroDivisionError:
+                return "divide by zero"
+        case a:
+            raise NotImplementedError(f"Unhandled binary {op!r}")</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{binary{:}I}\ \mathtt{div}) \qquad v_2 = 0}{\bc \vdash \langle \sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2), \iota \rangle \to \err(\text{`divide by zero'})}\rulename{bdiv_{I0}}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{binary{:}I}\ \mathtt{div}) \qquad v_2 \neq 0 \qquad v_3 = v_1 /_{i32} v_2}{\bc \vdash \langle \sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2), \iota \rangle \to \langle \sigma(\mathtt{int}\ v_3), \iota + 1 \rangle}\rulename{bdiv_{I1}}$$</div>
+          <p class="read">"If the divisor on top is zero, stop with the error. Otherwise replace the top two ints by their 32-bit quotient and move on." (The notes leave $\lambda$ out of these frames since it does not change.)</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.32</span> 32-bit division and remainder</p>
+            <div class="mathbox">$$v_1 /_{i32} v_2 = \mathrm{wrap}\Big(\operatorname{sgn}(v_1 v_2) \Big\lfloor \tfrac{|v_1|}{|v_2|} \Big\rfloor\Big) \qquad v_1 \mathbin{\%_{i32}} v_2 = v_1 - (v_1 /_{i32} v_2)\cdot v_2$$</div>
+            <p class="read">"Divide the sizes, round down, give it the right sign (that is: round toward zero), and wrap. The remainder is what is left over, so it has the sign of $v_1$."</p>
+          </div>
+          <p>The general rule for the other operators is the same shape as $\mathsf{bdiv}_{I1}$ with $\mathit{op}_{i32} \in \{+_{i32}, -_{i32}, \times_{i32}\}$; <code>rem</code> has its own zero rule $\mathsf{brem}_{I0}$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes' <code>binary</code> uses Python's <code>v1 // v2</code>. That is <em>floor</em> division: <code>-7 // 2 == -4</code>, but Java gives <code>-3</code>. Likewise Python's <code>%</code> takes the sign of the divisor (<code>-7 % 2 == 1</code>, Java: <code>-1</code>), and Python integers never overflow. The semantics is Definition 3.32, not Python's arithmetic.</div>
+        <div class="quiz" data-quiz="errors"></div>
+      </section>
+
+      <!-- 20 -->
+      <section class="topic" id="branching" data-part="The semantics of the JVM" data-short="Branching">
+        <header class="topic-head">
+          <span class="topic-num">20</span>
+          <div><h2>Branching: ifz, if and goto</h2><p class="kicker">Jumps are just assignments to the program counter</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A branch is a fork in the recipe: "if the top sheet says zero, skip to line 8; otherwise just continue". The sheet is thrown away either way. A <code>goto</code> is an unconditional "skip to line 4", which is how loops jump back.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><code>ifz c t</code> pops one int $v$ and compares it with 0 using condition $c$. If $v \mathrel{c} 0$ holds, jump to $t$ ($\iota \leftarrow t$); otherwise fall through ($\iota + 1$).</li>
+                <li><code>if c t</code> pops two ints $v_2$ (top) and $v_1$ and compares $v_1 \mathrel{c} v_2$. Mind the order: the value pushed first is on the left.</li>
+                <li>Conditions: <code>eq</code> $=$, <code>ne</code> $\neq$, <code>lt</code> $\lt$, <code>ge</code> $\geq$, <code>gt</code> $\gt$, <code>le</code> $\leq$.</li>
+                <li>javac often compiles a condition <em>negated</em>: <code>if (n &lt;= 1) return 1;</code> becomes "if $n \gt 1$ jump past the return".</li>
+              </ul>
+              <pre><code class="language-python">case jvm.Ifz(condition=op, target=target):
+    value = frame.stack.pop()
+    assert isinstance(value, jvmc.StackInt), f"expected int, but got {value}"
+    if compare(op, value.value, 0):
+        frame.pc %= target         # jump:          iota &lt;- t
+    else:
+        frame.pc += 1              # fall through:  iota + 1</code></pre>
+              <p class="code-cap">The <code>ifz</code> rule as a Python case, as in the notes.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{ifz}\ c\ t) \qquad v \mathrel{c} 0}{\bc \vdash \langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \to \langle \lambda, \sigma, \iota \leftarrow t \rangle}\rulename{ifz_1} \qquad \frac{\bc[\iota] = (\mathtt{ifz}\ c\ t) \qquad \neg(v \mathrel{c} 0)}{\bc \vdash \langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \to \langle \lambda, \sigma, \iota + 1 \rangle}\rulename{ifz_2}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{if}\ c\ t) \qquad v_1 \mathrel{c} v_2}{\bc \vdash \langle \lambda, \sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2), \iota \rangle \to \langle \lambda, \sigma, \iota \leftarrow t \rangle}\rulename{if_1} \qquad \frac{\bc[\iota] = (\mathtt{if}\ c\ t) \qquad \neg(v_1 \mathrel{c} v_2)}{\bc \vdash \langle \lambda, \sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2), \iota \rangle \to \langle \lambda, \sigma, \iota + 1 \rangle}\rulename{if_2}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{goto}\ t)}{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \lambda, \sigma, \iota \leftarrow t \rangle}\rulename{goto}$$</div>
+          <p class="read">"If the comparison holds, the new pc is the target; if it fails, the next instruction. Either way the compared values are popped. Goto always jumps."</p>
+          <p>The pair $\mathsf{ifz}_1$ / $\mathsf{ifz}_2$ has complementary side conditions, so determinism (Proposition 3.26) is preserved. Branch rules are where a dynamic analysis sees only one side and a static analysis must consider both (<a href="bounded-static-analysis.html#what">week 5</a>).</p>
+        </div>
+        <div class="quiz" data-quiz="branching"></div>
+      </section>
+
+      <!-- 21 -->
+      <section class="topic" id="dup" data-part="The semantics of the JVM" data-short="dup and the remaining rules">
+        <header class="topic-head">
+          <span class="topic-num">21</span>
+          <div><h2><code>dup</code> and the remaining rules</h2><p class="kicker">Completing the small-step semantics</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p><code>dup</code> photocopies the top sheet of the pile and puts the copy on top. That's the whole instruction. Its rule is a good test of understanding: if you can express "photocopy the top sheet" as a rule, you can express any instruction.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Find the instruction in the resources: <code>jvm2json/CODEC.txt</code> (search for <code>&lt;ByteCodeInst&gt;</code>; dup is <code>{"opr": "dup", "words": 1}</code>), the Wikipedia list of bytecode instructions, chapter 4 (class file format) and chapter 6 (instruction set) of the JVM specification.</li>
+                <li>Ask the three questions for any instruction: what must be on the stack (the left side pattern)? what is on the stack after (the right side)? where does the pc go?</li>
+                <li>For <code>dup</code>: some value $v$ on top; afterwards $v$ twice; pc + 1. The locals and heap do not change.</li>
+                <li>Below are the remaining rules our labs use: <code>incr</code>, <code>get</code>, <code>new</code>, the constructor call and <code>throw</code>. In <code>assert</code>-compiled code, <code>new; dup; invoke special &lt;init&gt;; throw</code> always appear together.</li>
+              </ul>
+              
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{dup})}{\bc \vdash \langle \lambda, \sigma\, v, \iota \rangle \to \langle \lambda, \sigma\, v\, v, \iota + 1 \rangle}\rulename{dup}$$</div>
+          <p class="read">"If the instruction is dup and the top of the stack is $v$, the new stack has $v$ twice on top, and the pc moves on." Note $v$ may be any stack value (int or ref): that is why it is not tagged.</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{incr}\ n\ c) \qquad (\mathtt{int}\ v) = \lambda[n]}{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \lambda[n \mapsto (\mathtt{int}\ v +_{i32} c)], \sigma, \iota + 1 \rangle}\rulename{incr}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{get\ static}\ \$assertionsDisabled)}{\bc \vdash \langle \lambda, \sigma, \iota \rangle \to \langle \lambda, \sigma(\mathtt{int}\ 0), \iota + 1 \rangle}\rulename{get}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{new}\ C) \qquad r \notin \operatorname{dom}(\eta)}{\bc \vdash \langle \eta, \mu\langle \lambda, \sigma, \iota \rangle \rangle \to \langle \eta[r \mapsto (\mathtt{object}\ C\ \emptyset)], \mu\langle \lambda, \sigma(\mathtt{ref}\ r), \iota + 1 \rangle \rangle}\rulename{new}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{invoke\ special}\ C.\langle\mathit{init}\rangle)}{\bc \vdash \langle \lambda, \sigma(\mathtt{ref}\ r), \iota \rangle \to \langle \lambda, \sigma, \iota + 1 \rangle}\rulename{init} \qquad \frac{\bc[\iota] = (\mathtt{throw}) \qquad \eta(r) = (\mathtt{object}\ \mathtt{AssertionError}\ fs)}{\bc \vdash \langle \eta, \mu\langle \lambda, \sigma(\mathtt{ref}\ r), \iota \rangle \rangle \to \err(\text{`assertion error'})}\rulename{throw}$$</div>
+          <p class="read">"Incr adds a constant to a local in place. Get pushes false for <code>$assertionsDisabled</code> (assertions are on). New picks a fresh heap location, stores an empty object there and pushes a reference. The (empty) constructor just pops its reference. Throwing an AssertionError ends the run with the assertion error."</p>
+          <p>The <code>get</code> and <code>init</code> rules are deliberate simplifications (the notes allow assuming <code>$assertionsDisabled</code> is always false); a full JVM would read the static field from the heap and run the constructor's code in a new frame.</p>
+        </div>
+        <div data-lab="predict"></div>
+        <div class="quiz" data-quiz="dup"></div>
+      </section>
+
+      <!-- 22 -->
+      <section class="topic" id="interpreter" data-part="The semantics of the JVM" data-short="From rules to an interpreter">
+        <header class="topic-head">
+          <span class="topic-num">22</span>
+          <div><h2>From rules to an interpreter</h2><p class="kicker">An executable version of the semantics</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>An interpreter is the rulebook turned into a program: a loop that looks at the current position, finds the one rule that applies, makes the move, and repeats until the game ends or you run out of patience.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The interpreter is a loop around one function: look up the instruction at the current pc, pick the one rule whose premises hold, and either build the next state or stop with an outcome (<code>ok</code> or an error).</li>
+                <li>Each rule becomes one <code>case</code> of a <code>match</code> on the instruction: the premises become the pattern and its guards, the conclusion becomes the updates to the frame (see <a href="#push-load">push, load and store</a>).</li>
+                <li>A <strong>step budget</strong> turns a possibly endless loop into a program that always stops. Running out of steps does not mean "runs forever", only "no outcome yet": that gap is the <a href="introduction.html#halting">halting problem</a>.</li>
+                <li>Recording the state after every step produces the trace, the very object the <a href="#traces">trace semantics</a> defines. Next lecture, <a href="dynamic-analysis.html#what">dynamic analysis</a> learns about programs by looking at such traces.</li>
+                <li>The course's simplifications carry over: <code>$assertionsDisabled</code> is always false, there is no <code>long</code> or <code>double</code>, and exceptions only appear as the JPAMB outcomes.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 3.33</span> Interpreter</p>
+            <p>An interpreter for $\bc$ is a function $\mathit{step} : \State \to \mathit{Conf}$ with $\mathit{step}(s) = c \iff \bc \vdash s \to c$ for every non-stuck $s$. With a step budget $k$,</p>
+            <div class="mathbox">$$\mathit{run}_k(s) = \begin{cases} c & \text{if } c = \mathit{step}(s) \in \{\ok\} \cup \err(\cdot) \\ \mathit{run}_{k-1}(\mathit{step}(s)) & \text{if } \mathit{step}(s) \in \State \text{ and } k \gt 0 \\ {*} & \text{if } k = 0 \end{cases}$$</div>
+            <p class="read">"Keep stepping; stop when an outcome appears; give up with * when the budget is spent."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 3.34</span> What a run tells you</p>
+            <p>$\mathit{run}_k(s_0) = o \neq {*}$ iff the trace of $\Sem(p)$ starting in $s_0$ has at most $k+1$ states and ends in $o$. If $\mathit{run}_k(s_0) = {*}$, the trace may be infinite or merely longer than $k$; no finite $k$ distinguishes the two in general (the <a href="introduction.html#halting">halting problem</a>). This is why JPAMB's <code>*</code> outcome is predicted by timeouts.</p>
+          </div>
+          <p>Interpreting a piece of code therefore means computing, one derivation step at a time, a prefix of its trace: an executable witness of the operational semantics.</p>
+        </div>
+        <div class="quiz" data-quiz="interpreter"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and rules worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Inference rule</h3><div class="mathbox">$\dfrac{J_1 \ \cdots\ J_n}{J}\rulename{name}$</div><p>All premises imply the conclusion. Several rules = several ways.</p></div>
+          <div class="cheat-item"><h3>Hoare triple</h3><div class="mathbox">$\{P\}\ C\ \{Q\}$</div><p>$P$ before and $C$ terminates $\Rightarrow$ $Q$ after. Sequence: needs $Q_1 \Rightarrow P_2$.</p></div>
+          <div class="cheat-item"><h3>Denotation of $\mathbb{EX}$</h3><div class="mathbox">$\Den{e_1 + e_2}\sigma = \Den{e_1}\sigma + \Den{e_2}\sigma$</div><p>$\mathcal{E} : \mathbb{EX} \to (\Sigma \to \N)$, compositional.</p></div>
+          <div class="cheat-item"><h3>Small-step vs big-step</h3><div class="mathbox">$\psi \vdash \sigma \to \bar\sigma \quad\text{vs}\quad \psi \vdash \sigma \downarrow v$</div><p>$\sigma \downarrow v \iff \sigma \to^{+} v$. Big-step cannot see divergence.</p></div>
+          <div class="cheat-item"><h3>Transition system</h3><div class="mathbox">$\langle \State_p, \delta_p, I_p \rangle$</div><p>States, transition relation (the step rules), initial states.</p></div>
+          <div class="cheat-item"><h3>Maximal trace semantics</h3><div class="mathbox">$\Sem(p) = \{\tau \mid \tau_0 \in I_p,\ \delta_p(\tau_{i-1}, \tau_i)\}$</div><p>All runs, finite or infinite. $\Sem^k$: at most $k$ states.</p></div>
+          <div class="cheat-item"><h3>JVM state</h3><div class="mathbox">$\langle \eta, \mu \rangle,\ \ \mu = \cdots\langle \lambda, \sigma, \iota \rangle$</div><p>Heap; call stack of frames (locals, operand stack, pc); top frame on the right.</p></div>
+          <div class="cheat-item"><h3>Program counter</h3><div class="mathbox">$\iota = \langle \iota_m, \iota_o\rangle,\ \iota + n,\ \iota \leftarrow n$</div><p>Python: <code>pc += n</code>, <code>pc %= n</code>, <code>bc[pc]</code>.</p></div>
+          <div class="cheat-item"><h3>32-bit arithmetic</h3><div class="mathbox">$\mathrm{wrap}(x) = ((x + 2^{31}) \bmod 2^{32}) - 2^{31}$</div><p>Division truncates toward zero; remainder has the sign of the dividend.</p></div>
+          <div class="cheat-item"><h3>Outcomes</h3><div class="mathbox">$\ok,\ \err(\text{`divide by zero'}), \ldots,\ {*}$</div><p><code>*</code> only means "budget exhausted" for an interpreter.</p></div>
+        </div>
+        <h3 class="sheet-h">The JVM rules at a glance</h3>
+        <div class="table-wrap">
+          <table class="dt rule-table">
+            <thead><tr><th>Rule</th><th>Instruction</th><th>Frame before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr><td>$\mathsf{push}_I$</td><td class="mono">push:I v</td><td>$\langle\lambda, \sigma, \iota\rangle$</td><td>$\langle\lambda, \sigma(\mathtt{int}\ v), \iota+1\rangle$</td></tr>
+              <tr><td>$\mathsf{load}_I$</td><td class="mono">load:I n</td><td>$\langle\lambda, \sigma, \iota\rangle$, $\lambda[n] = (\mathtt{int}\ v)$</td><td>$\langle\lambda, \sigma(\mathtt{int}\ v), \iota+1\rangle$</td></tr>
+              <tr><td>$\mathsf{store}_I$</td><td class="mono">store:I n</td><td>$\langle\lambda, \sigma(\mathtt{int}\ v), \iota\rangle$</td><td>$\langle\lambda[n \mapsto (\mathtt{int}\ v)], \sigma, \iota+1\rangle$</td></tr>
+              <tr><td>$\mathsf{incr}$</td><td class="mono">incr n by c</td><td>$\lambda[n] = (\mathtt{int}\ v)$</td><td>$\lambda[n \mapsto (\mathtt{int}\ v +_{i32} c)]$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{binary}_I$</td><td class="mono">binary:I op</td><td>$\sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2)$</td><td>$\sigma(\mathtt{int}\ v_1\ \mathit{op}_{i32}\ v_2)$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{bdiv}_{I0}$</td><td class="mono">binary:I div</td><td>$\sigma(\mathtt{int}\ v_1)(\mathtt{int}\ 0)$</td><td>$\err(\text{`divide by zero'})$</td></tr>
+              <tr><td>$\mathsf{ifz}_{1/2}$</td><td class="mono">ifz c t</td><td>$\sigma(\mathtt{int}\ v)$</td><td>$\sigma$, $\iota \leftarrow t$ if $v \mathrel{c} 0$ else $\iota+1$</td></tr>
+              <tr><td>$\mathsf{if}_{1/2}$</td><td class="mono">if c t</td><td>$\sigma(\mathtt{int}\ v_1)(\mathtt{int}\ v_2)$</td><td>$\sigma$, $\iota \leftarrow t$ if $v_1 \mathrel{c} v_2$ else $\iota+1$</td></tr>
+              <tr><td>$\mathsf{goto}$</td><td class="mono">goto t</td><td>$\langle\lambda, \sigma, \iota\rangle$</td><td>$\langle\lambda, \sigma, \iota \leftarrow t\rangle$</td></tr>
+              <tr><td>$\mathsf{dup}$</td><td class="mono">dup</td><td>$\sigma\, v$</td><td>$\sigma\, v\, v$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{get}$</td><td class="mono no-math">get static $assertionsDisabled</td><td>$\sigma$</td><td>$\sigma(\mathtt{int}\ 0)$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{new}$</td><td class="mono">new C</td><td>$\eta$, $\sigma$</td><td>$\eta[r \mapsto (\mathtt{object}\ C)]$, $\sigma(\mathtt{ref}\ r)$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{init}$</td><td class="mono">invoke special &lt;init&gt;</td><td>$\sigma(\mathtt{ref}\ r)$</td><td>$\sigma$, $\iota+1$</td></tr>
+              <tr><td>$\mathsf{invoke}$</td><td class="mono">invoke static m</td><td>$\mu\langle\lambda, \sigma\, v_1\cdots v_k, \iota\rangle$</td><td>$\mu\langle\lambda, \sigma, \iota\rangle\langle[v_1..v_k], \epsilon, \langle m, 0\rangle\rangle$</td></tr>
+              <tr><td>$\mathsf{throw}$</td><td class="mono">throw</td><td>$\sigma(\mathtt{ref}\ r)$, $\eta(r)$ an AssertionError</td><td>$\err(\text{`assertion error'})$</td></tr>
+              <tr><td>$\mathsf{return}_\epsilon$</td><td class="mono">return:I</td><td>$\epsilon\langle\lambda, \sigma(\mathtt{int}\ v), \iota\rangle$</td><td>$\ok$</td></tr>
+              <tr><td>$\mathsf{return}_\mu$</td><td class="mono">return:I</td><td>$\mu\langle\lambda_2, \sigma_2, \iota_2\rangle\langle\lambda, \sigma(\mathtt{int}\ v), \iota\rangle$</td><td>$\mu\langle\lambda_2, \sigma_2(\mathtt{int}\ v), \iota_2+1\rangle$</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <table class="gloss">
+          <tr><td>$\vdash$</td><td>turnstile</td><td>"in this context, derivable": $\bc \vdash s \to s'$</td></tr>
+          <tr><td>$\models$</td><td>models</td><td>"is true": semantic truth, e.g. of a Hoare triple</td></tr>
+          <tr><td>$\to$, $\downarrow$</td><td>small step, big step</td><td>one step; all the way to a value</td></tr>
+          <tr><td>$\bar\sigma$</td><td>bar</td><td>"the next" state, stack, expression</td></tr>
+          <tr><td>$\Den{e}$</td><td>denotation</td><td>the meaning of $e$, a function from stores to numbers</td></tr>
+          <tr><td>$\psi$</td><td>environment</td><td>variables to values (lambda calculus)</td></tr>
+          <tr><td>$(\psi_1 \mid e)$</td><td>closure / scoped expression</td><td>$e$ evaluated in the scope $\psi_1$</td></tr>
+          <tr><td>$\delta_p$, $I_p$</td><td>transition relation, initial states</td><td>parts of the transition system of $p$</td></tr>
+          <tr><td>$\tau$, $\tau_i$, $|\tau|$</td><td>trace</td><td>a run; its $i$-th state; its length (maybe $\infty$)</td></tr>
+          <tr><td>$\bc$, $\bc[\iota]$</td><td>bytecode</td><td>the program; the instruction at $\iota$</td></tr>
+          <tr><td>$\iota$</td><td>program counter</td><td>$\langle$method, offset$\rangle$</td></tr>
+          <tr><td>$\lambda$</td><td>locals</td><td>indexed from 0, arguments first</td></tr>
+          <tr><td>$\sigma$</td><td>operand stack</td><td>$\epsilon$ empty, top on the right</td></tr>
+          <tr><td>$\mu$</td><td>call stack</td><td>frames, active frame on the right</td></tr>
+          <tr><td>$\eta$</td><td>heap</td><td>locations to heap values</td></tr>
+          <tr><td>$\mathbf{V}_\sigma$, $\mathbf{V}_\eta$</td><td>stack / heap values</td><td>int, float, ref / plus byte, char, short, array, object</td></tr>
+        </table>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>What is the semantics of a program?</summary>
+          <p>The semantics of a program is a precise, mathematical description of its <em>meaning</em>: what it does, as opposed to how it is written (its syntax). A semantics maps program text to an object in a well-understood domain, $\sem{\cdot} : L \to D$ (<a href="#what">topic 02</a>), so that we can reason about behaviour without arguing about intent.</p>
+          <p>In this course the meaning of a program $p$ is its <strong>maximal trace semantics</strong> $\Sem(p)$: the set of all sequences of states it can go through, starting from any initial state and following the transition relation given by the small-step rules (<a href="#traces">topic 09</a>). Every property we analyse (does it halt, can it divide by zero, does it always succeed) is a statement about this set, for example $\mathcal{L}_{\mathit{halt}} = \{p \mid \forall \tau \in \Sem(p).\ |\tau| \neq \infty\}$.</p>
+          <p>Having a semantics is what makes "sound" and "complete" meaningful: an analysis is judged against the truth that the semantics defines.</p>
+        </details>
+        <details class="proof"><summary>Name some ways you can describe the semantics of a program.</summary>
+          <p><strong>Axiomatic semantics</strong> (Floyd, Hoare): meaning as assertions that hold before and after statements, written as Hoare triples $\{P\}\,C\,\{Q\}$ and combined with rules like sequencing (needs $Q_1 \Rightarrow P_2$). Excellent for verifying a particular program, but it needs invariants and is not a general analysis method (<a href="#hoare">topic 03</a>).</p>
+          <p><strong>Denotational semantics</strong> (Scott, Strachey): meaning as a mathematical object, defined compositionally, e.g. $\mathcal{E} : \mathbb{EX} \to (\Sigma \to \N)$ with $\Den{e_1 + e_2}\sigma = \Den{e_1}\sigma + \Den{e_2}\sigma$. Suits expression languages, and also gives the meaning of regular expressions as sets of strings (<a href="#denotational">topic 04</a>).</p>
+          <p><strong>Operational semantics</strong> (Plotkin): meaning as the execution of an abstract machine. <em>Small-step</em> (structural) semantics $\psi \vdash \sigma \to \bar\sigma$ describes single steps and naturally covers non-termination and intermediate states; <em>big-step</em> (natural) semantics $\psi \vdash \sigma \downarrow v$ relates a program directly to its final value (<a href="#operational">topics 05 to 07</a>). The course uses small-step semantics for JVM bytecode, and derives from it the transition system and trace semantics.</p>
+        </details>
+        <details class="proof"><summary>What does it mean to interpret a piece of code?</summary>
+          <p>To interpret code is to execute it by directly carrying out its semantics, rather than first translating it to machine code. For a small-step semantics, an interpreter is an implementation of the step relation: a function $\mathit{step}$ with $\mathit{step}(s) = c$ exactly when $\bc \vdash s \to c$ (<a href="#interpreter">topic 22</a>). Each inference rule becomes one case: the premises are the pattern and guards (which instruction, what is on the stack, is the divisor zero), the conclusion is the update of locals, stack and program counter, or an outcome like <code>'divide by zero'</code>.</p>
+          <p>Running the interpreter from an initial state produces, one step at a time, the trace of the program for that input: a concrete element of $\Sem(p)$. With a step budget it either reaches an outcome ($\ok$ or an error) or gives up with <code>*</code>, which cannot distinguish "infinite" from "long" (the halting problem).</p>
+          <p>Interpreting is also the first program analysis of the course: running the program on an input is a dynamic analysis of that trace, and an interpreter over <em>abstract</em> values (week 5) becomes a static analysis.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Semantics" and "Trace Terminology" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute. Flowchart from R. W. Floyd, <i>Assigning Meanings to Programs</i>, as reproduced in the course notes. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/semantics.js"></script>
+</body>
+</html>

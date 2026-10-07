@@ -1,0 +1,83 @@
+/* Week 1, Introduction: lab-specific styles (loaded after style.css). */
+
+table.tt .v-ok { color: var(--ok); font-weight: 700; }
+table.tt.left td, table.tt.left th { text-align: left; }
+table.tt.diag td.on-diag { background: var(--warn-soft); color: var(--warn); font-weight: 700; }
+table.tt.diag tr.d-row td { color: var(--bad); font-weight: 700; border-top: 2px solid var(--line-2); }
+table.tt.diag tbody th { color: var(--muted); font-weight: 600; font-size: 12px; }
+
+blockquote.callout { margin: 0 0 12px; }
+
+/* paradox */
+ol.chain { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 6px; font-size: 14.5px; }
+ol.chain li::marker { color: var(--muted); font-family: var(--mono); }
+ol.chain li.chain-bad { color: var(--bad); }
+
+/* traces lab */
+.qline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.qline .qtex { overflow-x: auto; min-width: 0; }
+.qline .qwhy { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+.panel .verdict { margin-top: 10px; }
+
+/* classifier */
+svg.clf, svg.apx, svg.wg { display: block; width: 100%; height: auto; font-family: var(--font); }
+.clf-acc { fill: var(--ok-soft); }
+.clf-axis, .wg-axis { stroke: var(--line-2); stroke-width: 1.5; }
+.clf-th { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
+.clf-lbl, .wg-lbl { fill: var(--muted); font-size: 12px; }
+.clf-dot { stroke: var(--card); stroke-width: 1.5; }
+.clf-dot.g { fill: var(--ok); }
+.clf-dot.b { fill: var(--bad); }
+.clf-dot.wrong { stroke: var(--ink); stroke-width: 2.5; }
+
+/* approx grid */
+.apx-c { stroke: var(--line); stroke-width: 1; }
+.apx-c.o { fill: var(--lab-bg); }
+.apx-c.r { fill: color-mix(in srgb, var(--tech) 30%, var(--card)); stroke: color-mix(in srgb, var(--tech) 55%, var(--line)); }
+.apx-c.m { fill: color-mix(in srgb, var(--warn) 28%, var(--card)); stroke: color-mix(in srgb, var(--warn) 50%, var(--line)); stroke-dasharray: 3 2; }
+.apx-u { fill: var(--ok); stroke: var(--card); stroke-width: 1.5; }
+.apx-x { fill: var(--bad); font-size: 18px; font-weight: 800; }
+.apx-x.fake { opacity: 0.85; }
+.legend .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.legend .sw.r { background: color-mix(in srgb, var(--tech) 30%, var(--card)); border: 1px solid color-mix(in srgb, var(--tech) 55%, var(--line)); }
+.legend .sw.m { background: color-mix(in srgb, var(--warn) 28%, var(--card)); border: 1px dashed var(--warn); }
+.legend .sw.u { background: var(--ok); border-radius: 50%; }
+.legend b.x { color: var(--bad); font-size: 15px; }
+
+/* kinds */
+.kinds { display: grid; gap: 10px; }
+.kind-row {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+  padding: 10px 12px; display: grid; gap: 8px;
+}
+.kind-row.good { border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
+.kind-row.bad { border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+.kind-name { font-weight: 650; font-size: 14.5px; color: var(--ink); }
+.kind-segs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kind-segs .seg button { padding: 6px 4px; font-size: 12.5px; }
+.kfb { font-size: 13.5px; color: var(--ink-2); background: var(--lab-bg); border-radius: 8px; padding: 8px 10px; }
+.kind-row.good .kfb { background: var(--ok-soft); }
+.kind-row.bad .kfb { background: var(--bad-soft); }
+.kfb[hidden] { display: none; }
+
+/* wager */
+.wg-curve { fill: none; stroke: var(--formal); stroke-width: 2.5; }
+.wg-pt { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+.wsub { font-size: 11px; color: var(--muted); }
+
+/* regex analysis grid */
+table.dt.rx { font-size: 12px; }
+table.dt.rx td, table.dt.rx th { padding: 4px 6px; white-space: nowrap; }
+td.rx-cell { font-family: var(--mono); font-size: 11px; }
+td.rx-cell .rx-c { margin-right: 4px; }
+td.rx-cell .rx-t { font-size: 12px; }
+td.rx-ok { background: var(--ok-soft); color: var(--ok); }
+td.rx-bad { background: var(--bad-soft); color: var(--bad); }
+td.rx-z { color: var(--muted); }
+
+@media (max-width: 600px) {
+  .kind-segs { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tech ul + p, .tech pre + p, .tech p + ul { margin-top: 10px; }
+.topic :not(pre) > code { overflow-wrap: anywhere; }

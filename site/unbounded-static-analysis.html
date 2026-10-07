@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unbounded Static Analysis · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on unbounded static analysis: dependent values, relational domains, fixed points, intervals, widening, the worklist algorithm, reverse post-order and strongly connected components.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/unbounded-static-analysis.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 6: Unbounded Static Analysis</div>
+        <h1>Unbounded Static Analysis</h1>
+        <p class="hero-lead">Run until nothing changes. Last week the analysis stopped after $n$ rounds, so it could only speak about short runs. This week it keeps going until the abstract state stops growing, which covers runs of <em>every</em> length. That needs three things: precise values that remember how variables depend on each other, fixed points with a guarantee that we reach them, and a fast way to get there.</p>
+        <div class="hero-meta">
+          <span class="chip">16 topics</span>
+          <span class="chip">8 interactive labs</span>
+          <span class="chip">53 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>Dependent values</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="dependent" data-part="Dependent values" data-short="Dependent values">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>Dependent values</h2><p class="kicker">The copy and the original were the same number</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You photocopy your passport, check the <em>copy</em> for the expiry date ("still valid"), and throw the copy away. At the airport you look at the real passport and realise you never wrote down that it was valid. The copy and the original were the same document, but you treated them as two unrelated things.</p>
+              <p>A naive analysis makes exactly this mistake. The JVM compares a <em>copy</em> of a variable on the stack, and the analysis forgets that the copy and the variable hold the same number.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+<pre><code class="language-java">@Case("(0) -> ok")
+@Case("(1) -> ok")
+public static int safeDivByN(int n) {
+  if (n != 0) {
+    return 1 / n;
+  }
+  return 0;
+}</code></pre>
+              <p>The method is safe: the division only runs when $n \neq 0$. The naive sign analysis from Week 5 (with no refinement at all) says otherwise. The table shows the abstract state right before each instruction and where the result goes, as in the notes:</p>
+              <div class="table-wrap">
+                <table class="dt usa-notes">
+                  <thead><tr><th>Offset</th><th>Instruction</th><th>Abstract state</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">000</td><td class="mono">load:I 0</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \epsilon, 0 \rangle \to \{1\}$</td></tr>
+                    <tr><td class="mono">001</td><td class="mono">ifz eq 6</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \{+,-,0\}, 1 \rangle \to \{2, 6\}$</td></tr>
+                    <tr><td class="mono">002</td><td class="mono">push:I 1</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \epsilon, 2 \rangle \to \{3\}$</td></tr>
+                    <tr><td class="mono">003</td><td class="mono">load:I 0</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \{+\}, 3 \rangle \to \{4\}$</td></tr>
+                    <tr class="bad"><td class="mono">004</td><td class="mono">binary:I div</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \{+\}\{+,-,0\}, 4 \rangle \to \{5, \err(\text{divide by zero})\}$</td></tr>
+                    <tr><td class="mono">005</td><td class="mono">return:I</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \{+,-\}, 5 \rangle \to \{\ok\}$</td></tr>
+                    <tr><td class="mono">006</td><td class="mono">push:I 0</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \epsilon, 6 \rangle \to \{7\}$</td></tr>
+                    <tr><td class="mono">007</td><td class="mono">return:I</td><td>$\langle \{0 \mapsto \{+,-,0\}\}, \{0\}, 7 \rangle \to \{\ok\}$</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>At 000 the value of $n$ is <strong>copied</strong> onto the stack. At 001 <code>ifz eq 6</code> pops that copy and branches.</li>
+                <li>On the fall-through branch the copy was non-zero, but the copy is gone and the local $\lambda[0]$ still says $\{+,-,0\}$.</li>
+                <li>At 003 the local is loaded again, with all three signs, so the division at 004 "may divide by zero": a <strong>false alarm</strong>.</li>
+                <li>The problem is <strong>dependent values</strong>: values whose possible values constrain each other. Right after <code>load:I 0</code>, the stack top and $\lambda[0]$ are always equal, but the analysis stores two independent sets.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.1</span> Dependent values</p>
+            <p>Let $C$ be a set of concrete states and $x, y$ two value positions (locals or stack slots). Their joint values and their separate values are
+            $$J = \{(s.x,\ s.y) \mid s \in C\}, \qquad X = \{s.x \mid s \in C\}, \qquad Y = \{s.y \mid s \in C\}.$$
+            Always $J \subseteq X \times Y$. The positions are <strong>dependent</strong> in $C$ when $J \subsetneq X \times Y$: some combination of possible values never occurs together.</p>
+            <p class="read">"Two values are dependent if knowing one of them rules out some values of the other."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.2</span> Non-relational domains forget dependencies</p>
+            <p>A per-variable (non-relational) domain describes a pair by one abstract value per position, with $\gamma(a_x, a_y) = \gamma(a_x) \times \gamma(a_y)$. If $x$ and $y$ are dependent in $C$, then no abstract pair describes $C$ exactly: $\gamma(\alpha(C)) \supseteq X \times Y \supsetneq J$.</p>
+            <details class="proof"><summary>Proof</summary><p>Any abstract pair whose concretisation contains $J$ must contain $X$ in its first and $Y$ in its second component (projections of $J$), so it contains the product $X \times Y$, which is strictly larger than $J$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p><strong>Example.</strong> Right after <code>load:I 0</code> in <code>safeDivByN</code>, with $C$ all states at offset 1: $J = \{(v, v) \mid v \in \Z\}$, the diagonal, while the sign analysis keeps $\{+,-,0\} \times \{+,-,0\}$. Refining the stack copy to $\{+,-\}$ therefore tells it nothing about $\lambda[0]$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write the error as <code>err('div by zero')</code>; JPAMB's outcome name is <code>divide by zero</code>.</div>
+        <div data-lab="named"></div>
+        <div class="quiz" data-quiz="dependent"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="named-values" data-part="Dependent values" data-short="Named values">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>Named values and constraints</h2><p class="kicker">Store a name instead of a copy</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of copying a number onto every sticky note, write a <em>name</em> on the notes ("n") and keep one notebook page with what you know about n: "n is not zero". Every note that says "n" sees the update at once, because there is only one page to update.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The notes add <strong>named values</strong> with <strong>constraints</strong>: the locals and the stack hold names, and a separate map says what each name may be. For <code>safeDivByN</code>:</p>
+              <div class="table-wrap">
+                <table class="dt usa-notes">
+                  <thead><tr><th>Offset</th><th>Instruction</th><th>Constraints / abstract state</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">000</td><td class="mono">load:I 0</td><td>$\{n \mapsto \{+,-,0\}\} / \langle \{0 \mapsto n\}, \epsilon, 0 \rangle \to \{1\}$</td></tr>
+                    <tr><td class="mono">001</td><td class="mono">ifz eq 6</td><td>$\{n \mapsto \{+,-,0\}\} / \langle \{0 \mapsto n\}, n, 1 \rangle \to \{2, 6\}$</td></tr>
+                    <tr><td class="mono">002</td><td class="mono">push:I 1</td><td>$\{n \mapsto \{+,-\}\} / \langle \{0 \mapsto n\}, \epsilon, 2 \rangle \to \{3\}$</td></tr>
+                    <tr><td class="mono">003</td><td class="mono">load:I 0</td><td>$\{n \mapsto \{+,-\}\} / \langle \{0 \mapsto n\}, \{+\}, 3 \rangle \to \{4\}$</td></tr>
+                    <tr class="good"><td class="mono">004</td><td class="mono">binary:I div</td><td>$\{n \mapsto \{+,-\}\} / \langle \{0 \mapsto n\}, \{+\}\,n, 4 \rangle \to \{5\}$</td></tr>
+                    <tr><td class="mono">005</td><td class="mono">return:I</td><td>$\{n \mapsto \{+,-\}\} / \langle \{0 \mapsto n\}, \{+,-\}, 5 \rangle \to \{\ok\}$</td></tr>
+                    <tr><td class="mono">006</td><td class="mono">push:I 0</td><td>$\{n \mapsto \{0\}\} / \langle \{0 \mapsto n\}, \epsilon, 6 \rangle \to \{7\}$</td></tr>
+                    <tr><td class="mono">007</td><td class="mono">return:I</td><td>$\{n \mapsto \{0\}\} / \langle \{0 \mapsto n\}, \{0\}, 7 \rangle \to \{\ok\}$</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>At 001 the stack holds the <em>name</em> $n$, so the branch can refine $n$ itself: $\{+,-\}$ on the fall-through, $\{0\}$ on the jump. Each branch now carries its own constraint map, and the division sees the divisor $\{+,-\}$. The three rules of thumb from the notes:</p>
+              <ul>
+                <li><strong>Names never change.</strong> If a local is overwritten, it gets a <em>fresh</em> name, so copies loaded earlier keep their old value.</li>
+                <li><strong>Be smart about creating and dropping names.</strong> Every name is one more thing to join and compare, and too many make the analysis slow.</li>
+                <li><strong>Know which instructions create dependencies:</strong> <code>load</code> and <code>dup</code> copy a value, <code>store</code> copies one into a local, and two reads of the same array element or field produce equal values.</li>
+              </ul>
+              <p>A lighter variant only remembers which local a stack value was loaded from, so a test on the copy also narrows that local. That already fixes <code>safeDivByN</code>. It does not fix <code>copyThenDivide</code> (<code>int y = x</code>), where the dependency runs between two <em>locals</em>; real named values do, because <code>store</code> copies the name.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.3</span> Named abstract state</p>
+            <p>Fix a set of names $N$ and a value abstraction $(\pset{\Z}, \subseteq) \galois (A, \sqsubseteq)$. A named abstract state is a pair $C / \langle \lambda, \sigma, \iota \rangle$ of a <strong>constraint map</strong> $C : N \to A$ and a frame whose locals and stack hold names, $\lambda : \N \rightharpoonup N$, $\sigma \in N^{*}$. Its meaning is
+            $$\gamma\big(C / \langle \lambda, \sigma, \iota \rangle\big) = \big\{ \langle \nu \circ \lambda,\ \nu \circ \sigma,\ \iota \rangle \;\big|\; \nu : N \to \Z,\ \forall n \in N.\ \nu(n) \in \gamma(C(n)) \big\}.$$</p>
+            <p class="read">"Pick one number for each name, within its constraint; replace every name by its number. Every way of doing that is a state described." A name used twice gets the <em>same</em> number in both places: that is how equality is remembered.</p>
+          </div>
+          <p>The transfer rules mostly move names around; only constants and arithmetic create new ones, and branches refine constraints:</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{load{:}I}\ k) \quad \lambda[k] = n}{\bc \vdash C/\langle \lambda, \sigma, \iota \rangle \to C/\langle \lambda, \sigma\, n, \iota + 1 \rangle}\rulename{load^N} \qquad \frac{\bc[\iota] = (\mathtt{store{:}I}\ k)}{\bc \vdash C/\langle \lambda, \sigma\, n, \iota \rangle \to C/\langle \lambda[k \mapsto n], \sigma, \iota + 1 \rangle}\rulename{store^N}$$</div>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{ifz}\ c\ t) \quad (S', \_) = \mathit{refine}_c(C(n), \{0\}) \quad S' \neq \bot}{\bc \vdash C/\langle \lambda, \sigma\, n, \iota \rangle \to C[n \mapsto S']/\langle \lambda, \sigma, \iota \leftarrow t \rangle}\rulename{ifz^N_1}$$</div>
+          <p class="read">"Loading pushes the local's name, not its value. Storing makes the local point to the popped name. A branch narrows the constraint of the compared name, which every place holding that name sees." <code>push</code> and <code>binary</code> push a fresh name $m$ with $C(m)$ set to the computed abstract value; an <code>incr</code> or a store of a computed value gives the local a fresh name.</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.4</span> Refining a name is sound</p>
+            <p>If a concrete state $s \in \gamma(C/\langle \lambda, \sigma\,n, \iota\rangle)$ takes the jump of <code>ifz c t</code>, then the successor of $s$ lies in $\gamma(C[n \mapsto S']/\langle \lambda, \sigma, \iota \leftarrow t\rangle)$.</p>
+            <details class="proof"><summary>Proof</summary><p>$s$ comes from some valuation $\nu$ with $\nu(n) \in \gamma(C(n))$, and the popped value is $\nu(n)$. The jump is taken, so $\nu(n) \mathrel{c} 0$, hence $\nu(n) \in \gamma(S')$ by soundness of $\mathit{refine}$ (Week 5, Proposition 5.53). The same $\nu$ satisfies the new constraint map, and the successor state is $\nu$ applied to the new frame. Every other occurrence of $n$ also has value $\nu(n)$, so refining all of them at once is correct. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Names turn "the same value in two places" into "the same symbol in two places". Then one refinement updates both.</div>
+        <div class="quiz" data-quiz="named-values"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="relational" data-part="Dependent values" data-short="Relational domains">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Dependencies between different values: relational domains</h2><p class="kicker">"b is bigger than a" is a fact about both</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>"Bob is taller than Alice" is a fact about two people. If you only keep one card per person with a height range, you cannot write it down: Alice's card says "somewhere between 1 and 2 metres", so does Bob's, and the comparison is lost. Later you learn Alice is at least 1.5 m, but you can no longer conclude anything about Bob.</p>
+              <p>Relational domains keep cards about <em>pairs</em>: "Bob minus Alice is at least 1 cm".</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+<pre><code class="language-java">@Case("(0, 0) -> ok")
+@Case("(1, 1) -> ok")
+public static int safeDivAByB(int a, int b) {
+  if (a >= 0) {
+    if (b > a) {
+      return a / b;
+    }
+  }
+  return 0;
+}</code></pre>
+              <ul>
+                <li>The notes say this is hard for our current techniques. That is true for the naive analysis. A sign analysis that refines <strong>both</strong> compared values proves it safe: when <code>b &gt; a</code> is tested, $a \in \{0, +\}$ already, and a number bigger than a non-negative one is positive, so $b \in \{+\}$.</li>
+                <li>Swap the two tests and every per-variable domain fails (<code>safeDivSwapped</code>): when <code>b &gt; a</code> is tested both are unknown, so neither range shrinks; later <code>a &gt;= 0</code> refines $a$ only. The fact $b - a \geq 1$ was never stored, so $b$ may still be 0. Order matters, and a relation is needed.</li>
+                <li><strong>Octagons</strong> (Mine, 2006) store constraints of the form $\pm x \pm y \leq c$: bounds on each variable, on sums and on differences. After both tests: $b - a \geq 1$ and $a \geq 0$, so $b \geq 1$.</li>
+                <li><strong>Polyhedra</strong> (Cousot and Halbwachs, 1978) store arbitrary linear inequalities $\sum_i k_i x_i \leq c$. More precise, but the operations can be exponential.</li>
+                <li>Costs, roughly: intervals $O(n)$ per operation; octagons $O(n^2)$ memory and $O(n^3)$ closure; polyhedra exponential in the worst case. In practice octagons are the usual compromise, and "most of the time faster" as the notes say.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.5</span> Non-relational and relational domains</p>
+            <p>For variables $x_1, \ldots, x_n$, a <strong>non-relational</strong> domain is a product $A^n$ with $\gamma(a_1, \ldots, a_n) = \gamma(a_1) \times \cdots \times \gamma(a_n)$. A <strong>relational</strong> domain has elements whose concretisations are not products, so it can describe dependent values (Definition 6.1).</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.6</span> Octagons and polyhedra</p>
+            <p>An <strong>octagon</strong> is a finite set of constraints $\pm x_i \pm x_j \leq c$ (with $i = j$ allowed, giving $\pm 2x_i \leq c$, i.e. bounds); a <strong>polyhedron</strong> is a finite set of linear constraints $\sum_i k_i x_i \leq c$. Both mean the set of integer points satisfying all constraints:
+            $$\gamma(P) = \{ v \in \Z^n \mid v \text{ satisfies every constraint in } P \}.$$</p>
+            <p class="read">"An octagon may only compare two variables by their sum or difference; a polyhedron may use any linear combination."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.7</span> Expressiveness</p>
+            <p>Every interval box is an octagon (use only $\pm 2x_i \leq c$), and every octagon is a polyhedron. None of them can express a disequality $x \neq 0$ or a product $x \cdot y \geq 0$, because their concretisations are convex (in the integers: intersections of convex sets with $\Z^n$).</p>
+          </div>
+          <p><strong>Worked example.</strong> In <code>safeDivSwapped</code> an octagon analysis computes $P_1 = \{a - b \leq -1\}$ after the first test and $P_2 = P_1 \cup \{-a \leq 0\}$ after the second. Closure (adding implied constraints) derives $-b = (a - b) + (-a) \leq -1 + 0$, so $b \geq 1$ and the division is safe. An interval analysis keeps $a \in [0, +\infty]$ and $b \in [-\infty, +\infty]$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes cite octagons as "(??)". The reference is Antoine Mine, <em>The Octagon Abstract Domain</em>, Higher-Order and Symbolic Computation 19(1), 2006. Polyhedra are Cousot and Halbwachs, <em>Automatic discovery of linear restraints among variables of a program</em>, POPL 1978.</div>
+        <div data-lab="relational"></div>
+        <div class="quiz" data-quiz="relational"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Fixed points</h2></div>
+
+      <!-- 04 -->
+      <section class="topic" id="unbounded" data-part="Fixed points" data-short="Why unbounded?">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>From bounded to unbounded</h2><p class="kicker">Iteration 1,000,001 might be the bad one</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Last week we poured water into the maze for $n$ seconds and looked where it went. However long we wait, the trap could be one corridor further. Instead, keep pouring until the water level <strong>stops rising</strong>. From then on nothing new will ever be reached, so the map is complete, at every depth at once.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A bounded analysis run for 1,000,000 iterations gives no guarantee about iteration 1,000,001 (<a href="bounded-static-analysis.html#bounded">Week 5, topic bounded</a>).</li>
+                <li>Unbounded static analysis keeps applying the abstract step $\Delta_A$ until it reaches a <strong>fixed point</strong>: a round that changes nothing.</li>
+                <li>Because each round keeps what it had ($X \sqcup \Delta_A(X)$), a fixed point means $\Delta_A(X) \sqsubseteq X$: one more step of any described state lands inside $X$ again. By induction, $X$ then describes every state at every depth.</li>
+                <li>Two things can go wrong. The rounds may never stop changing (infinite-height domains such as intervals, Part 3), and stepping every instruction every round is slow (Part 4).</li>
+                <li>The payoff: if an error is not reached at the fixed point, it is reached by <em>no</em> trace of <em>any</em> length. That is a sound "no" for JPAMB.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.8</span> Abstract iteration</p>
+            <p>Given a sound abstract step $\Delta_A$ (<a href="bounded-static-analysis.html#abstract-step">Week 5, Theorem 5.38</a>), define
+            $$X_0 = \alpha(I_p), \qquad X_{k+1} = X_k \sqcup \Delta_A(X_k).$$
+            The iteration has <strong>stabilised</strong> at $k$ if $X_{k+1} = X_k$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.9</span> A stable iterate covers every depth</p>
+            <p>If $X_{k+1} = X_k$, then $\Delta^n \subseteq \gamma(X_k)$ for <em>every</em> $n \in \N$.</p>
+            <details class="proof"><summary>Proof</summary><p>Week 5 showed $\Delta^n \subseteq \gamma(X_n)$ for every $n$. If $X_{k+1} = X_k$ then $X_{k+2} = X_{k+1} \sqcup \Delta_A(X_{k+1}) = X_k \sqcup \Delta_A(X_k) = X_{k+1}$, and by induction $X_n = X_k$ for all $n \geq k$. For $n \lt k$ we have $X_n \sqsubseteq X_k$ (the sequence is ascending) and $\gamma$ is monotone. So $\Delta^n \subseteq \gamma(X_n) \subseteq \gamma(X_k)$ for every $n$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 6.10</span> Unbounded not-may answers</p>
+            <p>If no state in $\gamma(X_k)$ is an error state $\err(m)$, then $p \models^{\must} \neg\,\err(m)$: no trace of any length ends in that error.</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="unbounded"></div>
+      </section>
+
+      <!-- 05 -->
+      <section class="topic" id="fixpoints" data-part="Fixed points" data-short="Fixed points">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>Fixed points, least fixed points and Kleene iteration</h2><p class="kicker">Press refresh until the page stops changing</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A fixed point of a machine is an input that comes out unchanged. Start with the smallest possible input (nothing at all), feed the output back in, again and again. If the machine never shrinks things and there is a limit to how big things get, you must eventually hit an input that comes back unchanged, and it is the <em>smallest</em> such one.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>fixed point</strong> of $f$ is an $x$ with $f(x) = x$. We want the <strong>least</strong> one: it contains only what is forced, so it gives the fewest false alarms.</li>
+                <li><strong>Kleene iteration</strong> computes it: $\bot,\ f(\bot),\ f(f(\bot)),\ \ldots$ until two consecutive values are equal. $f^n(\bot)$ means $f$ applied $n$ times.</li>
+                <li>Why does this work? If $f$ is <strong>monotone</strong> (bigger in, bigger out), the iterates form an <strong>ascending chain</strong> $\bot \sqsubseteq f(\bot) \sqsubseteq f^2(\bot) \sqsubseteq \cdots$.</li>
+                <li>The chain stops if the lattice has no infinite strictly ascending chains (the <strong>ascending chain condition</strong>), for example if it has finite <strong>height</strong>.</li>
+                <li>The sign lattice $2^{\Sign}$ has height 3: its longest strict chain $\emptyset \subset \{0\} \subset \{0, +\} \subset \{-,0,+\}$ has 4 elements and 3 steps. So one sign value can grow at most 3 times, and a sign analysis always stops.</li>
+                <li>Not every function has a fixed point you can reach this way: a non-monotone function can oscillate (try the complement in the lab).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.11</span> Fixed points</p>
+            <p>Let $(A, \sqsubseteq)$ be a lattice and $f : A \to A$. Then $x$ is a <strong>fixed point</strong> if $f(x) = x$, a <strong>post-fixed point</strong> if $f(x) \sqsubseteq x$, and a <strong>pre-fixed point</strong> if $x \sqsubseteq f(x)$. The <strong>least fixed point</strong> $\operatorname{lfp} f$ is a fixed point below every other fixed point.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.12</span> Monotone and extensive</p>
+            <p>$f$ is <strong>monotone</strong> if $a \sqsubseteq b \implies f(a) \sqsubseteq f(b)$, and <strong>extensive</strong> (inflationary) if $a \sqsubseteq f(a)$ for all $a$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.13</span> Knaster-Tarski</p>
+            <p>A monotone $f$ on a complete lattice has a least fixed point,
+            $$\operatorname{lfp} f = \mathop{\Large\sqcap} \{ x \mid f(x) \sqsubseteq x \}.$$</p>
+            <p class="read">"The least fixed point is the meet of all post-fixed points."</p>
+            <details class="proof"><summary>Proof</summary><p>Let $P$ be the set of post-fixed points and $m = \mathop{\Large\sqcap} P$. For $x \in P$: $m \sqsubseteq x$, so $f(m) \sqsubseteq f(x) \sqsubseteq x$. Thus $f(m)$ is a lower bound of $P$, hence $f(m) \sqsubseteq m$: $m$ is itself post-fixed. Applying $f$ again, $f(f(m)) \sqsubseteq f(m)$, so $f(m) \in P$ and $m \sqsubseteq f(m)$. Together $f(m) = m$. Every fixed point is post-fixed, so $m$ lies below all of them. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.14</span> Kleene iteration under the ascending chain condition</p>
+            <p>Let $f$ be monotone on a lattice with a least element $\bot$ and no infinite strictly ascending chains. Then $\bot \sqsubseteq f(\bot) \sqsubseteq f^2(\bot) \sqsubseteq \cdots$ is eventually constant, and for the least $n$ with $f^n(\bot) = f^{n+1}(\bot)$,
+            $$\operatorname{lfp} f = f^n(\bot).$$</p>
+            <details class="proof"><summary>Proof</summary><p><em>Ascending:</em> $\bot \sqsubseteq f(\bot)$, and if $f^k(\bot) \sqsubseteq f^{k+1}(\bot)$ then by monotonicity $f^{k+1}(\bot) \sqsubseteq f^{k+2}(\bot)$. <em>Stops:</em> otherwise we would have an infinite strictly ascending chain. <em>Least:</em> for any fixed point $x$, $\bot \sqsubseteq x$, and if $f^k(\bot) \sqsubseteq x$ then $f^{k+1}(\bot) \sqsubseteq f(x) = x$. So $f^n(\bot)$ is a fixed point below all fixed points. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.15</span> Height bounds the work</p>
+            <p>If every strict chain has at most $h$ steps (height $h$), Kleene iteration makes at most $h$ strict increases. For a product of $m$ such values (all locals and stack slots at all program points) at most $m \cdot h$.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes define the minimal fixed point for "monotone $f$ ($\forall a.\ a \sqsubseteq f(a)$)": that condition is <em>extensive</em>, not monotone. Kleene's argument needs monotonicity. Also, the least fixed point is the <em>value</em> $f^n(\bot)$, not the number $n$. Finally, the notes say "the height of the lattice is 4": that counts the 4 elements of the longest chain. Measured in steps the height is 3. Conventions differ; the bound on the work is the same.</div>
+        <div data-lab="kleene"></div>
+        <div class="quiz" data-quiz="fixpoints"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="adding-one" data-part="Fixed points" data-short="Example: adding one">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Example: adding one</h2><p class="kicker">Keep what you had, add what is new</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A counter starts at zero and keeps adding one. Which signs can it have? Write down "zero". Add one to everything written so far, and add the answers to the list <em>without crossing anything out</em>. After one round the list says "zero or positive", and another round adds nothing new. Done: the counter is never negative.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The notes' function $a(x) = x +_{\Sign} \alpha(\{1\})$ adds one in the sign domain. On its own it does not keep the old value: $a(\{0\}) = \{+\}$ forgets the zero.</li>
+                <li>Joining with the input, $f(x) = x \sqcup a(x)$, makes $f$ <strong>extensive</strong>, so its iterates from any start can only grow.</li>
+                <li>From $\{0\}$: $f(\{0\}) = \{0, +\}$, then $f(\{0, +\}) = \{0, +\}$. A fixed point after one step.</li>
+                <li>This is exactly Week 5's $\Delta_A(X) \sqcup X$ (<a href="bounded-static-analysis.html#abstract-step">topic abstract-step</a>): keep the states you have and add their successors.</li>
+                <li>Note the starting value. From $\bot = \emptyset$ the same $f$ gives $f(\emptyset) = \emptyset$: a fixed point immediately, but a useless one. To get the reachable values as a least fixed point from $\bot$, put the initial values <em>inside</em> the function: $F(X) = \{0\} \sqcup a(X)$.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>The notes' computation:
+          $$\begin{aligned} f^{0}(\{0\}) &amp;= \{0\} \\ f^{1}(\{0\}) &amp;= f(\{0\}) = \{0\} \sqcup \{+\} = \{0, +\} \\ f^{2}(\{0\}) &amp;= f(f^{1}(\{0\})) = \{0, +\} \sqcup \{+\} = \{0, +\} \end{aligned}$$</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.16</span> Iterating "join with the input" from a start value</p>
+            <p>Let $a$ be monotone on a lattice with the ascending chain condition and $s$ a start value. The sequence $x_0 = s$, $x_{k+1} = x_k \sqcup a(x_k)$ is ascending and stops at
+            $$x^{*} = \operatorname{lfp}\big(\lambda x.\ s \sqcup a(x)\big),$$
+            the least value that contains $s$ and is closed under $a$.</p>
+            <details class="proof"><summary>Proof</summary><p>Let $H(x) = s \sqcup a(x)$ (monotone) and $\ell = \operatorname{lfp} H$. <em>Ascending:</em> $x_k \sqsubseteq x_k \sqcup a(x_k)$, and the chain condition makes it stop at some $x^{*}$ with $a(x^{*}) \sqsubseteq x^{*}$. <em>Below $\ell$:</em> $x_0 = s \sqsubseteq H(\ell) = \ell$, and if $x_k \sqsubseteq \ell$ then $a(x_k) \sqsubseteq a(\ell) \sqsubseteq \ell$, so $x_{k+1} \sqsubseteq \ell$. <em>Above $\ell$:</em> $s \sqsubseteq x^{*}$ and $a(x^{*}) \sqsubseteq x^{*}$ give $H(x^{*}) \sqsubseteq x^{*}$, a post-fixed point, so $\ell \sqsubseteq x^{*}$ by Knaster-Tarski. Hence $x^{*} = \ell$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"Starting from the initial value and always joining is the same as computing the least fixed point of 'initial value, or one more step'." With $s = \{0\}$ and $a = (\cdot) +_{\Sign} \{+\}$ that least fixed point is $\{0, +\}$.</p>
+        </div>
+        <div class="quiz" data-quiz="adding-one"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="lfp" data-part="Fixed points" data-short="Semantics as a fixed point">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>The reachable states are a least fixed point</h2><p class="kicker">Why an abstract fixed point is a sound answer</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The places water can reach are the smallest region that contains the entrance and from which one more step never leaves the region. Any bigger "closed" region would also contain puddles nothing ever flows into. Our abstract map just has to be <em>some</em> closed region containing the entrance; then it surely contains everything the water reaches.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The <strong>collecting semantics</strong> collects every state any run ever visits. It solves the equation "reachable = initial, or one step from reachable": $X = I_p \cup \Delta_{\State}(X)$ (Week 5's state step).</li>
+                <li>Many sets solve it (add an unreachable cycle and it still solves it). The reachable states are the <strong>least</strong> solution.</li>
+                <li>The abstract analysis solves the abstract equation $X^{\#} = \alpha(I_p) \sqcup \Delta_A(X^{\#})$.</li>
+                <li>If each abstract step over-approximates the concrete step, the abstract solution, read through $\gamma$, contains the concrete least fixed point.</li>
+                <li>Even better: any abstract <strong>post-fixed point</strong> (one more step does not leave it) is already sound, even if it is bigger than the least one. That is what makes widening (topic 11) legal: it may overshoot, but it stops at a post-fixed point.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.17</span> Collecting (reachable-states) semantics</p>
+            <p>$\mathit{Reach}(p) = \{ \tau_i \mid \tau \in \Sem(p),\ 0 \leq i \lt |\tau| \}$, and the transformer on $(\pset{\State}, \subseteq)$
+            $$F(X) = I_p \cup \{ s' \mid s \in X,\ \delta_p(s, s') \}.$$</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.18</span> Reach is the least fixed point</p>
+            <p>$F$ preserves arbitrary unions, hence is monotone, and $\mathit{Reach}(p) = \operatorname{lfp} F = \bigcup_{n} F^{n}(\emptyset)$.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>$F^{n+1}(\emptyset)$ is the set of states reachable in at most $n$ steps (induction on $n$), so the union is $\mathit{Reach}(p)$. It is a fixed point because a state reachable in $n$ steps has its successors reachable in $n + 1$. It is the least: any fixed point $X$ contains $I_p$ and is closed under steps, so by induction it contains all $F^{n}(\emptyset)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.19</span> Fixed-point transfer (soundness)</p>
+            <p>Let $F^{\#}$ be monotone on the abstract domain with $F \circ \gamma \subseteq \gamma \circ F^{\#}$ (for a Galois connection equivalent to $\alpha \circ F \sqsubseteq F^{\#} \circ \alpha$). Then for every abstract post-fixed point $X^{\#}$, i.e. $F^{\#}(X^{\#}) \sqsubseteq X^{\#}$,
+            $$\operatorname{lfp} F \subseteq \gamma(X^{\#}),$$
+            in particular $\operatorname{lfp} F \subseteq \gamma(\operatorname{lfp} F^{\#})$ when the latter exists.</p>
+            <details class="proof"><summary>Proof</summary><p>$F(\gamma(X^{\#})) \subseteq \gamma(F^{\#}(X^{\#})) \subseteq \gamma(X^{\#})$, using the assumption and then monotonicity of $\gamma$. So $\gamma(X^{\#})$ is a post-fixed point of $F$, and Knaster-Tarski gives $\operatorname{lfp} F \subseteq \gamma(X^{\#})$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"If one abstract step covers one concrete step, then anything the abstract analysis cannot leave covers everything the program can reach." With $F^{\#}(X) = \alpha(I_p) \sqcup \Delta_A(X)$ this is Theorem 6.9 again, now for arbitrary post-fixed points.</p>
+        </div>
+        <div class="quiz" data-quiz="lfp"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Intervals and widening</h2></div>
+
+      <!-- 08 -->
+      <section class="topic" id="intervals" data-part="Intervals and widening" data-short="The interval abstraction">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>The interval abstraction</h2><p class="kicker">Remember the smallest and the largest value</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Signs only know "negative, zero, positive". Intervals remember a range: "between 0 and 100". That is much more precise about sizes, but it has a price. A range cannot have a hole, and ranges can keep growing forever, one step at a time.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A set of integers is abstracted by its smallest and largest element: $\alpha(\{3, 7, 4\}) = [3, 7]$.</li>
+                <li>Order is containment ($[1,2] \sqsubseteq [0,5]$). The join is the smallest interval covering both, so $[1, 3] \sqcup [6, 8] = [1, 8]$ also contains 4 and 5. The meet is the overlap.</li>
+                <li>Bounds may be infinite: $\top = [-\infty, +\infty]$. The empty interval $\bot$ is written $[+\infty, -\infty]$ in the notes (lower bound above upper bound).</li>
+                <li>Java ints are 32-bit, so in principle the bounds could be $\pm 2^{31}$ instead of $\pm\infty$. Then overflow must be modelled (a sum that leaves the range wraps around), which the course's tables do not do.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.20</span> The interval abstraction $\mathbf{Itval}$</p>
+            <p>Elements are $[i, j]$ with $i, j \in \Z \cup \{-\infty, +\infty\}$, $i \leq j$, plus a bottom element $\bot$. With $S \subseteq \Z$:
+            $$\begin{aligned}
+            \alpha(S) &amp;= [\inf S, \sup S] \quad (\alpha(\emptyset) = \bot) &amp; \gamma([i, j]) &amp;= \{ n \in \Z \mid i \leq n \leq j \}, \quad \gamma(\bot) = \emptyset \\
+            [i, j] \sqsubseteq [k, h] &amp;\iff k \leq i \wedge j \leq h &amp; [i, j] \sqcup [k, h] &amp;= [\min\{i, k\}, \max\{j, h\}] \\
+            [i, j] \sqcap [k, h] &amp;= [\max\{i, k\}, \min\{j, h\}] \ (\bot \text{ if empty}) &amp; \top &amp;= [-\infty, +\infty]
+            \end{aligned}$$</p>
+            <p class="read">"An interval means every integer between its bounds, both included; it is below another interval when it fits inside it."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.21</span> A Galois insertion</p>
+            <p>$(\pset{\Z}, \subseteq) \galois (\mathbf{Itval}, \sqsubseteq)$ is a Galois connection, and $\alpha(\gamma(a)) = a$.</p>
+            <details class="proof"><summary>Proof</summary><p>$\alpha(S) \sqsubseteq [k, h] \iff k \leq \inf S \wedge \sup S \leq h \iff \forall n \in S.\ k \leq n \leq h \iff S \subseteq \gamma([k, h])$. And $\gamma([i,j])$ has infimum $i$ and supremum $j$ (also for infinite bounds), so $\alpha(\gamma([i,j])) = [i, j]$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.22</span> Complete, but infinitely tall</p>
+            <p>$(\mathbf{Itval}, \sqsubseteq)$ is a complete lattice (any set of intervals has the join $[\inf \text{lows}, \sup \text{highs}]$), but it contains the infinite strictly ascending chain $[0,0] \sqsubset [0,1] \sqsubset [0,2] \sqsubset \cdots$.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes write $\gamma([i,j]) = \{n \in \Z \mid j \geq n \leq i\}$, a typo for $i \leq n \leq j$. Their test code also calls <code>Interval.abstraction(ys)</code> where <code>abstract</code> is meant. And $\alpha(S) = [\min S, \max S]$ needs $\inf$ and $\sup$ for unbounded sets such as all positive numbers.</div>
+        <div class="quiz" data-quiz="intervals"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="interval-ops" data-part="Intervals and widening" data-short="Interval arithmetic">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Operations on intervals</h2><p class="kicker">Compute with the ends, then check the corners</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If one bag weighs 1 to 3 kilos and another 6 to 8 kilos, together they weigh 7 to 11 kilos: add the lightest to the lightest and the heaviest to the heaviest. Multiplication is trickier because negatives flip things around, so you try all four combinations of ends and keep the smallest and the largest.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Addition</strong>: add lower bounds and upper bounds. <strong>Subtraction</strong>: smallest minus largest, largest minus smallest.</li>
+                <li><strong>Multiplication</strong>: the minimum and maximum of the four corner products. With mixed signs the extremes can come from any corner.</li>
+                <li><strong>Division</strong> (Java truncates towards zero): if the divisor contains 0, report a possible <code>divide by zero</code>. Then split the divisor into its negative and positive parts, divide by each using the corners, and join.</li>
+                <li><strong>Remainder</strong>: the result has the sign of the dividend and is smaller in size than the divisor.</li>
+                <li><strong>Comparisons refine</strong>: the jump of <code>if (x &lt; y)</code> keeps only the $x$ below $y$'s maximum and the $y$ above $x$'s minimum. For $\neq$ an interval can only lose an endpoint: it cannot have a hole.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.23</span> Interval arithmetic</p>
+            <p>$$\begin{aligned}
+            [a, b] + [c, d] &amp;= [a + c,\ b + d] \qquad\qquad [a, b] - [c, d] = [a - d,\ b - c] \\
+            [a, b] \times [c, d] &amp;= [\min P,\ \max P], \quad P = \{ac, ad, bc, bd\} \\
+            [a, b] \,/\, [c, d] &amp;= \textstyle\bigsqcup_{D \in \{[c, d] \sqcap [-\infty, -1],\ [c, d] \sqcap [1, +\infty]\},\ D \neq \bot} [\min Q_D,\ \max Q_D], \\
+            &amp;\phantom{=}\ Q_{[e, f]} = \{ a \div e,\ a \div f,\ b \div e,\ b \div f \}, \quad \text{and } \err(\text{divide by zero}) \text{ if } 0 \in \gamma([c, d])
+            \end{aligned}$$
+            with $\div$ truncating division and the conventions $0 \cdot \infty = 0$, $n \div \pm\infty = 0$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.24</span> Sound, and best for $+$, $-$, $\times$</p>
+            <p>For $x \in \gamma(A)$ and $y \in \gamma(B)$: $x \circ y \in \gamma(A \circ^{\#} B)$ for each operation (division with $y \neq 0$). For $+$ and $-$ the result is even exact as an interval: $\alpha(\gamma(A) + \gamma(B)) = A + B$; for $\times$ it is the best interval, $\alpha(\gamma(A) \cdot \gamma(B)) = A \times B$.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>For $+$: $a \leq x \leq b$ and $c \leq y \leq d$ give $a + c \leq x + y \leq b + d$, and every value in between is reached (fix $y = c$ and let $x$ run, then let $y$ run). For $\times$: on a box, $x \cdot y$ is bilinear, so its minimum and maximum are attained at corners. For division: within one sign of the divisor, $x \div y$ is monotone in each argument, so again the extremes are at corners. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.25</span> Refinement by a comparison</p>
+            <p>For the condition $x \lt y$ with $x \in [a, b]$, $y \in [c, d]$, the taken branch gets
+            $$x \in [a, b] \sqcap [-\infty, d - 1], \qquad y \in [c, d] \sqcap [a + 1, +\infty],$$
+            and the other conditions are analogous ($\leq$: no $\pm 1$; $=$: both become the meet; $\neq$: drop an endpoint equal to a singleton on the other side). A branch with a $\bot$ is infeasible.</p>
+          </div>
+        </div>
+        <div data-lab="intervalops"></div>
+        <div class="quiz" data-quiz="interval-ops"></div>
+      </section>
+
+      <!-- 10 -->
+      <section class="topic" id="infinite-height" data-part="Intervals and widening" data-short="Infinite chains">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Infinite height: when iteration never stops</h2><p class="kicker">One more, and one more, and one more</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Ask "how high can this counter go?" and answer by watching it: 0, then up to 1, then up to 2... You will never be sure you have seen the top, because there always is one more step. Signs had only a few answers to climb through; intervals have infinitely many.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+<pre><code class="language-java">void example() {
+  int i = 0;
+  while (i >= 0) {
+    i = i + 1;
+  }
+}</code></pre>
+              <p>The interval analysis of the loop, as in the notes:</p>
+              <div class="table-wrap">
+                <table class="dt usa-notes">
+                  <thead><tr><th>State</th><th>Comment</th></tr></thead>
+                  <tbody>
+                    <tr><td>$\{\}$</td><td><code>int i = 0</code></td></tr>
+                    <tr><td>$\{i \mapsto [0, 0]\}$</td><td>see that <code>i &gt;= 0</code></td></tr>
+                    <tr><td>$\{i \mapsto [0, 0]\}$</td><td><code>i = i + 1</code></td></tr>
+                    <tr><td>$\{i \mapsto [0, 0] \sqcup [1, 1]\}$</td><td>loop back</td></tr>
+                    <tr><td>$\{i \mapsto [0, 1]\}$</td><td>see that <code>i &gt;= 0</code></td></tr>
+                    <tr><td>$\{i \mapsto [0, 1] + [1, 1]\}$</td><td><code>i = i + 1</code></td></tr>
+                    <tr><td>$\{i \mapsto [0, 1] \sqcup [1, 2]\}$</td><td>loop back</td></tr>
+                    <tr><td>$\ldots$</td><td>$\ldots$</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>Every trip around the loop raises the upper bound by one: $[0,0], [0,1], [0,2], \ldots$ No two consecutive rounds agree, so a fixed point is never detected.</li>
+                <li>This is an infinite strictly ascending chain, so the ascending chain condition of Theorem 6.14 fails. Kleene iteration still produces sound bounds for each depth; it just never finishes.</li>
+                <li>The fix must <em>force</em> convergence: widening, next topic.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.26</span> Kleene iteration on intervals may diverge</p>
+            <p>For the loop head of <code>example</code>, after $k$ trips around the loop the analysis holds $i \in [0, k]$. The sequence is strictly ascending with supremum $[0, +\infty]$, which is the least fixed point, but no finite iterate equals it.</p>
+            <p class="read">"The answer exists, $[0, +\infty]$, but plain iteration only approaches it and never arrives."</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>On Java's 32-bit ints this loop is <em>not</em> infinite. After $2^{31}$ iterations, <code>i + 1</code> wraps around to $-2^{31}$ and the loop exits. An analysis over mathematical integers (signs or intervals, as in the course) "proves" that the exit is unreachable, which is unsound for Java unless overflow is modelled. JPAMB would still report <code>*</code>, because $2^{31}$ steps is far past any step budget. The shared sign analysis on this site reaches a fixed point with no outcome at all for it.</div>
+        <div class="quiz" data-quiz="infinite-height"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="widening" data-part="Intervals and widening" data-short="The widening operator">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>The widening operator</h2><p class="kicker">Jump ahead to the next landmark</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>If a queue keeps getting longer by one person every minute, you do not count each newcomer. You say "it is heading towards the door, let us assume it reaches the door" (a landmark), or simply "assume it is endless". You lose some precision, but you get an answer now, and the answer is safe because it can only be too big, never too small.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>widening</strong> $\nabla$ replaces the join where values may grow forever (at loop heads). It over-approximates the join dramatically, so that only finitely many changes are possible.</li>
+                <li>The landmarks are a finite set of constants $K$: the constants of the program or file, collected syntactically, just like the <a href="dynamic-analysis.html#dictionary">dictionaries of dynamic analysis</a>. A loop bound such as <code>100</code> in <code>i &lt; 100</code> is a natural landmark.</li>
+                <li>$\min_K J$ is the largest landmark (or $-\infty$) at most $\min J$; $\max_K J$ is the smallest landmark (or $+\infty$) at least $\max J$.</li>
+                <li>The course's widening: $[i, j] \nabla [k, h] = [\min_K\{i, k\},\ \max_K\{j, h\}]$. It snaps both bounds to landmarks at every widening.</li>
+                <li>The standard widening (with thresholds) moves only a bound that actually grew, and keeps stable bounds exact. Both terminate; the standard one is usually more precise.</li>
+                <li>On <code>example</code> with $K = \{0, 1\}$: $[0,0] \nabla [0,1] = [0,1]$, then $[0,1] \nabla [0,2] = [0, +\infty]$, then stable. With <code>i &lt; 100</code> and $100 \in K$ the loop head stabilises at $[0, 100]$ instead, and the exit test refines it to exactly $i = 100$.</li>
+                <li><strong>Narrowing</strong> (optional extra): after widening has stopped at a post-fixed point $Y$, applying the step a few more times as $Y \sqcap F^{\#}(Y)$ stays sound and often wins precision back.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.27</span> Landmark bounds</p>
+            <p>For a finite $K \subseteq \Z$ and a value $v$:
+            $$\min\nolimits_K v = \max\{ k \in K \cup \{-\infty\} \mid k \leq v \}, \qquad \max\nolimits_K v = \min\{ k \in K \cup \{+\infty\} \mid k \geq v \}.$$</p>
+            <p class="read">"Round down to the nearest landmark below, or round up to the nearest landmark above; with no landmark, go to infinity."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.28</span> The $K$-interval abstraction $\mathbf{Itval}_K$</p>
+            <p>The interval abstraction (Definition 6.20) together with the widening
+            $$[i, j] \nabla_K [k, h] = [\min\nolimits_K\{i, k\},\ \max\nolimits_K\{j, h\}], \qquad \bot \nabla_K a = a \nabla_K \bot = a.$$
+            The standard variant: $[i, j] \nabla'_K [k, h] = [\,k \lt i \,?\, \min_K k : i,\ \ h \gt j \,?\, \max_K h : j\,]$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.29</span> Widened iteration</p>
+            <p>With $F^{\#}(X) = \alpha(I_p) \sqcup \Delta_A(X)$ and widening applied at the loop heads $W$ (pointwise elsewhere the join):
+            $$Y_0 = \alpha(I_p), \qquad Y_{k+1}(\iota) = \begin{cases} Y_k(\iota) \;\nabla\; \big(Y_k(\iota) \sqcup F^{\#}(Y_k)(\iota)\big) &amp; \iota \in W \\ Y_k(\iota) \sqcup F^{\#}(Y_k)(\iota) &amp; \text{otherwise.} \end{cases}$$</p>
+            <p class="read">"Iterate as before, but at loop heads jump ahead with the widening instead of creeping up with the join." The notes use $\nabla$ instead of $\sqcup$ everywhere; that terminates too, but it also loses precision at ordinary merges such as after an <code>if</code>.</p>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes define "$\min_K J$ and $\max_K J$ which pick the largest and smallest, respectively": read it as $\min_K J$ = the <em>largest</em> landmark at most $\min J$, and $\max_K J$ = the <em>smallest</em> landmark at least $\max J$ (Definition 6.27). Also, the notes' widening snaps to landmarks even bounds that did not move, which can lose precision the standard widening keeps.</div>
+        <div data-lab="widening"></div>
+        <div class="quiz" data-quiz="widening"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="proving-widening" data-part="Intervals and widening" data-short="Proving widening correct">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>Proving a widening correct</h2><p class="kicker">Bigger than the join, and only finitely many jumps</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Two promises make a widening trustworthy. First, it never gives a smaller answer than the honest join, so it never hides a real behaviour. Second, it cannot keep jumping forever: with finitely many landmarks, each bound can only move outwards past each landmark once.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Upper bound:</strong> $a \sqsubseteq a \nabla b$ and $b \sqsubseteq a \nabla b$. This gives soundness: every widened value covers what the join would have covered.</li>
+                <li><strong>Stabilisation:</strong> no matter which values $a_0, a_1, a_2, \ldots$ come in, the running widening $w_0 = a_0$, $w_{k+1} = w_k \nabla a_{k+1}$ eventually stops changing. This gives termination.</li>
+                <li>Neither commutativity nor monotonicity is required. That is also why the iteration order (Part 4) can change the final result: every order stops at <em>some</em> post-fixed point, and all of them are sound.</li>
+                <li>Together with Theorem 6.19: widened iteration stops at a post-fixed point, so its result covers every reachable state.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.30</span> Widening operator</p>
+            <p>$\nabla : A \times A \to A$ is a widening if
+            $$\text{(W1)}\quad \forall a, b \in A.\ a \sqsubseteq a \nabla b \ \wedge\ b \sqsubseteq a \nabla b,$$
+            $$\text{(W2)}\quad \text{for every sequence } (a_k)_{k \in \N},\ \text{the sequence } w_0 = a_0,\ w_{k+1} = w_k \nabla a_{k+1} \text{ is eventually constant.}$$</p>
+            <p class="read">"A widening is an upper bound of its two arguments, and repeatedly widening with any inputs stops changing after finitely many steps."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.31</span> $\nabla_K$ is a widening</p>
+            <p>Both $\nabla_K$ and $\nabla'_K$ satisfy (W1) and (W2); every widening sequence changes at most $2(|K| + 2)$ times.</p>
+            <details class="proof"><summary>Proof</summary><p><em>(W1)</em> $\min_K\{i, k\} \leq \min\{i, k\}$ and $\max_K\{j, h\} \geq \max\{j, h\}$, so the result contains both intervals (similarly for $\nabla'_K$, which keeps a bound or moves it outwards to a landmark beyond the new value). <em>(W2)</em> After the first widening every lower bound lies in $K \cup \{-\infty\}$ and every upper bound in $K \cup \{+\infty\}$ (for $\nabla'_K$: a bound that is not yet a landmark can change only by jumping to one). By (W1) the lower bounds never increase and the upper bounds never decrease. A monotone walk through a set of $|K| + 1$ values changes at most $|K| + 1$ times, so the pair changes at most $2(|K| + 1)$ times after the first step, i.e. at most $2(|K| + 2)$ times in total. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.32</span> Widened iteration terminates soundly</p>
+            <p>If every cycle of the control-flow graph contains a widening point, the widened iteration (Definition 6.29) reaches some $Y^{*}$ with $F^{\#}(Y^{*}) \sqsubseteq Y^{*}$ after finitely many steps, hence $\mathit{Reach}(p) \subseteq \gamma(Y^{*})$.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>By (W1) the iterates ascend. At each widening point the values form a widening sequence, so by (W2) they eventually stop changing. Every other point lies on cycle-free paths from widening points, so it can change only finitely often in between, and then stops too (finitely many points). When nothing changes, $Y^{*} = Y^{*} \nabla (Y^{*} \sqcup F^{\#}(Y^{*})) \sqsupseteq F^{\#}(Y^{*})$ at widening points and $Y^{*} = Y^{*} \sqcup F^{\#}(Y^{*})$ elsewhere: a post-fixed point. Theorem 6.19 gives soundness. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes state the second property as a garbled formula with a single $n$ for all sequences. The standard requirement is (W2): <em>each</em> sequence stabilises. For $K$-intervals a uniform bound does exist ($2(|K| + 2)$), which is what the notes' formula tries to say.</div>
+        <div class="quiz" data-quiz="proving-widening"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 4</span><h2>Making it fast</h2></div>
+
+      <!-- 13 -->
+      <section class="topic" id="worklist" data-part="Making it fast" data-short="The worklist algorithm">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>The worklist algorithm</h2><p class="kicker">Only redo what changed</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A teacher re-marking every exam every evening, even when nobody handed in a correction, wastes most evenings. Better: keep a pile of exams that changed today, re-mark only those, and if a re-mark affects another exam, put that one on the pile. When the pile is empty, everything is up to date.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>So far each round stepped <em>every</em> reached instruction ("lockstep"), even if its input did not change. The worklist only processes program points whose state changed. With a step function from a program point and an abstract state to the successor points and states,
+              $$\mathtt{step} : \mathbf{PC} \times \widehat{\State} \to \pset{\mathbf{PC} \times \widehat{\State}},$$
+              the notes' code:</p>
+<pre><code class="language-python">def step(self) -> tuple[PC, set[str]]:
+    # Pop from worklist
+    pc = self.worklist.pop()
+    for res in manystep(self.bc, pc, self.states[pc]):
+        pc_, st = res
+        before = self.states.get(pc_, st)
+        after = before | st
+        if pc_ not in self.states or after != before:
+            self.states[pc_] = after
+            # Update worklist
+            self.worklist.append(pc_)
+    # ...</code></pre>
+              <ul>
+                <li>Pop a point, step its state, and join each result into the successor's state. If the successor is new or its state grew, it goes (back) on the worklist.</li>
+                <li><code>before = self.states.get(pc_, st)</code> uses the new state itself as the default. For an unseen point, <code>after == before</code>, which is why the condition also checks <code>pc_ not in self.states</code>.</li>
+                <li>The algorithm stops when the worklist is empty. That is exactly when no point's state can grow any more: a fixed point.</li>
+                <li>For loops, replace the join by a widening at loop heads (topic 11). Also, <code>list.pop()</code> takes the <em>last</em> element, so the notes' worklist is a stack (LIFO); the order matters for speed (next topic).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.33</span> Equation system per program point</p>
+            <p>Over $\Pc[A] = \mathbf{PC} \to A$ the analysis solves, for every point $\iota$,
+            $$X(\iota) = \mathit{init}(\iota) \sqcup \bigsqcup_{\iota' \to \iota} f_{\iota' \to \iota}\big(X(\iota')\big),$$
+            where $f_{\iota' \to \iota}$ is the (monotone) abstract effect of the instruction at $\iota'$ along that edge and $\mathit{init}(0) = \alpha(I_p)$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.34</span> Chaotic iteration</p>
+            <p>On a lattice with the ascending chain condition, the worklist algorithm (with joins, any order of removal) terminates and computes the same least solution as round-robin or lockstep iteration.</p>
+            <details class="proof"><summary>Proof sketch</summary><p><em>Invariant:</em> $X \sqsubseteq \ell$, the least solution, since each update joins in $f(X(\iota')) \sqsubseteq f(\ell(\iota')) \sqsubseteq \ell(\iota)$. <em>Termination:</em> a point is added only when its value strictly grows, which happens finitely often per point. <em>At the end:</em> every equation holds, since whenever $X(\iota')$ last changed, $\iota'$ was on the list and its successors were updated; so $X$ is a solution, hence $\ell \sqsubseteq X$. Together $X = \ell$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.35</span> Cost</p>
+            <p>With height $h$ per point, the worklist processes a point at most $h \cdot (\text{number of its predecessors}) + 1$ times, so $O(h \cdot |E|)$ steps overall. Lockstep pays $|\text{reached points}|$ for every round, even when only one point changes.</p>
+          </div>
+        </div>
+        <div data-lab="worklist"></div>
+        <div class="quiz" data-quiz="worklist"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="rpo" data-part="Making it fast" data-short="Reverse post-order">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>Control-flow graphs and reverse post-order</h2><p class="kicker">Finish both branches before the join</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Two rivers meet and flow on to the sea. If you measure the water downstream after hearing from only one river, you have to measure again when the second river's report arrives. Wait for both reports, then measure once. Reverse post-order is a simple way to visit places so that everything upstream comes first.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+<pre><code class="language-java">void fn(int x) {
+  int i = 0;
+  if (x == 0) {
+    i += 1;
+  } else {
+    i -= 1;
+  }
+  // Many operations on i.
+}</code></pre>
+              <ul>
+                <li>The <strong>control-flow graph</strong> (CFG) has the program points as nodes (or <strong>basic blocks</strong>: maximal straight-line runs of instructions) and an edge for every possible next instruction.</li>
+                <li>Analysing the code after the <code>if</code> before both branches are done wastes work: it will change again when the second branch arrives.</li>
+                <li><strong>Reverse post-order</strong> (RPO) avoids this. Do a depth-first search, write a node down when you <em>finish</em> it (post-order, <a href="syntactic-analysis.html#traversal">Week 2, traversals</a>), and reverse the list. Then every node comes before its successors, except along loop back edges. Both branches of the <code>if</code> come before the join.</li>
+                <li>Edges that go backwards in RPO are the <strong>back edges</strong>; their targets are the loop heads, which is exactly where widening goes.</li>
+                <li>The worklist lab above has an "RPO first" order: always process the waiting point with the smallest RPO number.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.36</span> Basic blocks and the control-flow graph</p>
+            <p>The <strong>leaders</strong> of a method are offset 0, every jump target, and every instruction after a jump, branch, <code>return</code> or <code>throw</code>. A <strong>basic block</strong> runs from a leader up to the next leader. The CFG has an edge $B \to B'$ when the last instruction of $B$ can continue at the first instruction of $B'$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.37</span> Post-order and reverse post-order</p>
+            <p>A depth-first search from the entry assigns each node its finishing time $\mathit{post}(v)$. The reverse post-order sorts nodes by decreasing $\mathit{post}$: $\mathit{rpo}(v) = |V| - 1 - \mathit{post}(v)$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.38</span> RPO respects every non-back edge</p>
+            <p>For every edge $u \to v$ explored by the DFS, either $v$ is an ancestor of $u$ on the DFS stack (a back edge), or $\mathit{rpo}(u) \lt \mathit{rpo}(v)$.</p>
+            <details class="proof"><summary>Proof</summary><p>When the DFS examines $u \to v$, the node $v$ is unvisited, on the stack, or finished. If unvisited, it is visited and finished inside $u$'s visit, so $\mathit{post}(v) \lt \mathit{post}(u)$. If finished, also $\mathit{post}(v) \lt \mathit{post}(u)$, since $u$ is not finished yet. If on the stack, $v$ is an ancestor: a back edge. In the first two cases $\mathit{rpo}(u) \lt \mathit{rpo}(v)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"Apart from loops closing, reverse post-order is a topological order of the CFG: everything that flows into a node comes before it."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes' sentence "calculating in post-order is no longer enough" refers to the reverse post-order introduced just before. Plain post-order is the wrong way round: it visits the join before the branches.</div>
+        <div class="quiz" data-quiz="rpo"></div>
+      </section>
+
+      <!-- 15 -->
+      <section class="topic" id="scc" data-part="Making it fast" data-short="Strongly connected components">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>Loops as strongly connected components</h2><p class="kicker">Finish the loop, then move on</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A roundabout: cars can go around it as often as they like before leaving. It makes no sense to study the traffic after the roundabout while cars are still circling. Treat the whole roundabout as one place, let the traffic in it settle, and then follow the exit roads.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+<pre><code class="language-java">void fn() {
+  int i = 0;
+  while (i &lt; 100) {
+    i += 1;
+  }
+  // Many operations on i.
+}</code></pre>
+              <ul>
+                <li>With a loop, RPO alone is not enough: the code after the loop may be visited before the loop has stabilised, and then again after every change of the loop.</li>
+                <li>A <strong>strongly connected component</strong> (SCC) is a maximal set of nodes that can all reach each other. A loop (head, test and body) is one SCC; a node outside any loop is a trivial SCC on its own.</li>
+                <li>Collapse each SCC into one node: the result, the <strong>condensation</strong>, has no cycles. Process its nodes in reverse post-order, and iterate inside each SCC until it is stable (widening at its head) before moving on.</li>
+                <li><strong>Tarjan's algorithm</strong> finds all SCCs in one depth-first search. Each node gets an <code>index</code> (discovery number) and a <code>low</code> value (the smallest index reachable through the nodes still on the stack). A node whose <code>low</code> equals its <code>index</code> is the root of an SCC: pop the stack down to it.</li>
+                <li>Bourdoncle (1993) refines this into a recursive "weak topological order" that also handles nested loops, which is what industrial analysers use.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/unbounded-static-analysis/loop-cfg.svg" alt="Control-flow graph: i = 0, then the test i < 100; true goes to i += 1 which loops back to the test; false goes to many operations dependent on i" width="900" height="620"></div>
+              <figcaption><b>Course notes, Unbounded Static Analysis.</b> The control-flow graph of the loop. The test and the increment form one strongly connected component.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.39</span> Strongly connected components and condensation</p>
+            <p>Nodes $u, v$ of a directed graph are strongly connected, $u \leftrightarrow v$, if $u \to^{*} v$ and $v \to^{*} u$. This is an equivalence relation; its classes are the SCCs. The <strong>condensation</strong> has the SCCs as nodes and an edge $C \to C'$ when some edge leads from $C$ to $C' \neq C$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.40</span> The condensation is acyclic</p>
+            <p>If the condensation had a cycle $C_1 \to \cdots \to C_k \to C_1$ with $k \geq 2$, all nodes of $C_1, \ldots, C_k$ would reach each other and form one SCC, contradicting maximality. <span class="qed">&#8718;</span></p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 6.41</span> Tarjan's algorithm</p>
+            <p>One depth-first search with $\mathit{index}(v)$ = discovery time and
+            $$\mathit{low}(v) = \min\big(\{\mathit{index}(v)\} \cup \{\mathit{low}(w) \mid v \to w \text{ tree edge}\} \cup \{\mathit{index}(w) \mid v \to w,\ w \text{ on the stack}\}\big)$$
+            outputs exactly the SCCs: $v$ is the first-visited node (root) of its SCC iff $\mathit{low}(v) = \mathit{index}(v)$, and the SCC is everything above $v$ on the stack. It runs in $O(|V| + |E|)$ and emits the SCCs in reverse topological order of the condensation.</p>
+          </div>
+        </div>
+        <div data-lab="cfg"></div>
+        <div class="quiz" data-quiz="scc"></div>
+      </section>
+
+      <!-- 16 -->
+      <section class="topic" id="together" data-part="Making it fast" data-short="Putting it together">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>Putting it together: domains and predictions</h2><p class="kicker">Which domain, what to predict, and how to combine domains</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>There is no single best abstraction. Signs are good at "not zero", intervals at "between 0 and 100", octagons at "bigger than the other one". Strong analyses run several of them side by side and let them correct each other, then use the fixed point to give confident "no" answers.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Predictions:</strong> at a fixed point of a sound analysis, an outcome that is not reached cannot happen for <em>any</em> input or depth: predict <code>no</code> with confidence. A reached outcome may be a false alarm: predict <code>yes</code> or <code>maybe</code>, and confirm it with a dynamic analysis if you can. Note the 32-bit caveat of topic 10 for loops.</li>
+                <li><strong>Infinite loops:</strong> if the fixed point shows the <code>return</code> as unreachable while the entry is reachable, every run is infinite or crashes: evidence for <code>*</code>.</li>
+                <li><strong>Combining domains:</strong> in the lab below neither signs nor intervals win everywhere. Running both and intersecting their meanings (a <em>reduced product</em>) beats each: interval $[0, 5]$ with sign $\{-, +\}$ reduces to $[1, 5]$.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 6.42</span> Reduced product</p>
+            <p>For two abstractions $A_1, A_2$ of $\pset{\Z}$, the product $A_1 \times A_2$ means $\gamma(a_1, a_2) = \gamma_1(a_1) \cap \gamma_2(a_2)$, with componentwise operations. A <strong>reduction</strong> $\rho$ shrinks each component using the other without changing the meaning, e.g.
+            $$\rho([i, j], S) = \big(\alpha_{\mathbf{Itval}}(\gamma([i, j]) \cap \gamma(S)),\ \alpha_{\Sign}(\gamma([i, j]) \cap \gamma(S))\big).$$</p>
+            <p class="read">"Keep both descriptions; a value must satisfy both; let each description tighten the other." For example $\rho([0, 5], \{-, +\}) = ([1, 5], \{+\})$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 6.43</span> Products are sound and reduce false alarms</p>
+            <p>If both component analyses are sound, so is the product, and after reduction it is at least as precise as either component: $\gamma(\rho(a_1, a_2)) = \gamma_1(a_1) \cap \gamma_2(a_2) \subseteq \gamma_i(a_i)$.</p>
+          </div>
+        </div>
+        <div data-lab="compare"></div>
+        <div class="quiz" data-quiz="together"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and results worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Dependent values</h3><div class="mathbox">$\{(s.x, s.y)\} \subsetneq X \times Y$</div><p>Non-relational domains keep only $X \times Y$. Named values fix copies; relational domains fix relations.</p></div>
+          <div class="cheat-item"><h3>Named state</h3><div class="mathbox">$\gamma(C/\langle\lambda,\sigma,\iota\rangle) = \{\langle \nu\lambda, \nu\sigma, \iota\rangle \mid \nu(n) \in \gamma(C(n))\}$</div><p>Names never change; a store of a new value gets a fresh name.</p></div>
+          <div class="cheat-item"><h3>Octagon</h3><div class="mathbox">$\pm x \pm y \leq c$</div><p>Between intervals and polyhedra; $O(n^3)$ closure (Mine 2006).</p></div>
+          <div class="cheat-item"><h3>Knaster-Tarski</h3><div class="mathbox">$\operatorname{lfp} f = \mathop{\Large\sqcap}\{x \mid f(x) \sqsubseteq x\}$</div><p>Monotone $f$, complete lattice.</p></div>
+          <div class="cheat-item"><h3>Kleene</h3><div class="mathbox">$\operatorname{lfp} f = f^n(\bot)$, least $n$ with $f^n(\bot) = f^{n+1}(\bot)$</div><p>Monotone $f$ plus ascending chain condition; at most height-many increases.</p></div>
+          <div class="cheat-item"><h3>Fixed-point transfer</h3><div class="mathbox">$F \circ \gamma \subseteq \gamma \circ F^{\#},\ F^{\#}(X^{\#}) \sqsubseteq X^{\#} \implies \operatorname{lfp} F \subseteq \gamma(X^{\#})$</div><p>Any abstract post-fixed point is sound.</p></div>
+          <div class="cheat-item"><h3>Intervals</h3><div class="mathbox">$\gamma([i,j]) = \{n \mid i \leq n \leq j\}$, $[i,j] \sqcup [k,h] = [\min, \max]$</div><p>Infinite height; no holes.</p></div>
+          <div class="cheat-item"><h3>Interval arithmetic</h3><div class="mathbox">$[a,b] - [c,d] = [a-d, b-c]$, $\times$: min/max of corners</div><p>Division: error if $0 \in$ divisor; split the divisor around 0.</p></div>
+          <div class="cheat-item"><h3>Widening</h3><div class="mathbox">$[i,j] \nabla_K [k,h] = [\min_K\{i,k\}, \max_K\{j,h\}]$</div><p>(W1) upper bound, (W2) every widening sequence stabilises; at most $2(|K|+2)$ changes.</p></div>
+          <div class="cheat-item"><h3>Worklist</h3><div class="mathbox">pop $\iota$; for $(\iota', s) \in \mathtt{step}(\iota, X(\iota))$: grow $X(\iota')$, push $\iota'$</div><p>Same least solution as lockstep (chaotic iteration), far fewer steps.</p></div>
+          <div class="cheat-item"><h3>Reverse post-order</h3><div class="mathbox">$u \to v$ not a back edge $\implies \mathit{rpo}(u) \lt \mathit{rpo}(v)$</div><p>Branches before joins; back-edge targets are the loop heads (widen there).</p></div>
+          <div class="cheat-item"><h3>SCCs</h3><div class="mathbox">root iff $\mathit{low}(v) = \mathit{index}(v)$</div><p>Tarjan, $O(|V| + |E|)$; stabilise each SCC, then move on.</p></div>
+        </div>
+        <div class="table-wrap"><table class="gloss">
+          <tr><td>$C / \langle \lambda, \sigma, \iota \rangle$</td><td>named state</td><td>constraint map $C : N \to A$ plus a frame over names</td></tr>
+          <tr><td>$\operatorname{lfp} f$</td><td>least fixed point</td><td>the smallest $x$ with $f(x) = x$</td></tr>
+          <tr><td>$f^n(\bot)$</td><td>Kleene iterate</td><td>$f$ applied $n$ times to the bottom element</td></tr>
+          <tr><td>$F(X) = I_p \cup \Delta(X)$</td><td>collecting transformer</td><td>its least fixed point is the set of reachable states</td></tr>
+          <tr><td>$\mathbf{Itval}$, $[i, j]$</td><td>intervals</td><td>all integers from $i$ to $j$; $\bot$ is the empty interval</td></tr>
+          <tr><td>$\nabla$, $\nabla_K$</td><td>widening</td><td>an over-approximating join that forces termination; $K$ = landmark constants</td></tr>
+          <tr><td>$\min_K v$, $\max_K v$</td><td>landmark bounds</td><td>nearest constant of $K$ below / above $v$, else $\mp\infty$</td></tr>
+          <tr><td>$\mathit{post}(v)$, $\mathit{rpo}(v)$</td><td>DFS orders</td><td>finishing time; reverse post-order number</td></tr>
+          <tr><td>$\mathit{index}$, $\mathit{low}$</td><td>Tarjan</td><td>discovery number; smallest index reachable through nodes on the stack</td></tr>
+          <tr><td>$\rho$</td><td>reduction</td><td>tightens the components of a product domain using each other</td></tr>
+        </table></div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>What does it mean for two variables to be dependent?</summary>
+          <p>Two variables (or, in bytecode, two value positions such as a local and a stack slot) are dependent when their possible values constrain each other: in the set of concrete states we care about, not every combination of an individually possible value of the first with an individually possible value of the second actually occurs. Formally, the joint values $\{(s.x, s.y)\}$ are a strict subset of the product of the separate value sets (Definition 6.1).</p>
+          <p>Typical sources in the JVM: <code>load</code> and <code>dup</code> copy a value, so the copy and the original are equal; <code>store</code> copies a stack value into a local; two reads of the same array element or field give equal values; and branches like <code>if (b &gt; a)</code> create relations between different values. The consequence for analysis: a non-relational (per-variable) domain can only represent products of value sets, so it forgets dependencies. In <code>safeDivByN</code> the test <code>n != 0</code> is made on a stack copy, and the naive analysis does not transfer it to the local, which produces a false divide-by-zero alarm.</p>
+          <p>Remedies: named values with constraints (topic 02) handle equalities created by copying, by storing the same name in several places; relational domains such as octagons or polyhedra (topic 03) handle genuine relations such as $b - a \geq 1$, at a higher cost.</p>
+        </details>
+        <details class="proof"><summary>What is the primary problem when doing unbounded static analysis?</summary>
+          <p>Termination. An unbounded analysis must iterate the abstract step until a fixed point, because only a fixed point covers traces of every length (Theorem 6.9). Kleene iteration from the bottom reaches the least fixed point only if the iterates stop growing, which is guaranteed for monotone steps on lattices with the ascending chain condition, e.g. the finite sign lattice (height 3 per value). Many useful domains, intervals first among them, have infinite strictly ascending chains: on <code>while (i &gt;= 0) i = i + 1;</code> the loop head grows $[0,0], [0,1], [0,2], \ldots$ forever and no fixed point is ever detected.</p>
+          <p>Secondary problems are cost (stepping every program point every round is wasteful, solved by the worklist algorithm with a good order such as reverse post-order and SCCs) and precision (to terminate we have to over-approximate, which brings false alarms). There is also the soundness subtlety that Java integers are 32-bit, so analyses over mathematical integers can wrongly conclude that a loop never exits.</p>
+        </details>
+        <details class="proof"><summary>Why do we need a widening operator?</summary>
+          <p>Because some abstract domains have infinite height, so the plain join can climb forever without reaching a fixed point. A widening $\nabla$ replaces the join at loop heads and forces convergence. It satisfies (W1) $a \sqsubseteq a \nabla b$ and $b \sqsubseteq a \nabla b$, so it only over-approximates and stays sound, and (W2) every widening sequence stabilises after finitely many steps, so the iteration terminates. When it stops, the result is a post-fixed point of the abstract step, and by the fixed-point transfer theorem (6.19) it covers every reachable state.</p>
+          <p>For intervals the course uses landmarks $K$, the constants of the program (like the dictionaries of dynamic analysis): bounds jump to the next constant or to infinity, so each bound can change at most $|K| + 1$ times. The price is precision: the widened result can be larger than the least fixed point, e.g. $[0, +\infty]$ instead of $[0, 99]$ when the loop bound is not a landmark. Good landmarks, widening only at loop heads, and an optional narrowing phase win much of it back.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Unbounded Static Analysis" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute, which build on Nielson and Nielson, <i>Program Analysis (an Appetizer)</i> (2020). Further references: Cousot and Halbwachs (1978) on polyhedra; Mine (2006) <i>The Octagon Abstract Domain</i>; Tarjan (1972) on strongly connected components; Bourdoncle (1993) on iteration strategies. The control-flow graph figure is from the course notes. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/unbounded-static-analysis.js"></script>
+</body>
+</html>

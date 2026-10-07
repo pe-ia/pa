@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PA Study</title>
+  <meta name="description" content="Interactive study notes for 02242 Program Analysis: every concept from plain words to the formal definitions, with labs and questions.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/index.css">
+</head>
+<body>
+  <div class="hub">
+    <div class="hub-top">
+      <span class="brand">
+        <span class="brand-mark">PA</span>
+        <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+      </span>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+
+    <div class="hub-hero">
+      <h1>Study Program Analysis</h1>
+      <p>Every concept is built up in three layers: first in plain words, then how it actually works, then formally, with all the definitions, theorems and proofs. Along the way there are labs to play with and questions that explain every answer.</p>
+      <div class="layers hub-layers" aria-label="How each topic is explained">
+        <span class="layer-chip l-plain">In plain words</span>
+        <span class="layer-chip l-tech">How it works</span>
+        <span class="layer-chip l-formal">Formally</span>
+      </div>
+    </div>
+
+    <div class="hub-path" aria-label="How the lectures build on each other">
+      <div class="hp-step"><b>Why it is hard</b><span>Undecidability, soundness, may and must</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Look at the text</b><span>Syntax, grammars, patterns</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Define the meaning</b><span>Semantics, traces, a JVM interpreter</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Run it</b><span>Testing, coverage, fuzzing</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Run it on everything</b><span>Lattices, Galois connections, abstract interpretation</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Run it forever</b><span>Fixed points, intervals, widening, worklists</span></div>
+    </div>
+
+    <div class="hub-grid">
+      <a class="lecture-card" href="introduction.html" data-summary="introduction">
+        <div class="lc-top"><span class="lc-num">Week 1</span><span class="lc-status ready">Ready</span></div>
+        <h2>Introduction: Decidability</h2>
+        <p>What a program and a program analysis are, why the halting problem and Rice's theorem make analysis impossible in general, soundness and completeness, may and must, and the JPAMB game with its wagers.</p>
+        <div class="lc-foot" data-counts="introduction"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card" href="syntactic-analysis.html" data-summary="syntactic-analysis">
+        <div class="lc-top"><span class="lc-num">Week 2</span><span class="lc-status ready">Ready</span></div>
+        <h2>Syntactic analysis</h2>
+        <p>Analysing structure instead of meaning: the levels from bits to bytecode, formal languages and grammars, the Chomsky hierarchy, regular expressions, parsers, tree-sitter queries, folds and traversals.</p>
+        <div class="lc-foot" data-counts="syntactic-analysis"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card" href="semantics.html" data-summary="semantics">
+        <div class="lc-top"><span class="lc-num">Week 3</span><span class="lc-status ready">Ready</span></div>
+        <h2>Semantics</h2>
+        <p>Giving programs meaning: natural deduction, axiomatic, denotational and operational semantics, transition systems and traces, and the small-step semantics of the JVM that your interpreter implements.</p>
+        <div class="lc-foot" data-counts="semantics"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card" href="dynamic-analysis.html" data-summary="dynamic-analysis">
+        <div class="lc-top"><span class="lc-num">Week 4</span><span class="lc-status ready">Ready</span></div>
+        <h2>Dynamic analysis</h2>
+        <p>Learning by running: trace selection, analysis and prediction, path classes and coverage, testing and assertions, and choosing inputs with random, dictionary, small-scope and coverage-guided fuzzing.</p>
+        <div class="lc-foot" data-counts="dynamic-analysis"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card" href="bounded-static-analysis.html" data-summary="bounded-static-analysis">
+        <div class="lc-top"><span class="lc-num">Week 5</span><span class="lc-status ready">Ready</span></div>
+        <h2>Bounded static analysis</h2>
+        <p>Running all inputs at once: the many-step function, posets and lattices, Galois connections, the sign abstraction, abstract operations, and a bounded abstract interpreter for the JVM.</p>
+        <div class="lc-foot" data-counts="bounded-static-analysis"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card" href="unbounded-static-analysis.html" data-summary="unbounded-static-analysis">
+        <div class="lc-top"><span class="lc-num">Week 6</span><span class="lc-status ready">Ready</span></div>
+        <h2>Unbounded static analysis</h2>
+        <p>Analysing every depth at once: dependent values and relational domains, least fixed points, the interval abstraction and its infinite chains, widening, and the worklist algorithm with reverse post-order and strongly connected components.</p>
+        <div class="lc-foot" data-counts="unbounded-static-analysis"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
+      <a class="lecture-card guide-card" href="course-guide.html">
+        <div class="lc-top"><span class="lc-num">Guide</span><span class="lc-status later">Reference</span></div>
+        <h2>Course guide</h2>
+        <p>How the course works: the schedule, the project and its technical contributions (with a grade calculator), and how to write a good paper.</p>
+        <div class="lc-foot" data-counts="course-guide"></div>
+      </a>
+    </div>
+
+    <p class="page-foot">Unofficial study notes for <b>02242 Program Analysis</b> (DTU Compute, Fall 2026), based on the course notes by Christian Gram Kalhauge. Figures from the course notes are credited where they appear. Quiz progress is stored only in your browser.</p>
+  </div>
+
+  <script src="assets/js/core.js"></script>
+  <script>
+    document.querySelectorAll("[data-theme-toggle]").forEach(function (b) { b.addEventListener("click", PA.toggleTheme); });
+    var COUNTS = {
+      "introduction": [20, 9, 67],
+      "syntactic-analysis": [20, 11, 63],
+      "semantics": [22, 9, 68],
+      "dynamic-analysis": [24, 12, 67],
+      "bounded-static-analysis": [22, 9, 64],
+      "unbounded-static-analysis": [16, 8, 53],
+      "course-guide": [13, 5, 26]
+    };
+    document.querySelectorAll("[data-counts]").forEach(function (foot) {
+      var c = COUNTS[foot.dataset.counts];
+      if (!c) return;
+      var chips = [c[0] + " topics", c[1] + " labs"];
+      var prog = foot.querySelector("[data-summary-text]");
+      chips.forEach(function (t, i) {
+        var s = document.createElement("span"); s.className = "chip"; s.textContent = t;
+        foot.insertBefore(s, prog || null);
+      });
+      if (prog) prog.textContent = c[2] + " questions";
+      else if (c[2]) { var q = document.createElement("span"); q.className = "chip"; q.textContent = c[2] + " questions"; foot.append(q); }
+    });
+    document.querySelectorAll("[data-summary]").forEach(function (card) {
+      var s = PA.store.get("pa-summary-" + card.dataset.summary, null);
+      var el = card.querySelector("[data-summary-text]");
+      if (s && s.total && el) el.textContent = s.answered + " / " + s.total + " answered";
+    });
+  </script>
+</body>
+</html>

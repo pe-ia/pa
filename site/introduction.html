@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Introduction: Decidability · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis Week 1 lecture: programs, the halting problem, Rice's theorem, may and must, soundness and completeness, and the JPAMB game.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/introduction.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 1: Introduction</div>
+        <h1>Introduction: Decidability</h1>
+        <p class="hero-lead">What a program is, why no machine can answer every question about programs (the halting problem and Rice's theorem), how analyses live with that by choosing what to get wrong (may and must, sound and complete), and the JPAMB game you will play all semester.</p>
+        <div class="hero-meta">
+          <span class="chip">20 topics</span>
+          <span class="chip">9 interactive labs</span>
+          <span class="chip">67 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>Programs and analysis</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="history" data-part="Programs and analysis" data-short="A question older than computers">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>A question older than computers</h2><p class="kicker">Hilbert, Russell, Church, and the crank that may never stop</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Around 1900 mathematicians dreamt of a machine for truth: write down any mathematical statement, turn a crank, and out comes "true" or "false". No more arguing, no more mistakes.</p>
+              <p>To build such a machine you need a fixed recipe that a clerk (or later, a computer) can follow without thinking. And then an awkward question appears: <strong>will the clerk ever finish?</strong> A recipe that sometimes runs forever does not answer anything. "Does this procedure stop?" is the very first program analysis question, and it was asked before anyone had built a computer.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>The foundational crisis.</strong> Early set theory could prove false things. <em>Russell's paradox</em>: let $R$ be the set of all sets that do not contain themselves. Does $R$ contain itself? If it does, it should not; if it does not, it should. A theory that allows $R$ is broken.</li>
+                <li><strong>Hilbert's program.</strong> David Hilbert proposed to rebuild mathematics on a finite, consistent set of axioms and to find a <em>mechanical procedure</em> that decides every statement (the <em>Entscheidungsproblem</em>, "decision problem").</li>
+                <li><strong>What is "mechanical"?</strong> To even state the goal precisely, people had to define computation. Alonzo Church invented the <em>lambda calculus</em> (1936), Alan Turing his <em>machines</em> (1936). They turned out to be equally powerful.</li>
+                <li><strong>Enumerating truths.</strong> If a procedure can derive all truths, we can list them one after another: run the derivations in parallel and print each conclusion. A theory whose theorems can be listed like this is called <em>recursively axiomatizable</em>.</li>
+                <li><strong>The snag.</strong> Listing is not deciding. To answer "is $\varphi$ true?" you wait for $\varphi$ (or its negation) to appear in the list, and you have no idea whether you will wait forever. Proving that procedures <em>terminate</em> became the central problem, and Church and Turing showed in 1936 that it cannot be solved in general.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.1</span> Russell's set</p>
+            <p>$$R = \{\, x \mid x \notin x \,\} \qquad\Longrightarrow\qquad R \in R \iff R \notin R.$$</p>
+            <p class="read">"R is the set of all x that are not members of themselves; then R is a member of itself exactly when it is not." Any theory proving both directions is inconsistent.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.2</span> Decidable and recursively enumerable sets</p>
+            <p>A set $S$ (of statements, programs, words) is <strong>decidable</strong> if there is a procedure that, for every $x$, <em>terminates</em> and answers whether $x \in S$.</p>
+            <p>$S$ is <strong>recursively enumerable</strong> (r.e., also <em>semi-decidable</em>) if there is a procedure that, for every $x$, terminates with "yes" exactly when $x \in S$ (and may run forever when $x \notin S$). Equivalently, some procedure lists all elements of $S$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.3</span> Deciding = enumerating both sides</p>
+            <p>$S$ is decidable if and only if both $S$ and its complement $\overline{S}$ are recursively enumerable.</p>
+            <p class="read">"You can always answer yes or no exactly when you can recognise the yes-cases and you can also recognise the no-cases."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>($\Rightarrow$) A decider for $S$ is in particular a recogniser for $S$; flipping its answer gives a recogniser for $\overline{S}$.</p>
+              <p>($\Leftarrow$) Run the recogniser for $S$ and the one for $\overline{S}$ in alternation, one step each. Every $x$ is in exactly one of the two sets, so exactly one recogniser eventually says yes, and we answer accordingly. This always terminates. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>Hilbert hoped that the set of true statements of arithmetic is decidable. Gödel (1931), Church and Turing (1936) showed it is not; the halting problem of <a href="#halting">topic 05</a> is the cleanest example of a set that is r.e. but not decidable.</p>
+        </div>
+        <div class="callout course"><span class="co-tag">Watch</span>The course recommends Veritasium's video <em>Math's Fundamental Flaw</em> (youtube.com/watch?v=HeQX2HjkcNo) as a friendly tour of this story, from Cantor to Gödel to Turing.</div>
+        <div class="quiz" data-quiz="history"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="program" data-part="Programs and analysis" data-short="What is a program?">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>What is a program?</h2><p class="kicker">A recipe, a state, and a step function</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A program is a recipe card, and the computer is an extremely literal cook. At every moment the kitchen is in some <strong>state</strong>: what is on the counter, and which line of the recipe the cook is on. The cook reads that one line and changes the kitchen a little. That is one <strong>step</strong>.</p>
+              <p>Running the program means stepping again and again until nothing changes any more. The list of kitchen snapshots along the way is the <strong>trace</strong>: the story of one run.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>program</strong> $p$ is a piece of syntax from a language $L$: Java source, JVM bytecode, Python, a Turing machine. On its own it does nothing; it needs a machine.</li>
+                <li>A <strong>state</strong> bundles everything the machine needs to continue: variable values, the stack, the heap, and the program counter (which instruction is next).</li>
+                <li>The <strong>step function</strong> takes the program and a state and returns the next state. The <strong>initial state</strong> is built from the inputs (for <code>countdown(3)</code>: counter at instruction 0, <code>n = 3</code>).</li>
+                <li>If a step returns the very same state, nothing will ever change again: we have reached a <strong>fixpoint</strong> and say the program ran to completion. Otherwise the trace goes on forever.</li>
+              </ul>
+              <pre><code class="language-python">def run(p, s):
+    trace = [s]
+    while (t := step(p, s)) != s:   # stop at a fixpoint
+        s = t
+        trace.append(s)
+    return trace                    # may never return!</code></pre>
+              <p>The lab below runs real bytecode with exactly this loop. In our little JVM a finished program steps into the final state <code>ok</code> (or an error), which then never changes: that is the fixpoint.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.4</span> Program</p>
+            <p>A program is an object $p \in L$ from a language $L$, together with a step function from machine states to machine states:
+            $$\mathtt{step} : L \times \State \to \State.$$</p>
+            <p class="read">"step takes a program and a state, and gives back the next state."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.5</span> Trace, fixpoint, termination</p>
+            <p>Given an initial state $s_0$, the run of $p$ is the sequence defined by
+            $$s_{i+1} = \mathtt{step}(p, s_i) \qquad (i = 0, 1, 2, \ldots).$$
+            A state $s$ is a <strong>fixpoint</strong> of $p$ if $\mathtt{step}(p, s) = s$. The program <strong>terminates</strong> from $s_0$ if some $s_n$ is a fixpoint; its <strong>trace</strong> is then the finite sequence $\tau = s_0 s_1 \cdots s_n$, otherwise the infinite sequence $\tau = s_0 s_1 s_2 \cdots$.</p>
+            <p class="read">"Keep feeding the output of step back into step. If you ever reach a state that step leaves unchanged, the program has finished, and the states you passed through are its trace."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.6</span> One input, one trace</p>
+            <p>Because $\mathtt{step}$ is a function, each initial state $s_0$ determines exactly one trace.</p>
+            <details class="proof"><summary>Proof</summary><p>By induction on $i$: $s_0$ is given, and $s_{i+1}$ is the unique value $\mathtt{step}(p, s_i)$. Two runs from the same $s_0$ therefore agree at every index. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>In <a href="semantics.html#transition-system">Week 3</a> the function becomes a <em>relation</em> $\delta_p \subseteq \State \times \State$ so that one state may have several successors (threads, random choices), and the meaning of a program becomes the set of all its traces.</p>
+        </div>
+        <div data-lab="stepmachine"></div>
+        <div class="quiz" data-quiz="program"></div>
+      </section>
+
+      <!-- 03 -->
+      <section class="topic" id="analysis" data-part="Programs and analysis" data-short="What is program analysis?">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>What is program analysis?</h2><p class="kicker">Automatically finding facts about programs</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Program analysis is asking questions about a program and getting answers from a machine instead of a person. "Will this ever crash?" "Does it always finish?" "Is it written in the house style?"</p>
+              <p>Think of a car mechanic: some facts come from looking at the car (is a tyre missing?), others from driving it (does it pull to the left?). Analyses do both kinds.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The course's one-line definition: <strong>using automatic techniques to figure out facts about a computer program.</strong></li>
+                <li>Facts about <strong>structure</strong>: is the method well formatted, does it contain a division, does it call a deprecated function?</li>
+                <li>Facts about <strong>possible behaviour</strong>: does it halt, can it divide by zero for some input, does it always return a positive number?</li>
+                <li>For tiny languages this is easy: in a language of sums of constants, <code>1 + 2</code> always evaluates to <code>3</code>, and we can just compute. Once a language has inputs, loops and unbounded memory, it becomes extremely hard (the next topics explain why).</li>
+                <li>The course explores approaches along three axes: manual to automatic, syntactic to semantic, dynamic to static (<a href="#manual-automatic">Part 4</a>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.7</span> Program property and analysis</p>
+            <p>A <strong>property</strong> of programs is a set $P \subseteq L$: the programs that have it. An <strong>analysis</strong> for $P$ is a procedure $A : L \to \{\mathit{yes}, \mathit{no}\}$. The ideal analysis satisfies
+            $$A(p) = \mathit{yes} \iff p \in P \qquad \text{for all } p \in L.$$</p>
+            <p class="read">"An ideal analysis says yes for exactly the programs that have the property."</p>
+          </div>
+          <p>Two examples. $P_{/} = \{p \mid \text{the text of } p \text{ contains the character } /\}$ is about structure; a one-line scan decides it. $P_{\mathit{halt}} = \{p \mid p \text{ terminates on every input}\}$ is about behaviour; the coming topics show that no procedure decides it. Most of this course is about getting as close to the ideal as possible for behavioural properties, and being honest about the gap.</p>
+        </div>
+        <div class="quiz" data-quiz="analysis"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="turing" data-part="Programs and analysis" data-short="Turing completeness">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>A Turing-complete mess</h2><p class="kicker">Powerful enough to do anything, including the wrong thing</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A language is <strong>Turing complete</strong> when it can express any computation that any computer can do. Java, C and Python are. So are joke languages like Brainfuck (eight symbols) and even PowerPoint animations.</p>
+              <p>That power is a double-edged sword. A language strong enough to do everything is strong enough to do every bad thing too, and, as we will see, strong enough to hide what it is going to do.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Roughly, you need three ingredients: <strong>unbounded memory</strong> (or unbounded integers, lists, recursion), <strong>conditionals</strong>, and <strong>loops or recursion</strong>. With those you can simulate a Turing machine.</li>
+                <li>Most of the course focuses on Turing-complete languages (Java bytecode), since those are the languages people actually use.</li>
+                <li>Such a program can
+                  <ul>
+                    <li>fire the missiles,</li>
+                    <li><strong>not</strong> fire the missiles,</li>
+                    <li>never terminate,</li>
+                    <li>kill grandma, and worst of all</li>
+                    <li>throw a <code>NullPointerException</code>!</li>
+                  </ul>
+                  It would be nice to be warned before any of these happen. That turns out to be very hard.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.8</span> Turing completeness</p>
+            <p>A language $L$ is <strong>Turing complete</strong> if for every Turing machine $M$ there is a program $p_M \in L$ that simulates $M$: on every input, $p_M$ halts exactly when $M$ halts, with the same output.</p>
+            <p class="read">"Whatever a Turing machine can compute, some program in L computes too, including whether or not it stops."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Thesis</span> Church and Turing</p>
+            <p>Every function that is computable by an effective, mechanical procedure is computable by a Turing machine (equivalently, in the lambda calculus).</p>
+            <p class="read">This is a thesis, not a theorem: "mechanical procedure" is an informal idea. It is why results about Turing machines transfer to every Turing-complete language.</p>
+          </div>
+          <div class="callout warn"><span class="co-tag">Careful</span>A real computer has finitely many bits, so strictly speaking it is a (gigantic) finite-state machine. Our JVM model has 32-bit integers but an unbounded heap and call stack. In practice the state space is so large that we treat such languages as Turing complete, and the impossibility results apply.</div>
+        </div>
+        <div class="quiz" data-quiz="turing"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Undecidability</h2></div>
+
+      <!-- 05 -->
+      <section class="topic" id="halting" data-part="Undecidability" data-short="The halting problem">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>The halting problem</h2><p class="kicker">The mother of all analysis problems</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The halting problem asks: given <strong>any</strong> program and its input, will it eventually stop, or run forever?</p>
+              <p>For a particular program you can often tell: a countdown from 3 stops after three rounds. The problem is building one machine that answers correctly for <em>every</em> program. Turing proved that no such machine can exist.</p>
+              <p>There is a half-solution: just run the program. If it stops, you saw it stop. If it does not stop, you keep waiting, and you never learn whether you should give up.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Decide</strong> means: always answer, in finite time, and always correctly. An analysis that answers "I don't know" or never answers does not decide.</li>
+                <li><strong>Some</strong> programs are easy: no loops and no recursion means it halts. <code>countdown(n)</code> halts for $n \geq 0$ and loops for $n \lt 0$ (it counts down past zero for 4 billion steps in 32-bit arithmetic, which JPAMB reports as <code>*</code>).</li>
+                <li>Some programs are open research problems. <code>collatz(n)</code> (halve if even, $3n+1$ if odd, stop at 1) has been checked for all $n$ up to about $2^{68}$, but nobody can prove it halts for every positive $n$. A halting decider would settle the Collatz conjecture in an afternoon.</li>
+                <li><strong>Recognisable, not decidable.</strong> "Run it and see" answers "yes, it halts" whenever that is true, and never answers otherwise. In the language of <a href="syntactic-analysis.html#deciders">Week 2</a>: the halting problem is <em>recognisable</em> (semi-decidable) but not decidable.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.9</span> The halting problem</p>
+            <p>Given <strong>any</strong> program $p \in L$ and initial state $s_0$, decide whether the sequence
+            $$s_1 = \mathtt{step}(p, s_0),\ \ s_2 = \mathtt{step}(p, s_1),\ \ \ldots,\ \ s_n = \mathtt{step}(p, s_{n-1})$$
+            eventually stabilises, i.e. whether there is an $n$ with $s_n = \mathtt{step}(p, s_n)$. As a set:
+            $$H = \{\, (p, s_0) \mid \exists n \in \N.\ s_n = \mathtt{step}(p, s_n) \,\}.$$</p>
+            <p class="read">"H contains the pairs of a program and a start state from which the program reaches a fixpoint after finitely many steps."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 1.10</span> Turing, 1936</p>
+            <p>For a Turing-complete language $L$, $H$ is <strong>undecidable</strong>: there is no total computable $h$ with $h(p, s_0) = \mathit{true} \iff (p, s_0) \in H$. (Proof in <a href="#diagonal">topic 06</a>.)</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.11</span> Halting is recognisable</p>
+            <p>$H$ is recursively enumerable.</p>
+            <details class="proof"><summary>Proof</summary><p>The procedure "compute $s_1, s_2, \ldots$ and answer yes as soon as $s_n = \mathtt{step}(p, s_n)$" terminates with yes exactly when $(p, s_0) \in H$. Combined with Proposition 1.3 and Theorem 1.10, the complement $\overline{H}$ (the programs that run forever) is therefore <em>not</em> even recognisable. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="halting"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="diagonal" data-part="Undecidability" data-short="Why no halting decider exists">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Why no halting decider can exist</h2><p class="kicker">Ask the oracle about yourself, then do the opposite</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Imagine a fortune teller who claims to predict, for any program, whether it will stop. Write a stubborn program that asks the fortune teller about <em>itself</em> and then does the opposite: if the prediction is "you will stop", it loops forever; if the prediction is "you will run forever", it stops at once.</p>
+              <p>Whatever the fortune teller says about the stubborn program is wrong. So a perfect fortune teller cannot exist. Not "nobody has built one yet": it is logically impossible.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>Suppose a mechanical procedure exists; then we can write it as a program:</p>
+              <pre><code class="language-python">def does_halt(p: Program) -> bool:
+    # returns True if p halts
+    ...</code></pre>
+              <p>and use it in another program:</p>
+              <pre><code class="language-python">def main():
+    while does_halt(main):
+        print("Running")</code></pre>
+              <ul>
+                <li>If <code>does_halt(main)</code> returns <code>True</code>, the loop runs forever, so <code>main</code> does not halt: the answer was wrong.</li>
+                <li>If it returns <code>False</code>, the loop body never runs and <code>main</code> halts immediately: wrong again.</li>
+                <li>Both possible answers are wrong, so <code>does_halt</code> cannot exist.</li>
+              </ul>
+              <p>A program referring to itself (<code>main</code> inside <code>main</code>) is legitimate: programs can obtain their own code (Kleene's recursion theorem). The textbook version avoids self-reference by passing the program to itself as input, which is the "diagonal" in the table below.</p>
+              <div class="table-wrap">
+                <table class="tt diag">
+                  <thead><tr><th>$h(q_i, q_j)$</th><th>$q_1$</th><th>$q_2$</th><th>$q_3$</th><th>$q_4$</th></tr></thead>
+                  <tbody>
+                    <tr><th>$q_1$</th><td class="on-diag">halt</td><td>loop</td><td>halt</td><td>halt</td></tr>
+                    <tr><th>$q_2$</th><td>loop</td><td class="on-diag">loop</td><td>halt</td><td>loop</td></tr>
+                    <tr><th>$q_3$</th><td>halt</td><td>halt</td><td class="on-diag">halt</td><td>loop</td></tr>
+                    <tr><th>$q_4$</th><td>loop</td><td>halt</td><td>loop</td><td class="on-diag">loop</td></tr>
+                    <tr class="d-row"><th>$D$</th><td>loop</td><td>halt</td><td>loop</td><td>halt</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="code-cap">Row $i$ lists what program $q_i$ does on input $q_j$. $D$ flips the diagonal, so $D$ differs from every row in at least one place: $D$ is none of the $q_i$. If $h$ were computable, $D$ would be a program, so it must appear as some row. Contradiction.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 1.12</span> The halting problem is undecidable</p>
+            <p>There is no total computable function $h : L \times L \to \{\mathit{true}, \mathit{false}\}$ such that for all programs $q$ and inputs $x$: $h(q, x) = \mathit{true} \iff q$ halts on input $x$.</p>
+            <details class="proof"><summary>Proof (diagonalisation)</summary>
+              <p>Assume such an $h$ exists. Since $h$ is computable and $L$ is Turing complete, the following program $D$ exists in $L$:
+              $$D(q) := \textbf{if } h(q, q) \textbf{ then loop forever} \textbf{ else return.}$$
+              Now run $D$ on its own code and ask whether $D(D)$ halts.</p>
+              <ul>
+                <li>If $h(D, D) = \mathit{true}$, then by construction $D(D)$ loops forever, so $D$ does not halt on $D$; by the specification of $h$, $h(D, D) = \mathit{false}$. Contradiction.</li>
+                <li>If $h(D, D) = \mathit{false}$, then $D(D)$ returns, so it halts, and $h(D, D)$ should be $\mathit{true}$. Contradiction.</li>
+              </ul>
+              <p>Both cases are impossible, so no such $h$ exists. <span class="qed">&#8718;</span></p>
+            </details>
+            <p class="read">"Any claimed halting decider can be turned against itself: build the program that does the opposite of what the decider predicts about it."</p>
+          </div>
+          <p>Notice what the proof does <em>not</em> say: it does not say that halting is hard for every program, nor that heuristics are useless. It says every candidate decider is wrong on <em>at least one</em> program (the lab constructs that program for several candidates).</p>
+        </div>
+        <div data-lab="paradox"></div>
+        <div class="quiz" data-quiz="diagonal"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="rice" data-part="Undecidability" data-short="Rice's theorem">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>Rice's theorem: it is not just halting</h2><p class="kicker">Every interesting question about behaviour is undecidable</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You might hope that halting is a weird special case and that useful questions like "does it fire the nukes?" are fine. Sadly no. If you could answer "does it fire the nukes?" for every program, you could answer the halting question: put the mystery computation first and the nuke launch after it. The nukes fire exactly when the mystery computation finishes.</p>
+              <p>Rice's theorem says this trick works for <strong>every</strong> question about what a program <em>does</em>, as long as the answer is sometimes yes and sometimes no.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <pre><code class="language-python">def main():
+    something_that_might_go_forever()
+    fire_the_nukes()</code></pre>
+              <ul>
+                <li>An analysis that decides "<code>main</code> fires the nukes" also decides "<code>something_that_might_go_forever</code> halts". Since halting is undecidable, so is nuke-firing. This move, turning one question into another, is called a <strong>reduction</strong>.</li>
+                <li><strong>Semantic</strong> properties are about behaviour: "may divide by zero", "always returns a positive number", "terminates". Two programs that behave identically agree on them.</li>
+                <li><strong>Syntactic</strong> properties are about the text: "contains <code>/</code>", "has more than 100 lines". These are usually decidable, and Rice's theorem says nothing about them.</li>
+                <li><strong>Non-trivial</strong> means some programs have the property and some do not. "Every program either halts or not" is trivial and decidable (always answer yes).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.13</span> Semantic and non-trivial properties</p>
+            <p>A property $P \subseteq L$ is <strong>semantic</strong> if it only depends on behaviour:
+            $$\forall p, q \in L.\ \ \Sem(p) = \Sem(q) \implies (p \in P \iff q \in P).$$
+            It is <strong>non-trivial</strong> if $P \neq \emptyset$ and $P \neq L$.</p>
+            <p class="read">"If two programs behave the same, they either both have the property or both lack it; and the property is neither true of all programs nor of none." Here $\Sem(p)$ is the behaviour of $p$, its set of traces (defined in <a href="semantics.html#traces">Week 3</a>); Rice's original statement uses the partial function the program computes.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 1.14</span> Rice, 1953</p>
+            <p>For a Turing-complete language, every non-trivial semantic property of programs is undecidable.</p>
+            <details class="proof"><summary>Proof sketch (reduction from halting)</summary>
+              <p>Let $P$ be semantic and non-trivial, and let $\bot$ be a program that never halts. We may assume $\bot \notin P$ (otherwise prove the result for the complement $L \setminus P$, which is decidable iff $P$ is). Since $P \neq \emptyset$, pick some $y \in P$.</p>
+              <p>Given any program $q$ and input $x$, construct
+              $$p'_{q,x} := \text{"run } q \text{ on } x \text{; afterwards behave exactly like } y\text{".}$$</p>
+              <ul>
+                <li>If $q$ halts on $x$, then $p'_{q,x}$ behaves like $y$, so $\Sem(p'_{q,x}) = \Sem(y)$ and $p'_{q,x} \in P$ (semantic!).</li>
+                <li>If $q$ does not halt on $x$, then $p'_{q,x}$ never gets past the first line: it behaves like $\bot$, so $p'_{q,x} \notin P$.</li>
+              </ul>
+              <p>So $p'_{q,x} \in P \iff q$ halts on $x$. The construction of $p'_{q,x}$ is mechanical, so a decider for $P$ would give a decider for halting, contradicting Theorem 1.12. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>In the notes' example, $y$ is <code>fire_the_nukes()</code> and $q$ is <code>something_that_might_go_forever()</code>. The construction needs $q$ itself not to fire the nukes along the way; that is exactly why the proof starts by running $q$ silently and only then behaving like $y$.</p>
+        </div>
+        <div data-lab="reduction"></div>
+        <div class="quiz" data-quiz="rice"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Living with undecidability</h2></div>
+
+      <!-- 08 -->
+      <section class="topic" id="may-must" data-part="Living with undecidability" data-short="May and must properties">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>May and must</h2><p class="kicker">Can it happen, or does it always happen?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>There is hope. Most of the time you do not need to know <em>exactly</em> what a program does. You ask one of two questions:</p>
+              <p><strong>May</strong> it happen? Is there at least one run where it happens? ("May it rain this week?")<br><strong>Must</strong> it happen? Does it happen in every run? ("Will it rain every single day?")</p>
+              <p>If you do not want the nukes fired, a program that <em>may</em> fire them is already a bug. If you build a missile launcher, pressing the red button <em>must</em> fire them.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Think of a program's behaviour as the <strong>set of all its traces</strong>: one trace per input (more if the program is non-deterministic). We write it $\Sem(p)$; <a href="semantics.html#traces">Week 3</a> defines it precisely as the <em>maximal trace semantics</em>.</li>
+                <li>A <strong>trace property</strong> $Q$ is a yes/no question about one trace: "does it end in <code>ok</code>?", "does it divide by zero?", "does it execute instruction 4?".</li>
+                <li><code>divideByN(int n) { return 1 / n; }</code>: it <em>may</em> divide by zero (take $n = 0$); it does not <em>must</em> divide by zero (take $n = 1$); and it may end in <code>ok</code>.</li>
+                <li><strong>Duality.</strong> "It is not the case that it may crash" means exactly "it must not crash". Proving safety is a must-question; demonstrating a bug is a may-question with a witness.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.15</span> May property</p>
+            <p>A may-property holds if it is true for <strong>at least one</strong> trace of the program:
+            $$p \models^{\may} Q \;\equiv\; \exists \tau \in \Sem(p).\ Q(\tau).$$</p>
+            <p class="read">"p may do Q means: some trace of p satisfies Q."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.16</span> Must property</p>
+            <p>A must-property holds if it is true for <strong>all</strong> traces of the program:
+            $$p \models^{\must} Q \;\equiv\; \forall \tau \in \Sem(p).\ Q(\tau).$$</p>
+            <p class="read">"p must do Q means: every trace of p satisfies Q."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.17</span> Duality of may and must</p>
+            <p>$$\neg\big(p \models^{\may} Q\big) \;\equiv\; p \models^{\must} \neg Q.$$</p>
+            <p class="read">"It is false that p may do Q exactly when p must not do Q."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>$\neg(p \models^{\may} Q) \equiv \neg \exists \tau \in \Sem(p).\ Q(\tau) \equiv \forall \tau \in \Sem(p).\ \neg Q(\tau) \equiv p \models^{\must} \neg Q$, using that the negation of "some" is "all ... not" (De Morgan for quantifiers). Symmetrically, $\neg(p \models^{\must} Q) \equiv p \models^{\may} \neg Q$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <p>Every program has at least one initial state, so $\Sem(p) \neq \emptyset$ and therefore $p \models^{\must} Q \implies p \models^{\may} Q$. In <a href="bounded-static-analysis.html#bounded">Week 5</a> the same notions are restricted to traces of bounded length, $p, k \models^{\may} Q$ and $p, k \models^{\must} Q$.</p>
+        </div>
+        <div data-lab="traces"></div>
+        <div class="quiz" data-quiz="may-must"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="turnstiles" data-part="Living with undecidability" data-short="Provable vs true">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Provable versus true</h2><p class="kicker">The two turnstiles $\vdash$ and $\models$</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>"I can prove it" and "it is true" are different things. A detective can be certain who did it and still lack the evidence; a sloppy court can "prove" an innocent person guilty.</p>
+              <p>An analysis is a proof machine: what it reports is what it can prove. Whether that matches the truth about the program is a separate question, and the whole vocabulary of soundness and completeness is about that match.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>$\Sigma \vdash \Phi$ ("Sigma proves Phi"): starting from assumptions $\Sigma$, the <em>rules</em> of the system produce a derivation of $\Phi$. This is about symbols and rules (syntax).</li>
+                <li>$\Sigma \models \Phi$ ("Sigma entails Phi"): in every situation where $\Sigma$ holds, $\Phi$ holds. This is about meaning (semantics).</li>
+                <li>In program analysis, $\Sigma$ is the program (and its context), $\Phi$ is a fact about it. $p \vdash_{\mathbf{A}} Q$ is "analysis $\mathbf{A}$ reports $Q$ for $p$"; $p \models Q$ is "$Q$ actually holds of $p$'s behaviour".</li>
+                <li>Example: a crude analysis reports "may divide by zero" whenever the text contains <code>/</code>. For <code>return 1 / 2;</code> it proves something false; for a method that calls a helper which divides, it misses something true.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.18</span> Provability and truth</p>
+            <p>$\Sigma \vdash \Phi$ holds if there is a finite derivation of $\Phi$ from the assumptions $\Sigma$ using the inference rules of the system.</p>
+            <p>$\Sigma \models \Phi$ holds if every model (world, situation, program behaviour) that satisfies all of $\Sigma$ also satisfies $\Phi$.</p>
+            <p class="read">"Turnstile with one bar: there is a proof. Turnstile with two bars: it is true." Negations are written $\Sigma \nvdash \Phi$ (no proof) and $\Sigma \not\models \Phi$ (not true).</p>
+          </div>
+          <p>For analyses we decorate the turnstile with the analysis and the kind of question: $p \vdash_{\mathbf{A}}^{\may} Q$ and $p \vdash_{\mathbf{A}}^{\must} Q$ are what the analysis $\mathbf{A}$ claims; $p \models^{\may} Q$ and $p \models^{\must} Q$ are the facts from <a href="#may-must">topic 08</a>.</p>
+        </div>
+        <div class="quiz" data-quiz="turnstiles"></div>
+      </section>
+
+      <!-- 10 -->
+      <section class="topic" id="sound-complete" data-part="Living with undecidability" data-short="Sound or complete">
+        <header class="topic-head">
+          <span class="topic-num">10</span>
+          <div><h2>Sound or complete: choose one</h2><p class="kicker">Decide what you are allowed to get wrong</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A <strong>sound</strong> analysis never tells a lie: everything it claims is true. A <strong>complete</strong> analysis never stays silent about a truth: everything true, it claims.</p>
+              <p>Easy to achieve one at a time. The analysis that never claims anything is sound (it never lies). The analysis that claims everything is complete (it never misses). For undecidable questions, no analysis that always finishes can be both. So every real analysis picks which kind of mistake it is willing to make, and tries to make few of them.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The words come from logic: a proof system is <em>sound</em> if every provable statement is true, <em>complete</em> if every true statement is provable.</li>
+                <li>Translated into program analysis jargon: an analysis is <strong>sound</strong> if, whenever it produces a fact, that fact is true of the program. It is <strong>complete</strong> if it finds every fact that holds.</li>
+                <li>Because the questions are undecidable, an analysis cannot be both sound and complete (if it always terminates). The rest of the course is about building analyses that err on a chosen side, and are useful anyway.</li>
+                <li>Which side to err on depends on the question: you will see in <a href="#soundness-confusion">topic 12</a> that the same analysis can be called sound or complete depending on how you phrase what it reports.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.19</span> Soundness</p>
+            <p>In a sound system we can only prove true things:
+            $$\Sigma \vdash \Phi \implies \Sigma \models \Phi.$$</p>
+            <p class="read">"If we can prove Phi from Sigma, then Phi is true given Sigma."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.20</span> Completeness</p>
+            <p>In a complete system we can prove all true things:
+            $$\Sigma \models \Phi \implies \Sigma \vdash \Phi.$$</p>
+            <p class="read">"If Phi is true given Sigma, then we can prove it."</p>
+          </div>
+          <p>For an analysis $A$ of a property $P \subseteq L$ (<a href="#analysis">Definition 1.7</a>): $A$ is sound if $A(p) = \mathit{yes} \implies p \in P$, and complete if $p \in P \implies A(p) = \mathit{yes}$.</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 1.21</span> No free lunch</p>
+            <p>If $P$ is undecidable, no analysis $A$ that terminates on every program is both sound and complete for $P$. In particular (Rice) this holds for every non-trivial semantic property.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Soundness and completeness together give $A(p) = \mathit{yes} \iff p \in P$ for every $p$. If $A$ also always terminates, $A$ is a decider for $P$, contradicting the undecidability of $P$. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.22</span> The trivial extremes</p>
+            <p>$A_{\mathit{never}}(p) = \mathit{no}$ is sound for every $P$, and $A_{\mathit{always}}(p) = \mathit{yes}$ is complete for every $P$.</p>
+            <details class="proof"><summary>Proof</summary><p>$A_{\mathit{never}}$ never says yes, so the premise of "yes implies true" never holds (vacuous truth). $A_{\mathit{always}}$ says yes to everything, so in particular to every $p \in P$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>So soundness or completeness alone is worthless; what matters is how close an analysis gets to the other one while keeping its guarantee.</p>
+        </div>
+        <div class="quiz" data-quiz="sound-complete"></div>
+      </section>
+
+      <!-- 11 -->
+      <section class="topic" id="confusion-matrix" data-part="Living with undecidability" data-short="TP, FP, FN, TN">
+        <header class="topic-head">
+          <span class="topic-num">11</span>
+          <div><h2>True and false positives and negatives</h2><p class="kicker">Grading one answer at a time</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>To judge an analysis on real programs, grade each answer. The analysis either said "yes" (a positive) or stayed silent ("no", a negative), and it was either right (true) or wrong (false). That gives four boxes: true positive, false positive, false negative, true negative.</p>
+              <p>A sound analysis never lands in the "false positive" box. A complete one never lands in "false negative".</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>TP</strong>: it claimed $\Phi$ and $\Phi$ is true. <strong>FP</strong>: it claimed $\Phi$ but $\Phi$ is false. <strong>FN</strong>: $\Phi$ is true but it did not claim it. <strong>TN</strong>: $\Phi$ is false and it did not claim it.</li>
+                <li>The figure shows the program-based view: the grey blob is the set of good programs, the dashed blob what the analysis accepts as good. Overlap is TP, accepted-but-bad is FP, good-but-rejected is FN, outside both is TN.</li>
+                <li>Two standard summary numbers: <strong>precision</strong> (of everything claimed, how much was true) and <strong>recall</strong> (of everything true, how much was claimed). A sound analysis has perfect precision, a complete one perfect recall.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/introduction/program-sound-complete.svg" alt="Two overlapping blobs: good programs (solid) and accepted programs (dashed); regions labelled TP, FP, FN, TN" width="746" height="526"></div>
+              <figcaption><b>Course notes, Introduction.</b> Program-based question: solid blob = good programs, dashed = accepted by the analysis.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.23</span> Classification of a proposition</p>
+            <p>An individual proposition $\Phi$ is a true positive, false positive, false negative or true negative according to:</p>
+            <div class="table-wrap"><table class="tt">
+              <thead><tr><th></th><th>$\Sigma \models \Phi$</th><th>$\Sigma \not\models \Phi$</th></tr></thead>
+              <tbody>
+                <tr><th>$\Sigma \vdash \Phi$</th><td class="v-ok">TP</td><td class="v-bad">FP</td></tr>
+                <tr><th>$\Sigma \nvdash \Phi$</th><td class="v-bad">FN</td><td class="v-ok">TN</td></tr>
+              </tbody>
+            </table></div>
+            <p class="read">"Rows: did the analysis prove it? Columns: is it true? Diagonal = correct, off-diagonal = mistakes."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.24</span></p>
+            <p>An analysis is sound $\iff$ it produces no false positives; complete $\iff$ it produces no false negatives. With
+            $$\mathrm{precision} = \frac{TP}{TP + FP}, \qquad \mathrm{recall} = \frac{TP}{TP + FN},$$
+            soundness means precision $= 1$ and completeness means recall $= 1$ (whenever the denominators are non-zero).</p>
+            <details class="proof"><summary>Proof</summary><p>An FP is exactly a $\Phi$ with $\Sigma \vdash \Phi$ and $\Sigma \not\models \Phi$, i.e. a counterexample to $\vdash \Rightarrow \models$. An FN is a counterexample to $\models \Rightarrow \vdash$. No counterexamples means the implication holds. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div data-lab="classifier"></div>
+        <div class="quiz" data-quiz="confusion-matrix"></div>
+      </section>
+
+      <!-- 12 -->
+      <section class="topic" id="soundness-confusion" data-part="Living with undecidability" data-short="Soundness confusion">
+        <header class="topic-head">
+          <span class="topic-num">12</span>
+          <div><h2>The soundness confusion</h2><p class="kicker">Programs or traces? Flip the question and the words swap</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Is a "sound" analysis one that never misses a bug, or one that never raises a false alarm? Both, depending on who you ask, and that is the confusion.</p>
+              <p>If the question is "<strong>is this program OK?</strong>", sound means: it only stamps "OK" on programs that really are OK, so it never misses a bug. If the question is "<strong>is there a buggy run?</strong>", sound means: every bug it reports is real, so no false alarms. Same word, opposite promise.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Program-based questions</strong> (type systems, static analyses): is the program well-formed? A sound analysis only accepts correct programs; a complete analysis accepts all correct programs. (First figure.)</li>
+                <li><strong>Trace-based questions</strong> (mostly dynamic analyses): does the program have an execution that ends in a bad state? A sound analysis only reports real traces; a complete analysis finds all of them. (Second figure: real traces vs the traces the analysis expects.)</li>
+                <li>The two views are each other's negation. "Accept $p$ as bug-free" is "reject: $p$ has a buggy trace". So a sound bug-free checker is the same thing as a complete bug finder.</li>
+                <li>Extra confusion: users of static bug finders count a <em>missed bug</em> as a false negative and a <em>wrong warning</em> as a false positive. They then say "a sound analysis has no false negatives", which is the trace view, inconsistent with the theory's program view. The course avoids this by talking about <a href="#may-must-analysis">may and must</a> analyses and about <em>warnings</em>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/introduction/program-sound-complete.svg" alt="Program-based soundness and completeness: good programs vs accepted programs" width="746" height="526"></div>
+              <figcaption><b>Course notes.</b> Program-based question: which programs are good?</figcaption>
+            </figure>
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/introduction/trace-sound-complete.svg" alt="Trace-based soundness and completeness: real traces vs expected traces, regions TP, FP, FN, TN" width="746" height="526"></div>
+              <figcaption><b>Course notes.</b> Trace-based question: which traces are real?</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>Let $B \subseteq L$ be the programs with at least one buggy trace and $G = L \setminus B$ the bug-free ones.</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.25</span> Checker and bug finder</p>
+            <p>A <strong>checker</strong> $A_G$ answers the program question "is $p \in G$?". From it we get a <strong>bug finder</strong> $A_B(p) := \neg A_G(p)$ ("$p$ has a bug").</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.26</span> Sound checker = complete bug finder</p>
+            <p>$$A_G \text{ sound for } G \iff A_B \text{ complete for } B.$$</p>
+            <p class="read">"A checker that only approves bug-free programs is the same as a bug finder that flags every buggy program."</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>$A_G$ sound means $\forall p.\ A_G(p) \Rightarrow p \in G$. Take the contrapositive: $p \notin G \Rightarrow \neg A_G(p)$, i.e. $p \in B \Rightarrow A_B(p)$, which is completeness of $A_B$ for $B$. Every step is an equivalence. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="callout warn"><span class="co-tag">Careful</span>When reading a paper or a tool's documentation, first ask: <em>what exactly does it report</em>, programs or traces, "safe" or "bug"? Only then do "sound", "complete", "false positive" mean anything.</div>
+        </div>
+        <div class="quiz" data-quiz="soundness-confusion"></div>
+      </section>
+
+      <!-- 13 -->
+      <section class="topic" id="may-must-analysis" data-part="Living with undecidability" data-short="May and must analyses">
+        <header class="topic-head">
+          <span class="topic-num">13</span>
+          <div><h2>May and must analyses</h2><p class="kicker">Over-approximate or under-approximate the traces</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Picture all the real runs of a program as fish in a lake. A <strong>may</strong> analysis throws a huge net that surely catches every real fish, plus some driftwood it mistakes for fish. A <strong>must</strong> analysis only keeps fish it has actually seen, so everything in its bucket is real, but it misses many.</p>
+              <p>Big net: if no shark is in it, there is no shark in the lake. Bucket: if a shark is in it, there definitely is a shark in the lake. Each net gives one kind of guarantee.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A <strong>may analysis</strong> over-approximates the traces: every real trace is covered (plus possibly fake ones). It can guarantee that something does <strong>not</strong> happen.</li>
+                <li>A <strong>must analysis</strong> under-approximates: every trace it has is real. It can guarantee that something <strong>does</strong> happen (it holds the witness).</li>
+                <li>Static analyses are usually <em>must-sound</em> (they prove properties of all traces); dynamic analyses are <em>may-sound</em> (they demonstrate a property on some trace).</li>
+                <li>Completeness is written with "not-may" and "not-must", to stress that the analysis approximates from the other side: a not-may analysis never misses a trace with $Q$.</li>
+                <li><strong>Duality</strong>: a complete may-analysis for $Q$ is, negated, a sound must-analysis for $\neg Q$. "My net caught no shark" (and my net catches all sharks) means "there must be no shark".</li>
+                <li><strong>Warnings vs positives.</strong> To avoid the confusion of topic 12, the course calls a reported bug a <em>warning</em> (a classification of traces). A sound static analysis may give false warnings; a sound dynamic analysis never does.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>An analysis $\mathbf{A}$ is built to predict one property $Q$; we write its claims $p \vdash_{\mathbf{A}}^{\may} Q$ and $p \vdash_{\mathbf{A}}^{\must} Q$ (from the course's <em>Trace Terminology</em> note).</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.27</span> Soundness of an analysis</p>
+            <p>Every proved fact is true:
+            $$p \vdash_{\mathbf{A}}^{\must} Q \implies p \models^{\must} Q \qquad\qquad p \vdash_{\mathbf{A}}^{\may} Q \implies p \models^{\may} Q.$$</p>
+            <p class="read">"If a sound must-analysis says Q holds on all traces, it does; if a sound may-analysis says Q holds on some trace, it does."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.28</span> Completeness of an analysis (not-may, not-must)</p>
+            <p>Every true fact is found:
+            $$p \models^{\may} Q \implies p \vdash_{\mathbf{A}}^{\notmay} Q \qquad\qquad p \models^{\must} Q \implies p \vdash_{\mathbf{A}}^{\notmust} Q.$$</p>
+            <p class="read">"If some trace really has Q, a complete not-may analysis reports it; if all traces have Q, a complete not-must analysis reports it." An analysis can be sound or complete, but never both.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.29</span> Over- and under-approximation</p>
+            <p>A set of traces $T$ <strong>over-approximates</strong> $p$ if $\Sem(p) \subseteq T$ and <strong>under-approximates</strong> $p$ if $T \subseteq \Sem(p)$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.30</span> What each approximation guarantees</p>
+            <p>(a) If $\Sem(p) \subseteq T$ and $\forall \tau \in T.\ \neg Q(\tau)$, then $p \models^{\must} \neg Q$.<br>
+               (b) If $T \subseteq \Sem(p)$ and $\exists \tau \in T.\ Q(\tau)$, then $p \models^{\may} Q$.</p>
+            <details class="proof"><summary>Proof</summary><p>(a) Any $\tau \in \Sem(p)$ is in $T$, hence $\neg Q(\tau)$. (b) The witness $\tau \in T$ is also in $\Sem(p)$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.31</span> Duality of analyses</p>
+            <p>$$\neg\big(p \vdash_{\mathbf{A}}^{\notmay} Q\big) \;\equiv\; p \vdash_{\mathbf{A}}^{\must} \neg Q,$$
+            and the right-hand side is a <em>sound</em> must analysis whenever $\mathbf{A}$ is a <em>complete</em> not-may analysis.</p>
+            <details class="proof"><summary>Proof</summary>
+              <p>Take completeness, $p \models^{\may} Q \implies p \vdash_{\mathbf{A}}^{\notmay} Q$, and negate both sides (contrapositive): $\neg(p \vdash_{\mathbf{A}}^{\notmay} Q) \implies \neg(p \models^{\may} Q)$. By Proposition 1.17 the right side is $p \models^{\must} \neg Q$. So "the not-may analysis did not report Q" implies "Q must not happen", which is exactly soundness of the must analysis defined by the left side. <span class="qed">&#8718;</span></p>
+            </details>
+          </div>
+          <div class="callout key"><span class="co-tag">Key idea</span>May analyses (over-approximation) prove <em>absence</em>; must analyses (under-approximation) prove <em>presence</em>. Week 4 builds must-style dynamic analyses, Week 5 may-style static ones.</div>
+        </div>
+        <div data-lab="approx"></div>
+        <div class="quiz" data-quiz="may-must-analysis"></div>
+      </section>
+
+      <!-- 14 -->
+      <section class="topic" id="soundiness" data-part="Living with undecidability" data-short="A relaxed goal: soundiness">
+        <header class="topic-head">
+          <span class="topic-num">14</span>
+          <div><h2>A relaxed goal: soundiness</h2><p class="kicker">Best result in the shortest time, with honest confidence</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>In theory we pick a side and stay perfectly sound. In practice, real languages are full of corners (reflection, native code, dynamic class loading) that make perfectly sound analyses useless or slow. So practitioners aim for "sound, except for a few documented corners".</p>
+              <p>This course relaxes the goal even further: produce the best answer in the shortest time, and say how confident you are. An analysis becomes a careful gambler rather than a judge.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <blockquote class="callout story"><span class="co-tag">Quote</span>"[...] virtually all published whole-program analyses are unsound and omit conservative handling of common language features when applied to real programming languages." <br><i>In Defense of Soundiness: A Manifesto</i> (Livshits et al., CACM 2015, dl.acm.org/doi/10.1145/2644805)</blockquote>
+              <ul>
+                <li><strong>Soundy</strong> analyses are sound for a core language and deliberately unsound for listed features (e.g. reflection, <code>eval</code>), which the authors must document.</li>
+                <li>In this course every analysis is a <strong>classifier</strong>: it reports facts <em>and</em> how confident it is that they are true. JPAMB scores the confidence (<a href="#scoring">topic 19</a>).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.32</span> Soundiness</p>
+            <p>An analysis $\mathbf{A}$ is <strong>soundy</strong> with respect to a set of language features $F$ if it is sound on the programs that avoid $F$:
+            $$p \in L_{\setminus F} \;\wedge\; p \vdash_{\mathbf{A}} Q \implies p \models Q,$$
+            where $L_{\setminus F}$ is the sub-language without the features in $F$.</p>
+            <p class="read">"Sound, as long as the program stays away from the listed tricky features."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.33</span> Analysis as a calibrated classifier</p>
+            <p>A probabilistic analysis outputs $\pi(p, Q) \in [0, 1]$, its confidence that $p \models^{\may} Q$. It is <strong>calibrated</strong> if, among all the predictions with $\pi = c$, a fraction $c$ is actually true.</p>
+            <p class="read">"When it says 80%, it is right 80% of the time." JPAMB's categories (topic 19) compute exactly these calibrated percentages for you.</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="soundiness"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 4</span><h2>The kinds of analysis</h2></div>
+
+      <!-- 15 -->
+      <section class="topic" id="manual-automatic" data-part="Kinds of analysis" data-short="Manual vs automatic">
+        <header class="topic-head">
+          <span class="topic-num">15</span>
+          <div><h2>Manual versus automatic</h2><p class="kicker">Is there a well-defined procedure?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A <strong>manual</strong> analysis is a person reading code and thinking hard, like a code review. An <strong>automatic</strong> analysis is a fixed procedure a computer runs without help.</p>
+              <p>There is a clever middle ground: the person writes down <em>why</em> the code is correct (a proof), and the computer only <em>checks</em> the proof. Checking is easy even when finding the proof is not.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The difference is whether we have a <strong>well-defined procedure</strong> for analysing the code.</li>
+                <li>Manual inspection is a crucial companion to automatic analysis: humans understand intent, conventions and specifications that tools do not.</li>
+                <li>Taken to the extreme, we require the user to <strong>prove</strong> the code correct (loop invariants, pre- and postconditions) and only check the proof. That is <strong>program verification</strong>: tools like Dafny, Why3, Coq/Rocq, Isabelle. You will meet its ancestor, Floyd and Hoare's axiomatic semantics, in <a href="semantics.html#hoare">Week 3</a>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 1.34</span> Checking is decidable, searching is not</p>
+            <p>For a proof system with finitely many, mechanically checkable rules, the relation "$\pi$ is a derivation of $\Phi$" is decidable, while "$\exists \pi.\ \pi$ is a derivation of $\Phi$" (i.e. $\vdash \Phi$) is in general only recursively enumerable.</p>
+            <p class="read">"Given a proof, a computer can always tell whether it is correct. Finding a proof can be impossible to automate."</p>
+            <details class="proof"><summary>Proof sketch</summary><p>A derivation is a finite tree; checking it means checking each node is a correct rule instance, a finite amount of work. Searching enumerates all finite trees in order of size; this finds a proof if one exists but runs forever otherwise. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p>This is how verification sidesteps <a href="#rice">Rice's theorem</a>: the undecidable part (inventing the invariant) is handed to a human, the decidable part (checking it) to the machine.</p>
+        </div>
+        <div class="quiz" data-quiz="manual-automatic"></div>
+      </section>
+
+      <!-- 16 -->
+      <section class="topic" id="syntactic-semantic" data-part="Kinds of analysis" data-short="Syntactic vs semantic">
+        <header class="topic-head">
+          <span class="topic-num">16</span>
+          <div><h2>Syntactic versus semantic</h2><p class="kicker">How it is written, or what it means</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A <strong>syntactic</strong> analysis looks at how the code is written: its spelling and grammar. A <strong>semantic</strong> analysis looks at what the code does when it runs.</p>
+              <p><code>1 + 2</code> and <code>2 + 1</code> are written differently but mean the same. A syntactic analysis can tell them apart; a semantic one cannot (and should not).</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>The <strong>structure</strong> (syntax) of a program is usually a tree of nodes produced by the parser: the abstract syntax tree (AST). Linters and regex scanners work here. <a href="syntactic-analysis.html#levels">Week 2</a> climbs from raw bits to bytecode.</li>
+                <li>The <strong>meaning</strong> (semantics) is the set of all possible traces: sequences of states and operations the program can go through. Interpreters, fuzzers and abstract interpreters work here (<a href="semantics.html#traces">Week 3</a> onwards).</li>
+                <li>Syntactic analyses are cheap and explain themselves well (they can point at the offending text), but are easily fooled; semantic analyses see through rewriting but run into undecidability.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.35</span> Syntactic and semantic properties</p>
+            <p>A property $P$ is <strong>semantic</strong> if $\Sem(p) = \Sem(q) \implies (p \in P \iff q \in P)$ (Definition 1.13). A property is <strong>syntactic</strong> if it is defined by the program's syntax tree $\mathit{ast}(p)$ alone, and need not respect behavioural equivalence.</p>
+            <p class="read">"Semantic properties cannot tell apart programs that behave the same; syntactic ones can."</p>
+          </div>
+          <p>Example: let $p_1 = $ <code>return 1 + 2;</code> and $p_2 = $ <code>return 2 + 1;</code>. Then $\mathit{ast}(p_1) \neq \mathit{ast}(p_2)$ but $\Sem(p_1) = \Sem(p_2)$. "The left operand is 1" holds for $p_1$ only, so it is syntactic and not semantic. Syntactic properties over finite trees are typically decidable by a single traversal; non-trivial semantic properties are undecidable (Theorem 1.14).</p>
+        </div>
+        <div class="quiz" data-quiz="syntactic-semantic"></div>
+      </section>
+
+      <!-- 17 -->
+      <section class="topic" id="dynamic-static" data-part="Kinds of analysis" data-short="Dynamic vs static">
+        <header class="topic-head">
+          <span class="topic-num">17</span>
+          <div><h2>Dynamic versus static</h2><p class="kicker">One run at a time, or all runs at once</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A <strong>dynamic</strong> analysis test-drives the car: it runs the program on some inputs and watches. If the car breaks down, you have proof. If it does not, maybe you just did not take the right road.</p>
+              <p>A <strong>static</strong> analysis studies the blueprint and predicts every possible drive at once, without running anything. If it says "no breakdowns possible", you can usually trust it; if it says "might break down", it often cannot show you how.</p>
+              <p>Mixing both is called a <strong>hybrid</strong> analysis.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Dynamic</strong>: infer the meaning of the program from single traces, often just by executing it and reporting what happened. It produces a <em>witness</em> (the input) for bad behaviour. It is sound if every behaviour it reports is real, complete if it finds all behaviours.</li>
+                <li><strong>Static</strong>: consider the entire program and report whether it is free of bugs or problems. When a good static analysis says your program is fine, it probably is; when it finds a potential bug, it often cannot prove it. It is sound if the programs it accepts really are fine, complete if it accepts every fine program.</li>
+                <li><strong>Hybrid</strong>: e.g. use a static scan to find interesting constants, then fuzz with them (Week 4), or confirm static warnings by running the program.</li>
+              </ul>
+              <div class="table-wrap"><table class="tt">
+                <thead><tr><th></th><th>Dynamic</th><th>Static</th></tr></thead>
+                <tbody>
+                  <tr><td>Looks at</td><td>some traces</td><td>all traces (approximated)</td></tr>
+                  <tr><td>Natural guarantee</td><td>may (presence)</td><td>must (absence)</td></tr>
+                  <tr><td>Approximation</td><td>under</td><td>over</td></tr>
+                  <tr><td>Typical mistake</td><td>missed behaviour</td><td>false warning</td></tr>
+                  <tr><td>Course week</td><td><a href="dynamic-analysis.html#what">Week 4</a></td><td><a href="bounded-static-analysis.html#what">Week 5</a></td></tr>
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>A dynamic analysis computes finitely many traces $T_{\mathit{dyn}} = \{\tau_1, \ldots, \tau_k\} \subseteq \Sem(p)$ and answers $\exists \tau \in T_{\mathit{dyn}}.\ Q(\tau)$. By Proposition 1.30(b) a "yes" proves $p \models^{\may} Q$.</p>
+          <p>A static analysis computes a finite description of a set $T_{\mathit{stat}} \supseteq \Sem(p)$ and answers $\forall \tau \in T_{\mathit{stat}}.\ \neg Q(\tau)$. By Proposition 1.30(a) a "yes" proves $p \models^{\must} \neg Q$.</p>
+          <p class="read">"Dynamic: a found trace is a real trace, so finding Q proves Q may happen. Static: every real trace is among the predicted ones, so if none of the predicted ones has Q, Q cannot happen."</p>
+        </div>
+        <div data-lab="kinds"></div>
+        <div class="quiz" data-quiz="dynamic-static"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 5</span><h2>The course game: JPAMB</h2></div>
+
+      <!-- 18 -->
+      <section class="topic" id="jpamb" data-part="The course game: JPAMB" data-short="The JPAMB benchmark">
+        <header class="topic-head">
+          <span class="topic-num">18</span>
+          <div><h2>The JPAMB benchmark</h2><p class="kicker">Predict what small Java methods can do</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The whole course is one game. There is a collection of small Java methods. For each one, your tool must guess which things can happen when it runs: finish normally, crash with a division by zero, fail an assertion, and so on. Good guesses earn points; confident wrong guesses cost a lot. You are scored on accuracy and on speed.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>JPAMB</strong> = Java Program Analysis Micro Benchmarks (github.com/kalhauge/jpamb). Every method carries <code>@Case</code> annotations: an input and the outcome it causes.</li>
+              </ul>
+              <pre><code class="language-java">@Case("(false) -> assertion error")
+@Case("(true) -> ok")
+public static void assertBoolean(boolean shouldFail) {
+    assert shouldFail;
+}</code></pre>
+              <ul>
+                <li><strong>The cases are exhaustive</strong>: if an outcome is not listed, no input can cause it. Your analyser sees the method but not the annotations (no cheating).</li>
+                <li>The method is named by its <strong>method id</strong>, e.g. <code>jpamb.cases.Simple.assertBoolean:(Z)V</code>: class, method name, argument types (<code>Z</code> boolean, <code>I</code> int, <code>[C</code> char array) and return type (<code>V</code> void).</li>
+                <li>Your analyser is a program with two commands: <code>info</code> prints five lines (name, version, group, tags, system info or an empty line); <code>"&lt;method id&gt;"</code> prints one prediction per outcome, like <code>divide by zero;yes</code>.</li>
+                <li>Evaluate with <code>uv run jpamb analyse ./your_analyser</code> from the JPAMB folder.</li>
+              </ul>
+              <div class="table-wrap"><table class="tt left">
+                <thead><tr><th>Outcome</th><th>What it means</th></tr></thead>
+                <tbody>
+                  <tr><td><code>ok</code></td><td>runs and finishes normally</td></tr>
+                  <tr><td><code>divide by zero</code></td><td>tries to divide by zero</td></tr>
+                  <tr><td><code>assertion error</code></td><td>fails an assertion (like <code>assert x &gt; 0</code>)</td></tr>
+                  <tr><td><code>out of bounds</code></td><td>accesses an array outside its bounds</td></tr>
+                  <tr><td><code>null pointer</code></td><td>uses a null reference</td></tr>
+                  <tr><td><code>*</code></td><td>runs forever (infinite loop)</td></tr>
+                </tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.36</span> Behaviours of a method</p>
+            <p>Let $O$ be the set of the six outcomes,
+            $$O = \{\ok,\ \text{divide by zero},\ \text{assertion error},\ \text{out of bounds},\ \text{null pointer},\ *\}.$$
+            The behaviours of method $m$ are
+            $$B(m) = \{\, o \in O \mid \exists \tau \in \Sem(m).\ \tau \text{ ends in } o \,\}.$$
+            Because the cases are exhaustive, $B(m)$ is exactly the set of outcomes in $m$'s <code>@Case</code> annotations.</p>
+            <p class="read">"An outcome is a behaviour of m if some input makes m end in it." Each JPAMB query "can $o$ happen?" is the may-question $m \models^{\may} (\text{ends in } o)$ of <a href="#may-must">topic 08</a>; answering "no" is the must-claim $m \models^{\must} \neg(\text{ends in } o)$.</p>
+          </div>
+        </div>
+        <div class="quiz" data-quiz="jpamb"></div>
+      </section>
+
+      <!-- 19 -->
+      <section class="topic" id="scoring" data-part="The course game: JPAMB" data-short="Wagers and scoring">
+        <header class="topic-head">
+          <span class="topic-num">19</span>
+          <div><h2>Predictions, wagers and scoring</h2><p class="kicker">Bet on what you believe, sized by how sure you are</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Each prediction is a bet. Bet a little and you win a little or lose a little. Bet everything and you win only slightly more, but if you are wrong you lose everything. So big bets only pay off when you are really sure.</p>
+              <p>Because picking bet sizes is hard, JPAMB lets you give a percentage ("75% sure") or simply a label like <code>yes</code>, <code>maybe</code>, <code>no</code>; it then works out the best bet for you.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Wager</strong> $w$: <code>divide by zero;5</code> bets 5 points that it <em>will</em> happen; <code>divide by zero;-10</code> bets 10 points that it <em>won't</em>. Win: $1 - \frac{1}{|w| + 1}$ points (always less than 1). Lose: $-|w|$ points.</li>
+                <li><strong>Percentage</strong> $p$: "this outcome happens for $p$ of the methods that look like this". JPAMB converts it to a wager (code below).</li>
+                <li><strong>Category</strong> (preferred): any word (except <code>inf</code>, <code>nan</code>). JPAMB groups all your predictions with the same word, computes the fraction of them that were true, and uses that as the percentage. Label likely things <code>yes</code> and unlikely things <code>no</code>, and it calibrates the bets for you.</li>
+              </ul>
+              <pre><code class="language-python">def wager(p):               # JPAMB: percentage -> wager
+    sign = 1
+    if p &lt; 0.5:
+        p = 1 - p
+        sign = -1
+    if p == 1:
+        return sign * float("inf")
+    return sign * (1 - 2 * p) / (-1 + p) / 2</code></pre>
+              <p><strong>Worked example</strong> (from the JPAMB rules). Predict "assertion error" for three methods: <code>assertFalse</code> (<code>assert false;</code>, it happens), <code>assertTrue</code> (<code>assert true;</code>, it does not), <code>doNothing</code> (no assert, it does not). Strategy: look for <code>assert</code>.</p>
+              <ul>
+                <li>Bet $\pm\infty$: +1 for <code>assertFalse</code>, +1 for <code>doNothing</code>, $-\infty$ for <code>assertTrue</code>. Total $-\infty$.</li>
+                <li>Bet $\pm 1$: $+\tfrac12 + \tfrac12 - 1 = 0$.</li>
+                <li>Percentages 50% (has assert) and 0% (no assert): wagers $0$ and $-\infty$; points $0 + 0 + 1 = 1$.</li>
+                <li>Categories <code>yes</code> / <code>no</code>: JPAMB finds yes = 1 of 2 = 50% and no = 0 of 1 = 0%, the same bets, total 1, with no calibration work by you.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.37</span> Score of a wager</p>
+            <p>For a wager $w \in \mathbb{R} \cup \{\pm\infty\}$ on outcome $o$ of method $m$, the prediction is right if $\operatorname{sign}(w) = +$ and $o \in B(m)$, or $\operatorname{sign}(w) = -$ and $o \notin B(m)$. The score is
+            $$s(w) = \begin{cases} 1 - \dfrac{1}{|w| + 1} & \text{if right} \\[2mm] -|w| & \text{if wrong.} \end{cases}$$</p>
+            <p class="read">"A correct bet of size |w| earns a bit less than one point; a wrong bet costs the full stake."</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.38</span> From percentage to wager</p>
+            <p>$$w(p) = \begin{cases} \dfrac{2p - 1}{2(1 - p)} & \tfrac12 \leq p \lt 1 \\[2mm] +\infty & p = 1 \\[1mm] -\,w(1 - p) & p \lt \tfrac12 \end{cases}$$
+            For example $w(0.5) = 0$, $w(0.75) = 1$, $w(0.9) = 4$, $w(0.25) = -1$, $w(0) = -\infty$.</p>
+            <p class="read">"At 50% do not bet; the closer you are to certain, the more you bet; at 100% bet everything." This is the code above rewritten: $\frac{1 - 2p}{(p - 1)\cdot 2} = \frac{2p - 1}{2(1 - p)}$.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 1.39</span> Category percentage</p>
+            <p>For a category $c$, the set of pairs $(m, o)$ labelled $c$ gets the percentage
+            $$p_c = \frac{|\{(m, o) \in c \mid o \in B(m)\}|}{|c|},$$
+            which is then converted with $w(p_c)$.</p>
+            <p class="read">"A category's percentage is the fraction of its predictions that turned out true." If a category is always right ($p_c = 1$) its infinite bet never loses, so categories can never score $-\infty$.</p>
+          </div>
+        </div>
+        <div data-lab="wager"></div>
+        <div class="quiz" data-quiz="scoring"></div>
+      </section>
+
+      <!-- 20 -->
+      <section class="topic" id="first-analysis" data-part="The course game: JPAMB" data-short="A first analysis">
+        <header class="topic-head">
+          <span class="topic-num">20</span>
+          <div><h2>A first analysis: search the text</h2><p class="kicker">The regex baseline, and why it already scores</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The simplest analysis just searches the code. If a method contains a division sign, maybe it can divide by zero. If it contains <code>assert</code>, maybe an assertion can fail. Crude, easily fooled, and yet it beats guessing, because how code is written says a lot about what it does.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>A text-search analysis reads the source of each method, looks for a pattern, and prints one prediction line per outcome. For example, look for a division sign and for <code>assert</code>:</p>
+              <pre><code class="language-python">divide_found = re.search(r"/", method_source) is not None
+print("divide by zero;" + ("found-div" if divide_found else "not-found-div"))
+
+assert_found = "assert" in method_source
+print("assertion error;" + ("has-assert" if assert_found else "no-assert"))</code></pre>
+              <ul>
+                <li><code>found-div</code>, <code>not-found-div</code>, <code>has-assert</code> and <code>no-assert</code> are <strong>categories</strong>: you never choose a percentage, JPAMB measures how often each label was right.</li>
+                <li>Why it scores: methods with <code>/</code> divide by zero far more often than methods without. The category turns that correlation into calibrated bets.</li>
+                <li>Its limits: <code>1 / 2</code> never fails, <code>1 / n</code> fails only for $n = 0$, and division hidden in a called method is invisible. It is neither sound nor complete; it is a decent bet. <a href="syntactic-analysis.html#what">Week 2</a> makes syntactic analysis smarter.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <p>The regex analysis is a syntactic property: $A_r(m) = [\,\text{the text of } m \text{ matches } r\,]$, with label $c_{\mathit{yes}}$ if it matches and $c_{\mathit{no}}$ otherwise. Its score depends only on the two calibrated percentages
+          $$p_{c_{\mathit{yes}}} = \Pr[\,o \in B(m) \mid m \text{ matches } r\,], \qquad p_{c_{\mathit{no}}} = \Pr[\,o \in B(m) \mid m \text{ does not match } r\,]$$
+          over the benchmark. The further these are from $\frac12$ (and from each other), the more points.</p>
+          <p class="read">"A text search is worth exactly as much as the matching tells you about the outcome, across the whole benchmark."</p>
+        </div>
+        <div data-lab="regexanalysis"></div>
+        <div class="quiz" data-quiz="first-analysis"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">The definitions worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Program and step</h3><div class="mathbox">$\mathtt{step} : L \times \State \to \State,\quad s_{i+1} = \mathtt{step}(p, s_i)$</div><p>Run until a fixpoint $\mathtt{step}(p, s) = s$; the visited states form the trace.</p></div>
+          <div class="cheat-item"><h3>Halting problem</h3><div class="mathbox">$H = \{(p, s_0) \mid \exists n.\ s_n = \mathtt{step}(p, s_n)\}$</div><p>Recognisable (run and wait) but undecidable (diagonal argument).</p></div>
+          <div class="cheat-item"><h3>Rice's theorem</h3><div class="mathbox">$P$ semantic, $\emptyset \neq P \neq L \implies P$ undecidable</div><p>Proof: "run $q$, then behave like $y \in P$" reduces halting to $P$.</p></div>
+          <div class="cheat-item"><h3>May and must</h3><div class="mathbox">$p \models^{\may} Q \equiv \exists \tau \in \Sem(p).\, Q(\tau)$<br>$p \models^{\must} Q \equiv \forall \tau \in \Sem(p).\, Q(\tau)$</div><p>Duality: $\neg(p \models^{\may} Q) \equiv p \models^{\must} \neg Q$.</p></div>
+          <div class="cheat-item"><h3>Sound and complete</h3><div class="mathbox">sound: $\Sigma \vdash \Phi \Rightarrow \Sigma \models \Phi$<br>complete: $\Sigma \models \Phi \Rightarrow \Sigma \vdash \Phi$</div><p>Sound = no false positives, complete = no false negatives. Undecidable: never both.</p></div>
+          <div class="cheat-item"><h3>Analyses</h3><div class="mathbox">$p \vdash^{\must}_{\mathbf{A}} Q \Rightarrow p \models^{\must} Q$<br>$p \models^{\may} Q \Rightarrow p \vdash^{\notmay}_{\mathbf{A}} Q$</div><p>Over-approximation proves absence, under-approximation proves presence.</p></div>
+          <div class="cheat-item"><h3>Duality of analyses</h3><div class="mathbox">$\neg(p \vdash_{\mathbf{A}}^{\notmay} Q) \equiv p \vdash_{\mathbf{A}}^{\must} \neg Q$</div><p>A complete not-may analysis gives a sound must analysis of the negation.</p></div>
+          <div class="cheat-item"><h3>JPAMB score</h3><div class="mathbox">right: $1 - \frac{1}{|w| + 1}$, wrong: $-|w|$, $\ w(p) = \frac{2p - 1}{2(1 - p)}$</div><p>Categories: $p_c$ = fraction of the category that was true.</p></div>
+        </div>
+        <table class="gloss">
+          <tr><td>$p, q$</td><td>program</td><td>an element of a language $L$</td></tr>
+          <tr><td>$\State$</td><td>machine states</td><td>everything needed to continue running</td></tr>
+          <tr><td>$\tau$</td><td>trace</td><td>sequence of states $s_0 s_1 \cdots$; $\tau_0$ is the initial state</td></tr>
+          <tr><td>$\Sem(p)$</td><td>semantics</td><td>the set of all traces of $p$</td></tr>
+          <tr><td>$Q$</td><td>trace property</td><td>yes/no question about one trace</td></tr>
+          <tr><td>$\Sigma \vdash \Phi$</td><td>provable</td><td>a derivation of $\Phi$ from $\Sigma$ exists</td></tr>
+          <tr><td>$\Sigma \models \Phi$</td><td>true / entailed</td><td>$\Phi$ holds whenever $\Sigma$ holds</td></tr>
+          <tr><td>$\models^{\may}, \models^{\must}$</td><td>may, must</td><td>true for some trace, for all traces</td></tr>
+          <tr><td>$\vdash_{\mathbf{A}}^{\may}, \vdash_{\mathbf{A}}^{\must}$</td><td>analysis claims</td><td>what analysis $\mathbf{A}$ reports</td></tr>
+          <tr><td>$\vdash_{\mathbf{A}}^{\notmay}, \vdash_{\mathbf{A}}^{\notmust}$</td><td>not-may, not-must</td><td>the complete (approximating) variants</td></tr>
+          <tr><td>TP, FP, FN, TN</td><td>classification</td><td>proved and true, proved but false, true but unproved, false and unproved</td></tr>
+          <tr><td>$B(m)$</td><td>behaviours</td><td>JPAMB outcomes some input of $m$ reaches</td></tr>
+          <tr><td>$w$</td><td>wager</td><td>positive: will happen, negative: won't</td></tr>
+        </table>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>What makes program analysis hard?</summary>
+          <p>Fundamentally, undecidability. The languages we care about are Turing complete, so even the simplest behavioural question, "does this program halt?", cannot be decided by any procedure (Turing's diagonal argument, <a href="#diagonal">topic 06</a>). Rice's theorem (<a href="#rice">topic 07</a>) extends this to every non-trivial semantic property: "may it divide by zero?", "must it return a positive number?", "does it fire the nukes?". Any such question hides a halting question: run the uncertain computation first, then do the thing.</p>
+          <p>As a consequence an analysis that always terminates cannot be both sound and complete (<a href="#sound-complete">topic 10</a>); it has to approximate and accept some false positives or some false negatives. On top of the theory there are practical difficulties: the number of traces is astronomically large (every input, every interleaving), real languages have features that are hard to model (reflection, native code, exceptions, the heap), programs need an environment to run, and developers abandon tools with too many false alarms. That is why practical analyses are "soundy" and, in this course, judged as calibrated classifiers.</p>
+        </details>
+        <details class="proof"><summary>In what circumstances would you want a May versus a Must analysis?</summary>
+          <p>A <strong>may</strong> (over-approximating) analysis covers every real trace, so it can guarantee that something does <em>not</em> happen: if no trace in its over-approximation divides by zero, no real one does. Use it when absence matters: safety certification, compiler optimisations that must be correct (removing a null check), proving a security property, or accepting programs in a type system. Its price is false warnings.</p>
+          <p>A <strong>must</strong> (under-approximating) analysis only contains real traces, so it can guarantee that something <em>does</em> happen, with a witness: if it found an input that divides by zero, the bug is real. Use it for bug finding where developers want no false alarms (Christakis and Bird: false positive rates above 15 to 20% make developers ignore tools), for reproducing crashes, for generating test cases, and whenever you must convince someone (a ticket with a failing input). Its price is missed behaviours.</p>
+          <p>By duality the two are two sides of one coin: a complete not-may analysis for $Q$ is a sound must analysis for $\neg Q$ (<a href="#may-must-analysis">topic 13</a>). In JPAMB terms: dynamic analysis is good at saying <code>yes</code> to outcomes it has seen; static analysis is good at saying <code>no</code> to outcomes it can exclude.</p>
+        </details>
+        <details class="proof"><summary>What does it mean that an analysis is sound?</summary>
+          <p>Borrowed from logic, soundness means everything the analysis proves is true: $\Sigma \vdash \Phi \implies \Sigma \models \Phi$. An analysis is sound if every fact it reports holds of the program: no false positives (<a href="#confusion-matrix">topic 11</a>). For the course's notation: $p \vdash^{\must}_{\mathbf{A}} Q \implies p \models^{\must} Q$ for a must analysis, $p \vdash^{\may}_{\mathbf{A}} Q \implies p \models^{\may} Q$ for a may analysis. Its counterpart, completeness, means every true fact is reported; for undecidable properties one cannot have both.</p>
+          <p>The word is treacherous because it depends on what is being reported (<a href="#soundness-confusion">topic 12</a>). For program questions ("is this program safe?") a sound analysis never accepts an unsafe program, so it never misses a bug, but it may reject safe programs. For trace questions ("is there a buggy run?") a sound analysis only reports real bugs, so no false warnings, but it may miss bugs. A sound checker is the same thing as a complete bug finder. When you state that an analysis is sound, always say sound <em>for what</em>. Finally, trivial soundness is easy (report nothing); the value of a sound analysis lies in how much it still manages to report.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Introduction" and "Trace Terminology" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute, and the JPAMB rules (github.com/kalhauge/jpamb). The two soundness figures are from the course notes. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/introduction.js"></script>
+</body>
+</html>
