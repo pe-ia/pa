@@ -47,6 +47,8 @@
       <div class="hp-step"><b>Run it forever</b><span>Fixed points, intervals, widening, worklists</span></div>
       <div class="hp-arrow" aria-hidden="true">&rarr;</div>
       <div class="hp-step"><b>Solve for it</b><span>SMT, symbolic and concolic execution</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Follow the calls</b><span>Return sets, call stacks, k-CFA</span></div>
     </div>
 
     <div class="hub-grid">
@@ -99,6 +101,13 @@
         <div class="lc-foot" data-counts="concolic-execution"><span class="chip lc-progress" data-summary-text></span></div>
       </a>
 
+      <a class="lecture-card" href="context-sensitive-analysis.html" data-summary="context-sensitive-analysis">
+        <div class="lc-top"><span class="lc-num">Week 9</span><span class="lc-status ready">Ready</span></div>
+        <h2>Context sensitive analysis</h2>
+        <p>Static analysis across method calls: why a return is a dynamic jump, in-lining, abstract call plumbing and how it mixes callers, full call-stack contexts, k-CFA, and how much context to keep.</p>
+        <div class="lc-foot" data-counts="context-sensitive-analysis"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
       <a class="lecture-card guide-card" href="course-guide.html">
         <div class="lc-top"><span class="lc-num">Guide</span><span class="lc-status later">Reference</span></div>
         <h2>Course guide</h2>
@@ -121,6 +130,7 @@
       "bounded-static-analysis": [22, 9, 64],
       "unbounded-static-analysis": [16, 8, 53],
       "concolic-execution": [9, 7, 41],
+      "context-sensitive-analysis": [8, 7, 34],
       "course-guide": [13, 5, 26]
     };
     document.querySelectorAll("[data-counts]").forEach(function (foot) {

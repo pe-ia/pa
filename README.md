@@ -13,6 +13,7 @@ Every concept is explained in three layers: first **in plain words** (an everyda
 | 5 | [`bounded-static-analysis.html`](site/bounded-static-analysis.html) | Bounded Static Analysis |
 | 6 | [`unbounded-static-analysis.html`](site/unbounded-static-analysis.html) | Unbounded Static Analysis |
 | 8 | [`concolic-execution.html`](site/concolic-execution.html) | Concolic Execution |
+| 9 | [`context-sensitive-analysis.html`](site/context-sensitive-analysis.html) | Context Sensitive Analysis |
 | | [`course-guide.html`](site/course-guide.html) | Course guide: schedule, project, technical contributions, writing the paper |
 
 ## Running it
@@ -47,7 +48,7 @@ The site is for studying the lectures. It deliberately contains no course activi
 
 ### Lecture material
 
-All lecture content this site is based on comes from the course notes of **02242 Program Analysis** at the Technical University of Denmark (DTU), DTU Compute, written by **Christian Gram Kalhauge**: the topics Introduction, Syntactic Analysis, Semantics, Dynamic Analysis, Bounded Static Analysis, Unbounded Static Analysis and Concolic Execution, the notes Trace Terminology and Project, the topic How to Write a Good Paper, and the course page itself (courses.compute.dtu.dk/02242). The JPAMB rules and scoring formulas come from the [JPAMB repository](https://github.com/kalhauge/jpamb).
+All lecture content this site is based on comes from the course notes of **02242 Program Analysis** at the Technical University of Denmark (DTU), DTU Compute, written by **Christian Gram Kalhauge**: the topics Introduction, Syntactic Analysis, Semantics, Dynamic Analysis, Bounded Static Analysis, Unbounded Static Analysis, Concolic Execution and Context Sensitive Analysis, the notes Trace Terminology and Project, the topic How to Write a Good Paper, and the course page itself (courses.compute.dtu.dk/02242). The JPAMB rules and scoring formulas come from the [JPAMB repository](https://github.com/kalhauge/jpamb).
 
 The notes and their figures remain the property of their authors. This site is an unofficial study aid; it is not affiliated with or endorsed by DTU or the teachers. Where the notes contain typos or small mistakes, the site uses the corrected version and points the difference out.
 
@@ -55,6 +56,7 @@ The notes and their figures remain the property of their authors. This site is a
 
 - Course notes (C. G. Kalhauge): program-based and trace-based soundness and completeness, the three phases of dynamic analysis, the levels of syntax, the Chomsky hierarchy with production rules, the Galois connection diagram, the control-flow graph of a loop.
 - Robert W. Floyd, *Assigning Meanings to Programs* (1967): the annotated flowchart, as reproduced in the Semantics notes.
+- The call stack: by R. S. Shaw (modified), public domain, via Wikimedia Commons, as shown in the Context Sensitive Analysis notes.
 - Hasse diagram of the sign powerset: by KSmrq, CC BY-SA 3.0, via Wikimedia Commons, with edits from the course notes.
 - xkcd 1171 "Perl Problems" by Randall Munroe, CC BY-NC 2.5, as shown in the Syntactic Analysis notes.
 - "Sorted binary tree ALL RGB" (pre-, in- and post-order traversal) by Nomen4Omen, public domain, via Wikimedia Commons, as shown in the Syntactic Analysis notes.

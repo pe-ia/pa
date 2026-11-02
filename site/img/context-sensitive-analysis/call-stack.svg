@@ -1,0 +1,43 @@
+<!-- The call stack. By R. S. Shaw (modified), public domain, via Wikimedia Commons (curid=1956587), as shown in the course notes. -->
+<svg xmlns="http://www.w3.org/2000/svg" height="558px" width="684px" viewBox="0 0 21590 27940">
+  <defs>
+    <linearGradient id="a" gradientUnits="userSpaceOnUse" x2="0" y2="24400" y1="26700">
+      <stop stop-color="#fff" offset="0" />
+      <stop stop-color="#adf" offset="1" />
+    </linearGradient>
+  </defs>
+  <rect height="27940" width="34250" x="-6330" fill="#fff" />
+  <g stroke="#000" stroke-width="61">
+    <g fill="#afc">
+      <path d="m6370 8620v-6430h12300v6430" />
+      <path d="m6370 10400v-1760h12300v1760" />
+      <path d="m6370 14500v-4090h12300v4090" />
+    </g>
+    <path d="m6370 26700v-2340h12300v2340" fill="url(#a)" />
+    <g fill="#adf">
+      <path d="m6370 19700v-1760h12300v1760" />
+      <path d="m18670 19700v4720h-12300v-4720z" />
+      <path d="m6370 17900v-3510h12300v3510" />
+    </g>
+    <path d="m1810 2190h3470" />
+    <path d="m1850 8640h3470" />
+  </g>
+  <path d="m12400 26000h188v202h-188v-202m0-582h188v202h-188v-202m0-585h188v202h-188v-202" />
+  <path d="m5030 2570 752-389-752-376 231 376-231 389" />
+  <path d="m5070 9040 752-389-752-376 231 376-231 389" />
+  <g font-size="1380px" style="font-family: Arial, sans-serif; text-align: center; text-anchor: middle; font-size: 1200px;">
+    <text y="21607" x="12468" style="white-space: pre;">Parameters for</text>
+    <text y="23238" x="12501" style="white-space: pre;">caller</text>
+    <text y="15768" x="12455" style="white-space: pre;">Locals of</text>
+    <text y="17399" x="12501" style="white-space: pre;">caller</text>
+    <text y="19211" x="12498" style="white-space: pre;">Return Address</text>
+    <text y="11972" x="12468" style="white-space: pre;">Parameters for</text>
+    <text y="13606" x="12500" style="white-space: pre;">callee</text>
+    <text y="4974" x="12455" style="white-space: pre;">Locals of</text>
+    <text y="6602" x="12500" style="white-space: pre;">callee</text>
+    <text y="9870" x="12498" style="white-space: pre;">Return Address</text>
+  </g>
+  <text y="8919" x="-2242" style="white-space: pre; font-family: Arial, sans-serif; text-align: center; text-anchor: middle; font-size: 1200px;">Frame Pointer</text>
+  <text y="2468" x="-2081" style="white-space: pre; font-family: Arial, sans-serif; text-align: center; text-anchor: middle; font-size: 1200px;">Stack Pointer</text>
+  <text y="1860" x="12453" style="white-space: pre; font-family: Arial, sans-serif; text-align: center; text-anchor: middle; font-size: 1200px;">top of stack</text>
+</svg>

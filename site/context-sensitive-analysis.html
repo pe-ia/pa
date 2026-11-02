@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Context Sensitive Analysis · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on context sensitive analysis: dynamic control flow, in-lining, abstract call plumbing, full call-stack contexts, k-CFA and how much context to keep.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/context-sensitive-analysis.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 9: Context Sensitive Analysis</div>
+        <h1>Context Sensitive Analysis</h1>
+        <p class="hero-lead">A method for handling methods. So far our static analyses have only looked inside one method. A method has one body but many callers, and when it returns, the instruction alone does not say where to go. This week we extend the analysis to method calls, and face the central trade-off: mixing all callers together is cheap but imprecise, while keeping them all apart is precise but explodes. The way out is to remember just a little of the call stack.</p>
+        <div class="hero-meta">
+          <span class="chip">8 topics</span>
+          <span class="chip">7 interactive labs</span>
+          <span class="chip">34 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>Why method calls are complicated</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="dynamic-jumps" data-part="Why calls are complicated" data-short="Dynamic control flow">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>Static and dynamic jumps</h2><p class="kicker">"Come back when you are done", but back where?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A courier works for a whole office building. "Take this to the copy shop and come back" is easy to carry out, as long as you remember who sent you. Now imagine you are studying the copy shop and only see the courier leaving it. Where is the courier going? It depends on who sent them, and nothing at the copy shop tells you that.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>So far every jump we met went to a known location: <code>goto 7</code> and <code>ifz eq 6</code> name their target. These are <strong>statically known</strong> jumps. A jump whose target is only known at run time is a <strong>dynamic</strong> jump.</li>
+                <li>Method calls are among the most common sources of dynamic control flow. A static call names its callee, so the call itself is fine. The <em>return</em> is not: it continues wherever the caller was.</li>
+              </ul>
+<pre><code class="language-java">int id(int i) {
+  return i;       // Where to return to?
+}
+
+int main() {
+  int x = id(1);
+  int y = id(0);
+  return x + y;
+}</code></pre>
+              <ul>
+                <li>A static analysis that keeps one abstract state per offset (<a href="bounded-static-analysis.html#pc-abs">Week 5</a>) has forgotten the call stack, so when it reaches <code>return:I</code> in <code>id</code> it does not know where to send the result. The control-flow graphs of <a href="unbounded-static-analysis.html#rpo">Week 6</a> have no edge there either.</li>
+                <li>Dynamic dispatch makes it worse. At <code>o.m()</code> the method that runs depends on the run-time class of <code>o</code>, so we do not even know the call target.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.1</span> Statically known and dynamic jumps</p>
+            <p>An instruction's jump is <strong>statically known</strong> if its possible next offsets are determined by the bytecode alone, and <strong>dynamic</strong> if they also depend on the run-time state.</p>
+          </div>
+          <p>The <a href="semantics.html#return">return rule of Week 3</a> shows where the dependency comes from: the next offset $\iota_2 + 1$ is taken from the caller's frame.</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I}) \qquad \mu_1 = \langle \lambda, \sigma(\mathtt{int}\ v), \iota \rangle \qquad \mu_2 = \langle \lambda_2, \sigma_2, \iota_2 \rangle}{\bc \vdash \langle \eta, \mu\,\mu_2\,\mu_1 \rangle \to \langle \eta, \mu\langle \lambda_2, \sigma_2(\mathtt{int}\ v), \iota_2 + 1 \rangle \rangle}\rulename{return_\mu}$$</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.2</span> A return is dynamic</p>
+            <p>The top frame does not determine the next offset of a <code>return:I</code>: there are reachable states with equal top frames but different successors.</p>
+            <details class="proof"><summary>Proof</summary><p>Change the example above to <code>x = id(1); y = id(1);</code>. Its two calls are at <code>main:1</code> and <code>main:4</code>. Each reaches <code>id:1</code> with the same top frame $\langle [1], \epsilon(\mathtt{int}\ 1), \langle \mathit{id}, 1 \rangle \rangle$, but the first continues at <code>main:2</code> and the second at <code>main:5</code>. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"Look only at the top of the stack, and the same situation can go two ways. So an abstraction that throws away the rest of the stack must either remember the callers some other way, or give up on returns."</p>
+        </div>
+        <div data-lab="callstack"></div>
+        <div class="quiz" data-quiz="dynamic-jumps"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="inlining" data-part="Why calls are complicated" data-short="In-lining">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>The trivial solution: in-lining</h2><p class="kicker">No calls, no problem</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A cookbook says "make the sauce from page 12" in twenty recipes. You could instead copy the sauce steps into every recipe. Each recipe is now self-contained and you never have to flip pages. But the book gets thick, you redo the same reading twenty times, and a recipe that needs itself (a sourdough that needs sourdough) can never be written out in full.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The naive solution is to expand the body of the <strong>callee</strong> (the method being called) inside the <strong>caller</strong>, and then run normal abstract interpretation. No call is left, so no return is left:</p>
+<pre><code class="language-java">int main() {
+  int i1 = 1;     // id(1), in-lined
+  int x = i1;
+  int i2 = 0;     // id(0), in-lined
+  int y = i2;
+  return x + y;
+}</code></pre>
+              <ul>
+                <li><strong>Why it is attractive:</strong> each copy is analysed in its exact situation, so nothing gets mixed. It is the preferred tool in optimising compilers, because a call can be specialised to the place it is called from. After copying the constants, this one becomes <code>return 1 + 0;</code>.</li>
+                <li><strong>Hard to do correctly:</strong> locals must be renamed, jumps moved and arguments passed, and with dynamic dispatch you do not know what to copy.</li>
+                <li><strong>No reuse:</strong> the same method is analysed again for every copy, and the code can grow exponentially with the depth of the calls.</li>
+                <li><strong>Worst of all, recursion:</strong> every copy of a recursive method contains another call to it, so in-lining never finishes.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.3</span> In-lining a call</p>
+            <p>Replace <code>invoke m</code> at offset $\iota$ by the following, with fresh local indices starting at $b$: stores of the $a$ arguments into locals $b + a - 1, \ldots, b$; then the code of $m$, with every local index $i$ moved to $b + i$, jump targets moved along with the code, and every <code>return</code> replaced by a jump to the end of the copy, leaving the result on the operand stack. Jump targets in the rest of the caller are updated to the new offsets.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.4</span> In-lining preserves behaviour</p>
+            <p>If each return of $m$ leaves only the returned value on its operand stack, as compiled Java code does, the program with the call in-lined has the same outcome and the same return value as the original on every input.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>A simulation: relate a state of the original with frames $\mu\,\langle \lambda_c, \sigma_c, \iota \rangle\,\langle \lambda_m, \sigma_m, \iota_m \rangle$ to the single-frame state of the new program whose locals combine $\lambda_c$ and $\lambda_m$ (shifted by $b$), whose stack is $\sigma_c\,\sigma_m$, and whose offset is the copy of $\iota_m$. Every instruction of $m$ only touches $\sigma_m$ and its own locals, so each step corresponds to one step. Popping the arguments takes $a$ extra steps at entry, and the return leaves $\sigma_c\,v$, exactly as rule $\mathsf{return}_\mu$ does. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.5</span> When in-lining ends, and how big it gets</p>
+            <p>Let the <strong>call tree</strong> of a method be the tree with one node per call chain starting at that method. Fully in-lining <code>main</code> terminates if and only if no cycle of the call graph is reachable from <code>main</code>. If it does, the result has one copy of a method per node of the call tree. If every method on levels $0, \ldots, d - 1$ makes $b$ calls to the next level, level $d$ is copied $b^d$ times.</p>
+            <details class="proof"><summary>Proof</summary><p>Each round replaces every remaining call by one more level of the tree, so it ends exactly when the tree is finite. The tree is finitely branching, so by K&#337;nig's lemma it is infinite iff it has an infinite path. With finitely many methods, an infinite path must repeat a method, which gives a reachable cycle; conversely, going around a reachable cycle forever is an infinite path. On a regular tree, level $d$ has $b^d$ nodes. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span><code>return 1 + 0;</code> is in-lining <em>plus</em> copying constants into their uses, as the listing above shows.</div>
+        <div data-lab="inline"></div>
+        <div class="quiz" data-quiz="inlining"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>One copy of each method</h2></div>
+
+      <!-- 03 -->
+      <section class="topic" id="plumbing" data-part="One copy of each method" data-short="Abstract call plumbing">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Abstract call plumbing</h2><p class="kicker">Keep a guest book of everyone who called</p></div>
+        </header>
+        <div class="topic-grid">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A helpdesk has one notebook and a guest book. Everyone who calls writes their number in the guest book and tells the helpdesk what they know, which goes into the notebook. Whenever the helpdesk has an answer, it calls back <em>everyone</em> in the guest book. It works with any number of callers, and nobody ever goes unanswered.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>How does a real computer do it? A call stores a <strong>return address</strong> on the stack, and the return uses it as its target. In our JVM semantics the caller's frame plays that role.</li>
+                <li>So keep track of a <em>set</em> of return addresses next to the abstract state. At a return, there is a set of targets, and the result is sent to each of them.</li>
+                <li>The state becomes a map from offsets to a return set and an abstract state:
+                $$\iota \mapsto \pset{\iota} \times \overline{\State}$$</li>
+                <li>The return set needs no further abstraction: it is a subset of the finitely many call sites in the program, usually fewer than 100.</li>
+              </ul>
+              <p>Step by step on our example (call sites are written method:offset, with bytecode offsets). After the first call:</p>
+<pre><code class="language-java">int id(int i) {
+  // { main:1 } x {+}
+  return i;
+  // updates the result of main:1 with {+}
+}
+
+int main() {
+  int x = id(1);   // result {+}
+  int y = id(0);   // not computed yet
+  return x + y;    // not computed yet
+}</code></pre>
+              <p>And after the second call, which grows the same single state of <code>id</code>:</p>
+<pre><code class="language-java">int id(int i) {
+  // { main:1, main:4 } x {0, +}
+  return i;
+  // updates the results of main:1 and main:4 with {0, +}
+}
+
+int main() {
+  int x = id(1);   // result {0, +}
+  int y = id(0);   // result {0, +}
+  return x + y;    // result {0, +}
+}</code></pre>
+              <p>It handles any number of callers and even recursion, with one copy of each method. But look at x: it was $\{+\}$ and is now $\{0, +\}$, although <code>id(1)</code> is plainly 1. The next topic is about that price.</p>
+            </div>
+          </div>
+          <div class="figs">
+            <figure class="fig">
+              <div class="fig-frame"><img src="img/context-sensitive-analysis/call-stack.svg" alt="A call stack with two stack frames. Each frame holds the parameters, a return address and the locals. The frame pointer and stack pointer mark the top frame." width="684" height="558"></div>
+              <figcaption><b>R. S. Shaw (modified), public domain.</b> The call stack. The return address is stored secretly among the local variables.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.6</span> The plumbing domain and its rules</p>
+            <p>Let $\overline{\State}$ be an abstraction of frames (locals and operand stack, as in <a href="bounded-static-analysis.html#pv-abs">Week 5</a>). The domain is $X : \iota \to \pset{\iota} \times \overline{\State}$, ordered pointwise: $(R, s) \sqsubseteq (R', s')$ iff $R \subseteq R'$ and $s \sqsubseteq s'$. Initially, $X(\langle \mathit{main}, 0 \rangle) \sqsupseteq (\emptyset, s_0)$. An ordinary abstract step from $(R, s)$ to $\iota'$ with result $s'$ gives $X(\iota') \sqsupseteq (R, s')$. Calls and returns add:</p>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{invoke}\ m) \quad X(\iota) = (R, \langle \lambda, \sigma\, v_1 \cdots v_a \rangle)}{X(\langle m, 0 \rangle) \sqsupseteq (\{\iota\},\ \langle [v_1, \ldots, v_a], \epsilon \rangle)}\rulename{call}$$</div>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I}) \quad X(\iota) = (R, \langle \lambda, \sigma\, v \rangle) \quad r \in R \quad X(r) = (R_r, \langle \lambda_r, \sigma_r\, v_1 \cdots v_a \rangle)}{X(r + 1) \sqsupseteq (R_r,\ \langle \lambda_r, \sigma_r\, v \rangle)}\rulename{ret}$$</div>
+            <p class="read">"A call adds the call site to the callee's return set and joins the arguments into its first state. A return sends its value to every call site in the set, where it replaces the arguments on the caller's stack." Here $r$ is the offset of the call, and $r + 1$ is the return address. Within one method every offset has the same return set.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 9.7</span> Abstract call plumbing is sound</p>
+            <p>Let $X$ satisfy all the rules, with a sound step for ordinary instructions. For every reachable state with frames $f_1 \cdots f_n$ at offsets $\iota_1, \ldots, \iota_n$: the top frame $f_n$ is described by $X(\iota_n)$; each lower frame $f_j$, with the arguments of its call back on its stack, is described by $X(\iota_j)$; and $\iota_{j} \in R(\iota_{j+1})$ for all $j \lt n$.</p>
+            <details class="proof"><summary>Proof</summary><p>Induction on the trace. Initially there is one frame, covered by $s_0$. <em>Ordinary step:</em> only $f_n$ changes, and the step rule covers it within the same method, whose return set is unchanged. <em>Call:</em> $f_n$ with its arguments is described by $X(\iota_n)$, so rule (call) covers the new frame and puts $\iota_n$ into the return set. $f_n$ itself stops being the top frame, and the invariant asks for exactly what we already know about it. <em>Return of $v$:</em> $v$ is described by the top of $X(\iota_n)$, and $\iota_{n-1} \in R(\iota_n)$, so rule (ret) with $r = \iota_{n-1}$ covers the caller's frame with its arguments replaced by $v$ at $r + 1$, which is the concrete successor. The return set moves along, so the frames below stay related. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"If the fixed point says an error is unreachable, it is unreachable. A missing alarm is a guarantee. Only alarms can be false."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>$\pset{\iota}$ holds return addresses, not states. Call sites are bytecode offsets, <code>main:1</code> and <code>main:4</code>, not a count of the calls, so that they match the labs.</div>
+        <div data-lab="plumbing"></div>
+        <div class="quiz" data-quiz="plumbing"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="leak" data-part="One copy of each method" data-short="The single-context problem">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>The single-context nightmare</h2><p class="kicker">Every use of a method leaks into every other</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Back at the helpdesk with one notebook. Alice calls and says "my number is 0", and Bob calls and says "my number is 1". The notebook now reads "the number is 0 or 1". The helpdesk calls Bob back: "your number may be 0". Bob, who knows nothing else, now fears a division by zero that can never happen. The helpdesk never mixed up its logic, only its callers.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>Keeping a single instance of a method means that every use of it leaks into every other. Swap the arguments and divide:</p>
+<pre><code class="language-java">int id(int i) {
+  // { main:1, main:4 } x {0, +}
+  return i;
+  // updates the results of main:1 and main:4 with {0, +}
+}
+
+int main() {
+  int x = id(0);   // result {0, +}
+  int y = id(1);   // result {0, +}
+  return x / y;    // result {0, +} and divide by zero
+}</code></pre>
+              <ul>
+                <li>The program computes $0 / 1$, but the analysis reports a possible division by zero: a <strong>false alarm</strong>.</li>
+                <li>The analysis is not wrong about <code>id</code>, which really is called with both 0 and 1. It has lost the connection between <em>which</em> call passed which value. We do not save the <strong>context</strong> of the call, so the result is too wide.</li>
+                <li>In path terms, the analysis also follows paths no run can take: enter <code>id</code> from the call at <code>main:1</code>, and leave it to <code>main:5</code>, the return address of the other call. Such a path is <strong>invalid</strong>.</li>
+              </ul>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>Program</th><th>Real run</th><th>One shared copy says</th><th>Verdict</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">id(1) + id(0)</td><td>1</td><td>$\{0, +\}$</td><td>sound, too wide</td></tr>
+                    <tr class="bad"><td class="mono">id(0) / id(1)</td><td>0</td><td>possible divide by zero</td><td>false alarm</td></tr>
+                    <tr class="good"><td class="mono">id(1) / id(0)</td><td>divide by zero</td><td>possible divide by zero</td><td>true alarm</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.8</span> One copy joins all callers</p>
+            <p>Let $m$ have the reached call sites $r_1, \ldots, r_n$. At any solution of the rules of Definition 9.6, the entry state of $m$ is above the join of the arguments of all $r_i$, and with $v$ the join of all values returned by $m$, the result on the stack at each $r_i + 1$ is above $v$.</p>
+            <details class="proof"><summary>Proof</summary><p>Rule (call) adds the arguments of each $r_i$ to the same $X(\langle m, 0 \rangle)$. Every $r_i$ is in the return set of $m$, and this set is shared by all offsets of $m$, so rule (ret) sends each returned value to each $r_i + 1$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p><strong>Worked example.</strong> For $\mathit{id}$ with arguments $\alpha(\{0\})$ and $\alpha(\{1\})$, in signs: the entry is $\{0\} \sqcup \{+\} = \{0, +\}$, and both results are $\{0, +\}$. So no solution can give the second call's result the precise value $\{+\}$.</p>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.9</span> Valid paths</p>
+            <p>A path through the methods is a sequence of ordinary steps, call steps $\mathit{call}_r$ and return steps $\mathit{ret}_r$. It is <strong>valid</strong> if it follows the grammar
+            $$V ::= \epsilon \mid \mathit{step}\ V \mid \mathit{call}_r\ V\ \mathit{ret}_r\ V \mid \mathit{call}_r\ V$$
+            so that every return goes to the call site of the call it matches, like matching parentheses (the last case is a call that has not returned yet).</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.10</span> Real runs are valid, and one copy is not limited to them</p>
+            <p>Every trace follows a valid path. The rules of Definition 9.6 also propagate values along invalid paths, for example $\mathit{call}_{\mathtt{main:1}}\ \mathit{ret}_{\mathtt{main:4}}$.</p>
+            <details class="proof"><summary>Proof</summary><p>In a trace, rule $\mathsf{return}_\mu$ continues in the frame pushed by the matching call, so calls and returns nest. For the second part, once both call sites are in the return set of $\mathit{id}$, rule (ret) does not ask which call a value entered through. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes illustrate this with <code>x = id(1); y = id(0); return x / y;</code> and say the bug "can never happen". But that program really computes $1 / 0$: the alarm is true. The false alarm needs the arguments swapped, as above. The lab has both versions.</div>
+        <div class="quiz" data-quiz="leak"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Context sensitivity</h2></div>
+
+      <!-- 05 -->
+      <section class="topic" id="full-stack" data-part="Context sensitivity" data-short="Full call-stack context">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>Full call-stack context</h2><p class="kicker">One notebook per chain of callers</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Give the helpdesk a separate notebook for every caller, labelled with the whole chain of who asked whom: "Alice asked Dave, who asked us". Now nothing gets mixed: Alice's number stays in Alice's notebook, and the callback goes to the right person without needing a guest book, because the label already says who it is.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p><strong>Context sensitive analysis</strong> expands the abstract state so that it can react to the context in which a method was called. The most direct way: make the state of an instruction depend on the whole call stack. The key is now a stack of offsets, ending in the current one:</p>
+              <div class="mathbox">$$\iota^{+} \mapsto \pset{\iota^{*}} \times \overline{\State}$$</div>
+              <p>The two calls have different call stacks, so they get separate states, and the false alarm disappears:</p>
+<pre><code class="language-java">int main() {
+  int x = id(0);   // main:1 -> {} x {0}
+  int y = id(1);   // main:4 -> {} x {+}
+  return x / y;    // main:8 -> {} x {0}
+}
+
+int id(int x) {
+  // Now we keep two states:
+  // main:1,id:1 -> {main:1} x {0}
+  // main:4,id:1 -> {main:4} x {+}
+  return x;
+}</code></pre>
+              <ul>
+                <li>Each result goes back to its own caller, so the analysis only follows valid paths, and the divisor stays $\{+\}$.</li>
+                <li>Notice that each return set has one element: with the full stack as the key, the set is really redundant, since the key already says where to return. It becomes necessary again when we cut the stack short in topic 07.</li>
+                <li>A nice side effect: a real bug is now reported together with the call that causes it, not just "somewhere in this method".</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.11</span> Call-stack contexts</p>
+            <p>A key is a non-empty stack $w\,\iota \in \iota^{+}$ of call sites $w$ followed by the current offset $\iota$. The domain is $X : \iota^{+} \to \pset{\iota^{*}} \times \overline{\State}$. An ordinary step from $w\,\iota$ to $\iota'$ updates $X(w\,\iota')$, and:</p>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{invoke}\ m) \quad X(w\,\iota) = (R, \langle \lambda, \sigma\, v_1 \cdots v_a \rangle)}{X(w\,\iota\,\langle m, 0 \rangle) \sqsupseteq (\{w\,\iota\},\ \langle [v_1, \ldots, v_a], \epsilon \rangle)}\rulename{call^{+}}$$</div>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I}) \quad X(w\,r\,\iota) = (R, \langle \lambda, \sigma\, v \rangle) \quad X(w\,r) = (R_r, \langle \lambda_r, \sigma_r\, v_1 \cdots v_a \rangle)}{X(w\,(r + 1)) \sqsupseteq (R_r,\ \langle \lambda_r, \sigma_r\, v \rangle)}\rulename{ret^{+}}$$</div>
+            <p class="read">"A call extends the key by one offset. A return shortens the key by one and moves the caller past the call."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.12</span> Return sets are singletons</p>
+            <p>At the least solution, a key $w\,r\,\iota$ has return set $\{w\,r\}$, and a key of <code>main</code> without call sites has $\emptyset$.</p>
+            <details class="proof"><summary>Proof</summary><p>Only rule (call$^{+}$) adds to a return set. It creates the first key $w\,r\,\langle m, 0 \rangle$ of a method instance with the set $\{w\,r\}$, and ordinary steps and (ret$^{+}$) only copy the set between keys with the same prefix $w\,r$, so nothing else is ever added. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 9.13</span> Sound, and only valid paths</p>
+            <p>Let $\pi(\mu)$ be the stack of offsets of a call stack $\mu$. If $X$ satisfies the rules, then for each reachable state the top frame is described by $X(\pi(\mu))$. Moreover, each value at a key is derived along a valid path whose unreturned calls are exactly the call sites in the key.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>Soundness is the induction of Theorem 9.7, now with the key following the concrete stack exactly: a call pushes one offset, an ordinary step changes the last one, and a return pops one and adds one to the caller's. For the second part, induct on the derivation: (call$^{+}$) opens a call and records it in the key, and (ret$^{+}$) can only close the most recently opened call, because it takes the caller's frame from the key's own prefix. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The full stack is not the only way to prove this program safe: its stacks are one call deep, so remembering the last call site is enough.</div>
+        <div data-lab="fullstack"></div>
+        <div class="quiz" data-quiz="full-stack"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="explosion" data-part="Context sensitivity" data-short="What the full stack costs">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>What the full stack costs</h2><p class="kicker">Too many notebooks, and sometimes no end of them</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>One notebook per chain of callers sounds fine until the chains multiply: if everyone asks two colleagues, who each ask two more, the number of chains doubles at every level. It is worse when someone can ask themselves: "ask yourself the same question with a smaller number" gives ever longer chains, and if nobody knows how small the number starts, the notebooks never end.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>Space.</strong> There is one version of the state for each reachable call stack, and the number of stacks can quickly explode: a call tree that doubles at each level has $2^d$ stacks at depth $d$, even if the program text is tiny.</li>
+                <li><strong>Recursion.</strong> In a recursive method the call stack often depends on the input, and may be unbounded. Each new depth is a new key, so the analysis can run forever. Widening does not help, because it is the set of <em>keys</em> that grows, and not a value.</li>
+                <li>This does not always happen. With <code>factorial(3)</code> the known value bounds the recursion: three nested calls, and the analysis computes exactly 6. With <code>factorial(n)</code> and unknown <code>n</code>, there is no end.</li>
+              </ul>
+<pre><code class="language-java">int factorial(int n) {
+  if (n &lt;= 1) return 1;
+  return n * factorial(n - 1);
+}</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.14</span> Exponentially many contexts</p>
+            <p>In a program whose call graph has no cycles, the reachable keys at the start of a method $m$ number at most the call-graph paths from <code>main</code> to $m$, counted per call site. If each of $d$ levels calls the next from $b$ call sites, the bottom level has $b^d$ contexts. For the doubling call tree of the lab, there are $2^{d+1}$ method copies in total, including <code>main</code>.</p>
+            <details class="proof"><summary>Proof</summary><p>Keys are created only by (call$^{+}$), which extends a key by one call site, so a key is a path in the call graph. In the regular case there are $b$ choices at each of $d$ levels. The lab's count: <code>main</code>, one copy of $f_0$, and $2^j$ copies of $f_j$ for $1 \leq j \leq d$, so $1 + 1 + (2^{d+1} - 2) = 2^{d+1}$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.15</span> No finite fixed point under recursion</p>
+            <p>If concrete runs of a program reach call stacks of every depth, then every solution of the rules of Definition 9.11 has infinitely many keys, so an analysis that stores one state per key cannot reach a fixed point. <code>factorial(n)</code>, with $n$ unknown and over the mathematical integers, is such a program.</p>
+            <details class="proof"><summary>Proof</summary><p>By Theorem 9.13 every reachable call stack has its own key. Stacks of different depths are different keys. For <code>factorial(n)</code>, the input $n = d + 1$ reaches depth $d$ inside the recursion. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>The two extremes have opposite problems. One copy of each method is finite but mixes everything. One copy per call stack mixes nothing but may be enormous or infinite. As with everything else in static analysis, the answer is to abstract.</div>
+        <div data-lab="ladder"></div>
+        <div class="quiz" data-quiz="explosion"></div>
+      </section>
+
+      <!-- 07 -->
+      <section class="topic" id="k-cfa" data-part="Context sensitivity" data-short="Limited context: k-CFA">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>Limited context sensitivity: $k$-CFA</h2><p class="kicker">Remember only the last few callers</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Label each notebook only with the last person who asked, or the last two. There can only be so many such labels, however long the real chains get, so the notebooks stop multiplying and recursion stops being a problem. The price: two chains that end the same way share a notebook, and so can mix again.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>Instead of the entire call stack, keep only the last $k$ call sites: this is <strong>$k$-CFA</strong> ($k$-limited control-flow analysis), or $k$-call-site sensitivity. A key is then at most $k + 1$ offsets: $k$ call sites and the current offset.</li>
+                <li>$k = 0$ is abstract call plumbing: one copy of each method. As $k$ grows towards the depth of the stacks, we get the full-stack analysis. So the two extremes are the ends of one family.</li>
+                <li>The return <em>set</em> matters again. Dropping the old part of the stack merges callers, so one key can have several places to return to.</li>
+              </ul>
+              <p>A wrapper shows exactly what can still go wrong:</p>
+<pre><code class="language-java">int id(int i)   { return i; }
+int wrap(int i) { return id(i); }
+
+int main() {
+  int x = wrap(0);
+  int y = wrap(1);
+  return x / y;
+}</code></pre>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>$k$</th><th>Copies of <code>wrap</code></th><th>Copies of <code>id</code></th><th>Result</th></tr></thead>
+                  <tbody>
+                    <tr class="bad"><td class="num">0</td><td class="mono">one: ε</td><td class="mono">one: ε</td><td>false alarm</td></tr>
+                    <tr class="bad"><td class="num">1</td><td class="mono">main:1 and main:4</td><td class="mono">one: wrap:1</td><td>false alarm: the calls mix inside <code>id</code></td></tr>
+                    <tr class="good"><td class="num">2</td><td class="mono">main:1 and main:4</td><td class="mono">main:1 → wrap:1 and main:4 → wrap:1</td><td>no alarm</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>At $k = 1$, the return set of <code>id</code> has two elements, <code>main:1 → wrap:1</code> and <code>main:4 → wrap:1</code>: exactly the merge that the set exists to handle.</li>
+                <li>With recursion the set of keys is finite at every finite $k$, so the problem of topic 06 is gone. The values can still keep growing, which is what widening from <a href="unbounded-static-analysis.html#widening">Week 6</a> is for.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 9.16</span> $k$-CFA</p>
+            <p>Truncate a stack to its last $k + 1$ offsets:
+            $$\mathit{trunc}_k(\iota_1 \cdots \iota_n) = \iota_{\max(1,\, n - k)} \cdots \iota_n.$$
+            Keys are truncated stacks. An ordinary step from $w\,\iota$ updates $X(w\,\iota')$, and the rules become:</p>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{invoke}\ m) \quad X(w\,\iota) = (R, \langle \lambda, \sigma\, v_1 \cdots v_a \rangle)}{X(\mathit{trunc}_k(w\,\iota\,\langle m, 0 \rangle)) \sqsupseteq (\{w\,\iota\},\ \langle [v_1, \ldots, v_a], \epsilon \rangle)}\rulename{call^{k}}$$</div>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{return{:}I}) \quad X(w\,\iota) = (R, \langle \lambda, \sigma\, v \rangle) \quad u\,r \in R \quad X(u\,r) = (R_r, \langle \lambda_r, \sigma_r\, v_1 \cdots v_a \rangle)}{X(u\,(r + 1)) \sqsupseteq (R_r,\ \langle \lambda_r, \sigma_r\, v \rangle)}\rulename{ret^{k}}$$</div>
+            <p class="read">"A call keeps only the last $k$ call sites in the callee's key, and notes the caller's full key in the return set. A return goes to every key in the set."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.17</span> The two ends, and why return sets come back</p>
+            <p>$k = 0$ gives exactly the rules of Definition 9.6. If $k$ is at least the depth of every reachable stack, $\mathit{trunc}_k$ changes nothing and we get Definition 9.11. In between, a return set can have several elements: for the program above with $k = 1$, the key $\mathtt{wrap{:}1}\ \langle \mathit{id}, 0 \rangle$ has the return set $\{\mathtt{main{:}1}\ \mathtt{wrap{:}1},\ \mathtt{main{:}4}\ \mathtt{wrap{:}1}\}$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 9.18</span> Sound, with finitely many keys</p>
+            <p>If $X$ satisfies the rules, each reachable state's top frame is described by $X(\mathit{trunc}_k(\pi(\mu)))$. With $|\iota|$ offsets and $|C|$ call sites, there are at most $|\iota| \cdot \sum_{j = 0}^{k} |C|^{j}$ keys, so with a value domain of finite height, or with widening, the analysis terminates, even on recursive programs.</p>
+            <details class="proof"><summary>Proof</summary><p>The induction of Theorem 9.7, with the invariant that for adjacent frames the truncated key of the caller is in the return set of the truncated key of the callee: rule (call$^{k}$) puts it there, and rule (ret$^{k}$) then covers the concrete successor. For the count, a key is at most $k$ call sites and one offset. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.19</span> More context is never less precise</p>
+            <p>For $k \leq k'$ and monotone rules, $\mathit{lfp}\,F_{k}$ over-approximates $\mathit{lfp}\,F_{k'}$: for each key $w$ of the $k$-analysis, $X_{k}(w) \sqsupseteq \bigsqcup \{ X_{k'}(w') \mid \mathit{trunc}_k(w') = w \}$ in its abstract state.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>The map $\alpha(X')(w) = \bigsqcup \{ X'(w') \mid \mathit{trunc}_k(w') = w \}$ is an abstraction from the $k'$-domain to the $k$-domain, and each rule of $F_k$ over-approximates the rule of $F_{k'}$ through it. The <a href="unbounded-static-analysis.html#lfp">fixed-point transfer of Week 6</a> gives the claim. This is about least fixed points: widening depends on the order of updates, and can in principle break the comparison. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.20</span> Each wrapper costs one more $k$</p>
+            <p>Let <code>main</code> call a chain of $d$ wrappers around <code>id</code> from two call sites, with different arguments. Then $k$-CFA keeps the two values apart at <code>id</code> if and only if $k \geq d + 1$.</p>
+            <details class="proof"><summary>Proof</summary><p>Each path from <code>main</code> to <code>id</code> has $d + 1$ call sites, and the two paths differ only in the first one, in <code>main</code>. The key of <code>id</code> keeps the last $k$ of them, so it differs iff the first is included, i.e. iff $k \geq d + 1$. If the keys are equal, Proposition 9.8 applies to the shared copy; otherwise each copy holds one value, and all callers along the way have separate keys too. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"No fixed $k$ is enough for every program, but each program with bounded wrappers has some $k$ that is." The lab confirms $k = 1, 2, 3$ for $d = 0, 1, 2$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Might et al. (2010) is about the complexity of $k$-CFA. The analysis itself goes back to Shivers (1991), who introduced it for higher-order functional languages. There, "control-flow analysis" also means finding out which functions can be called at all. With our static calls the callee is known, so only the context part is left.</div>
+        <div data-lab="kcfa"></div>
+        <div class="quiz" data-quiz="k-cfa"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="how-much" data-part="Context sensitivity" data-short="How much context?">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>How much context?</h2><p class="kicker">Enough to separate the callers that matter</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>How much of a conversation do you need to remember to answer the next question? Usually just the last sentence, sometimes the one before it, and rarely the whole conversation. Remembering more always costs effort, and it pays off only if it changes your answer. And no amount of memory helps if you cannot express the answer in the first place.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>In Java</strong>, $k = 1$ is often both fine and necessary for a good analysis: one shared copy is too imprecise, and the last call site separates most callers. $k = 2$ is often still feasible.</li>
+                <li><strong>Complexity.</strong> For object-oriented languages, $k$-CFA is polynomial for every fixed $k$, though the degree grows with $k$. For functional languages it is EXPTIME-complete when $k \geq 1$, so no polynomial algorithm exists. This is the "$k$-CFA paradox" (Might, Smaragdakis and Van Horn, 2010): the same-looking algorithm has very different costs, because closures capture variables from several different contexts, while objects are built by copying values into fields.</li>
+                <li><strong>Context does not fix the domain.</strong> In <code>if (n != 0) return inv(n);</code> there is only one call, so every $k$ gives the same result. The false alarm comes from intervals, which cannot say "everything except 0". Reach for a better abstraction there (<a href="unbounded-static-analysis.html#relational">Week 6</a>).</li>
+                <li><strong>Be selective.</strong> Introspective analysis (Smaragdakis, Kastrinis and Balatsouras, 2014) runs a cheap analysis first and uses its results to decide where a deep context is worth the cost. A few methods cause most of the blow-up.</li>
+                <li><strong>Other kinds of context.</strong> Call sites are not the only choice. For object-oriented code, <em>object sensitivity</em> (Milanova, Rountev and Ryder, 2002) uses the receiver object's allocation site. The <em>functional approach</em> (Sharir and Pnueli, 1981) keys on the abstract arguments, reusing a result whenever a method is called with the same input.</li>
+                <li><strong>For JPAMB.</strong> A false alarm does not make a sound analysis wrong, but it stops you from wagering on "no". The "no" answers you do get stay reliable whichever $k$ you pick, so raise $k$ only if the extra precision turns "maybe" into a confident "no" within your time limit.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 9.21</span> Van Horn and Mairson (2008)</p>
+            <p>For a functional language, deciding $k$-CFA is EXPTIME-complete for every $k \geq 1$. ($0$-CFA is polynomial.)</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 9.22</span> Might, Smaragdakis and Van Horn (2010)</p>
+            <p>For an object-oriented language, $k$-CFA runs in polynomial time for every fixed $k$.</p>
+          </div>
+          <p class="read">"EXPTIME-complete" is a stronger statement than it may look: by the time hierarchy theorem P $\neq$ EXPTIME, so no polynomial-time algorithm exists. For NP-complete problems (Week 8) that separation from P is unproven.</p>
+          <p>For our static calls the polynomial bound is direct: Theorem 9.18 gives at most $K = |\iota| \cdot \sum_{j \leq k} |C|^{j}$ keys. If the states have $v$ variables, each from a domain of height $h$, each key changes at most $v \cdot h$ times, and return sets add at most $K$ more changes per key, so the number of worklist visits is polynomial in the size of the program for each fixed $k$, with a degree that grows with $k$.</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 9.23</span> When context cannot help</p>
+            <p>If every method of a program has only one reachable call stack, then the analysis gives the same result for every $k$.</p>
+            <details class="proof"><summary>Proof</summary><p>Each method then has exactly one key at every $k$, because truncating a single stack gives a single result. The key sets correspond one-to-one, and the rules propagate the same values between corresponding keys. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>For object-oriented languages, "polynomial" and "feasible" are two separate claims: the polynomial bound holds for <em>every</em> fixed $k$ (with a growing degree), and feasibility in practice is what limits you to small $k$. For functional languages, EXPTIME-completeness applies from $k = 1$, not to $0$-CFA.</div>
+        <div data-lab="grid"></div>
+        <div class="quiz" data-quiz="how-much"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and results worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>Dynamic jump</h3><div class="mathbox">$\mathsf{return}_\mu$ continues at $\iota_2 + 1$</div><p>The target comes from the caller's frame, not from the instruction.</p></div>
+          <div class="cheat-item"><h3>In-lining</h3><div class="mathbox">$b^d$ copies; ends iff no reachable recursion</div><p>Precise, no reuse, explodes, and cannot handle recursion.</p></div>
+          <div class="cheat-item"><h3>Abstract call plumbing</h3><div class="mathbox">$\iota \mapsto \pset{\iota} \times \overline{\State}$</div><p>One copy per method with a set of return addresses. Sound, finite.</p></div>
+          <div class="cheat-item"><h3>The leak</h3><div class="mathbox">entry $\sqsupseteq \bigsqcup$ arguments, result $\sqsupseteq \bigsqcup$ returns</div><p>All callers mix, so invalid paths are followed and false alarms appear.</p></div>
+          <div class="cheat-item"><h3>Valid path</h3><div class="mathbox">$V ::= \epsilon \mid \mathit{step}\ V \mid \mathit{call}_r\ V\ \mathit{ret}_r\ V \mid \mathit{call}_r\ V$</div><p>Returns match calls, like parentheses.</p></div>
+          <div class="cheat-item"><h3>Full stack</h3><div class="mathbox">$\iota^{+} \mapsto \pset{\iota^{*}} \times \overline{\State}$</div><p>Return sets are singletons. Only valid paths. $b^d$ contexts, and no fixed point under unbounded recursion.</p></div>
+          <div class="cheat-item"><h3>$k$-CFA</h3><div class="mathbox">$\mathit{trunc}_k$: at most $k + 1$ offsets</div><p>$k = 0$ is plumbing; large $k$ is the full stack. Return sets are needed again.</p></div>
+          <div class="cheat-item"><h3>Size</h3><div class="mathbox">$\leq |\iota| \sum_{j \leq k} |C|^{j}$ keys</div><p>Finite, so recursion is fine. Widening still handles growing values.</p></div>
+          <div class="cheat-item"><h3>Precision</h3><div class="mathbox">$k \leq k' \implies \mathit{lfp}\,F_{k}$ covers $\mathit{lfp}\,F_{k'}$</div><p>More context never hurts at least fixed points. $d$ wrappers need $k \geq d + 1$.</p></div>
+          <div class="cheat-item"><h3>Complexity</h3><div class="mathbox">OO: polynomial for fixed $k$; functional: EXPTIME-complete for $k \geq 1$</div><p>The $k$-CFA paradox. In Java, $k = 1$ is the usual choice.</p></div>
+        </div>
+        <div class="table-wrap"><table class="gloss">
+          <tr><td>caller, callee</td><td>the two sides</td><td>the method making a call, and the method being called</td></tr>
+          <tr><td>$R \subseteq \iota$</td><td>return set</td><td>the call sites a return may go back to; the address is $r + 1$</td></tr>
+          <tr><td>$\overline{\State}$</td><td>abstract state</td><td>an abstraction of frames, e.g. signs or intervals per variable</td></tr>
+          <tr><td>context</td><td>extra key</td><td>what separates the copies of a method's state</td></tr>
+          <tr><td>$w\,\iota$</td><td>stack key</td><td>call sites $w$ followed by the current offset $\iota$</td></tr>
+          <tr><td>$\pi(\mu)$</td><td>stack of offsets</td><td>the program counters of all frames of a call stack $\mu$</td></tr>
+          <tr><td>$\mathit{trunc}_k$</td><td>truncation</td><td>keep the last $k$ call sites and the current offset</td></tr>
+          <tr><td>invalid path</td><td>unreal path</td><td>a path whose returns do not match its calls</td></tr>
+          <tr><td>CFA</td><td>control-flow analysis</td><td>in $k$-CFA, $k$ is the number of call sites kept</td></tr>
+        </table></div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>Why are method calls complicated?</summary>
+          <p>Because returning from a method is a <strong>dynamic jump</strong>. A <code>goto</code> or a branch names its target, and a static call names its callee, but a return continues wherever the caller was, and that is only known from the call stack at run time (Proposition 9.2). A static analysis that keeps one abstract state per offset has forgotten the call stack, so at a return it does not know where to send the result. Dynamic dispatch makes it worse, because then even the call target is not known statically.</p>
+          <p>The simple remedies have clear problems. <strong>In-lining</strong> removes the calls, but the code can grow exponentially, the analysis is not reused, it can be hard to do correctly, and it never finishes on recursive methods. <strong>Abstract call plumbing</strong>, which keeps a set of return addresses next to one shared state per method, is sound and handles recursion, but mixes all callers: values from one call leak into the results of another, which gives false alarms.</p>
+        </details>
+        <details class="proof"><summary>Why would you use context sensitive analysis?</summary>
+          <p>For precision. Without context, each method has one state, so the arguments of all callers are joined and the joined result goes back to all of them (Proposition 9.8). In <code>x = id(0); y = id(1); return x / y;</code> that makes y $\{0, +\}$, and the analysis reports a division by zero that cannot happen. The analysis also follows invalid paths, which enter a method from one call and leave it to another.</p>
+          <p>Context sensitivity adds the context of the call, usually call sites, to the key of the abstract state. Different calls then get separate states, each result goes back to its own caller, and the false alarm disappears: y stays $\{+\}$. Branches that are dead in one context are also recognised as dead there. As a bonus, a real error is reported together with the calling context that causes it. In JPAMB, a false alarm stops you from wagering on "no", and every alarm removed gives a sound analysis one more reliable "no", which improves the score.</p>
+        </details>
+        <details class="proof"><summary>What is the drawback of a context sensitive analysis?</summary>
+          <p>Cost, and in the extreme, termination. There is one version of the state per context. With the full call stack the number of contexts can be exponential in the call depth ($b^d$ for $b$ call sites per level, Proposition 9.14). With recursion, the stacks can be unbounded, so the analysis may never reach a fixed point (Proposition 9.15).</p>
+          <p>$k$-CFA limits the context to the last $k$ call sites, which gives finitely many keys. But now the precision depends on $k$: each wrapper method between the interesting call and the value use needs one more $k$ (Proposition 9.20), and the state count still grows quickly, about $|C|^k$ in the worst case. For object-oriented languages $k$-CFA is polynomial for fixed $k$, but for functional languages it is EXPTIME-complete for $k \geq 1$. In Java, $k = 1$ is usually a good compromise, with $k = 2$ often still feasible. And context cannot help when the problem is the value domain itself: intervals cannot express $x \neq 0$ at any $k$.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Context Sensitive Analysis" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute, which cite Might, Smaragdakis and Van Horn (2010) <i>Resolving and exploiting the k-CFA paradox</i> and Smaragdakis, Kastrinis and Balatsouras (2014) <i>Introspective analysis</i>. Further references: Sharir and Pnueli (1981) on interprocedural dataflow analysis; Shivers (1991) <i>Control-flow analysis of higher-order languages</i>; Milanova, Rountev and Ryder (2002) on object sensitivity; Van Horn and Mairson (2008) <i>Deciding kCFA is complete for EXPTIME</i>. Call stack figure by R. S. Shaw (modified), public domain, via Wikimedia Commons. The labs compute with intervals (Week 6), and signs are only read off the intervals for display. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/context-sensitive-analysis.js"></script>
+</body>
+</html>
