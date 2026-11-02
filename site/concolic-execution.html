@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concolic Execution · PA Study</title>
+  <meta name="description" content="Interactive study page for the 02242 Program Analysis lecture on concolic execution: SAT and SMT solving, symbolic values, path constraints, symbolic execution and its limits, concolic execution, concolic search versus fuzzing, and code instrumentation.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239c1f5f'/%3E%3Cpath d='M10 8v16M10 16h12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/vendor/highlight/theme.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/concolic-execution.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" data-nav-toggle aria-label="Open contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    Contents
+  </button>
+  <span class="topbar-progress"><span data-progress-answered>0 / 0</span> answered</span>
+</header>
+<div class="scrim"></div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="Lecture contents">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">PA</span>
+      <span class="brand-text"><b>PA Study</b><span>Program Analysis</span></span>
+    </a>
+
+    <div class="progress-card">
+      <div class="progress-row"><span>Questions answered</span><b data-progress-answered>0 / 0</b></div>
+      <div class="progress-bar"><span data-progress-bar></span></div>
+      <div class="progress-sub"><span>Right on first try: <b data-progress-first>0</b></span><button class="link-btn" type="button" data-quiz-reset>Reset</button></div>
+    </div>
+
+    <nav class="toc" data-toc></nav>
+
+    <div class="sidebar-foot">
+      <a class="icon-btn" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        All lectures
+      </a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        Theme
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+
+      <div class="hero">
+        <div class="crumbs"><a href="index.html">PA Study</a> / Week 8: Concolic Execution</div>
+        <h1>Concolic Execution</h1>
+        <p class="hero-lead">Let the computer do the guessing. In Week 4 a fuzzer threw inputs at the program and hoped to hit something. This week we ask for the input instead: run the program on <em>symbols</em> to get the exact condition for each path, and let an SMT solver find a value that satisfies it. Mixing this with real, concrete runs gives <strong>concolic</strong> execution, which gets through magic constants and hash checks that stop both fuzzers and purely symbolic analyses.</p>
+        <div class="hero-meta">
+          <span class="chip">9 topics</span>
+          <span class="chip">7 interactive labs</span>
+          <span class="chip">41 questions</span>
+          <span class="chip">Notes: C. G. Kalhauge, DTU Compute</span>
+        </div>
+        <div class="layers" aria-label="How each topic is explained">
+          <span class="layer-chip l-plain">In plain words</span>
+          <span class="layer-chip l-tech">How it works</span>
+          <span class="layer-chip l-formal">Formally</span>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 1</span><h2>SMT solving</h2></div>
+
+      <!-- 01 -->
+      <section class="topic" id="sat" data-part="SMT solving" data-short="SAT and SMT">
+        <header class="topic-head">
+          <span class="topic-num">01</span>
+          <div><h2>Satisfiability: SAT and SMT</h2><p class="kicker">Is there any way at all to make this true?</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>You are planning a dinner. Alice wants to sit next to Bob, Bob refuses to sit at the end, Carol must sit at an end, and Dave will not sit next to Carol. With twenty guests you cannot try every seating: there are more of them than there are grains of sand on Earth. A <strong>SAT solver</strong> is a machine that takes such a list of rules and either hands you a seating that obeys all of them, or tells you that none exists.</p>
+              <p>An <strong>SMT solver</strong> is the same machine, but it also understands numbers and other data: "Bob's seat number is two more than Alice's".</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>A propositional formula is built from Boolean variables with $\neg$ (not), $\land$ (and), $\lor$ (or). It is <strong>satisfiable</strong> if some assignment of true and false to the variables makes it true. That assignment is a <strong>model</strong>.</li>
+                <li>A first example:
+                $$\phi_1 = (A \lor \neg B) \land C \qquad \phi_2 = (\neg A \lor B) \land (A \lor C) \land (B \lor \neg C)$$
+                In SMT-LIB, the standard input language of solvers, the question looks like this (note the <code>(not c)</code>; see the warning below):</li>
+              </ul>
+<pre><code class="language-plaintext">(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+
+(assert (and (or a (not b)) (not c)))
+(assert (and (or (not a) b) (or a c) (or b (not c))))
+
+(check-sat)
+(get-model)</code></pre>
+              <ul>
+                <li>Two <code>assert</code>s mean their conjunction, so the solver checks $\phi_1 \land \phi_2$. With this code it answers <code>sat</code> with the model $a = b = \top$, $c = \bot$. With $\phi_1$ as written above (clause $C$ instead of $\neg C$) the only model is $A = B = C = \top$. Both are worth checking by hand (and in the lab).</li>
+                <li>SAT is <strong>NP-complete</strong>: no known algorithm is fast in the worst case. Yet modern solvers, based on conflict-driven clause learning, routinely solve formulas with millions of clauses. It can feel like black magic: it usually works, sometimes it does not, and even <a href="https://github.com/Z3Prover/z3/issues/5580" target="_blank" rel="noopener">renaming your variables</a> can change the running time.</li>
+                <li><strong>SMT</strong> (satisfiability modulo theories) adds <strong>theories</strong>: variables can be integers, bit-vectors (machine integers), arrays, strings, and symbols like $+$ and $\lt$ keep their meaning. "Is there an integer $a$ with $a \gt 10$?" is an SMT question.</li>
+                <li>A solver answers <code>sat</code> (with a model), <code>unsat</code>, or <code>unknown</code> (it gave up, or the theory is undecidable). The course uses <strong>Z3</strong> (de Moura and Bj&oslash;rner, 2008).</li>
+                <li>This is why solvers changed program analysis so much: most of program analysis is solving equations, and now we have a general equation solver.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.1</span> Propositional formulas and models</p>
+            <p>Over a set of variables $X$, formulas are $\phi ::= x \mid \top \mid \bot \mid \neg\phi \mid \phi \land \phi \mid \phi \lor \phi$ (with $\phi \to \psi$ short for $\neg\phi \lor \psi$). An <strong>assignment</strong> is $\nu : X \to \{\top, \bot\}$, and $\nu \models \phi$ ("$\nu$ satisfies $\phi$") is defined as usual: $\nu \models x$ iff $\nu(x) = \top$, $\nu \models \neg\phi$ iff not $\nu \models \phi$, $\nu \models \phi \land \psi$ iff both, $\nu \models \phi \lor \psi$ iff at least one.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.2</span> Satisfiable and valid</p>
+            <p>$\phi$ is <strong>satisfiable</strong> if $\nu \models \phi$ for some $\nu$ (a <strong>model</strong>), <strong>unsatisfiable</strong> otherwise, and <strong>valid</strong> if $\nu \models \phi$ for every $\nu$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.3</span> Proving by refutation</p>
+            <p>$\phi$ is valid if and only if $\neg\phi$ is unsatisfiable. More generally, premises $\Gamma$ entail $\phi$ iff $\Gamma \land \neg\phi$ is unsatisfiable.</p>
+            <details class="proof"><summary>Proof</summary><p>$\phi$ valid $\iff$ every $\nu$ satisfies $\phi$ $\iff$ no $\nu$ satisfies $\neg\phi$ $\iff$ $\neg\phi$ unsatisfiable. For entailment, replace $\phi$ by $\Gamma \to \phi$ and note $\neg(\Gamma \to \phi) \equiv \Gamma \land \neg\phi$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"To prove something, ask the solver for a counterexample. If there is none, you have a proof; if there is one, the model is the counterexample."</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.4</span> Cook and Levin (1971, 1973)</p>
+            <p>Deciding satisfiability of propositional formulas (SAT) is NP-complete.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.5</span> Satisfiability modulo a theory</p>
+            <p>A <strong>theory</strong> $T$ fixes a domain and the meaning of some function and relation symbols, e.g. linear integer arithmetic (LIA: $\Z$ with $+$, constants, $\leq$), bit-vectors of width 32 (BV: $\{0,1\}^{32}$ with wrap-around $+$, $\times$, ...), or arrays. A quantifier-free formula over these symbols and free variables is <strong>$T$-satisfiable</strong> if some assignment of domain values to its variables makes it true when the symbols are read in $T$.</p>
+            <p class="read">"Same question as SAT, but the variables are numbers or arrays, and $+$ really means plus."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.6</span> What can be decided</p>
+            <ul>
+              <li>Quantifier-free linear integer arithmetic is decidable (NP-complete).</li>
+              <li>Quantifier-free bit-vector formulas are decidable: every variable has finitely many values.</li>
+              <li>Non-linear integer arithmetic (with $x \cdot y$) is undecidable, even quantifier-free: this is Hilbert's tenth problem (Matiyasevich, 1970). A solver can therefore answer <code>unknown</code>.</li>
+            </ul>
+          </div>
+          <p><strong>Worked example.</strong> In $\phi_1 \land \phi_2$ (as printed) the clause $C$ forces $\nu(C) = \top$; then $(B \lor \neg C)$ forces $B$; then $(A \lor \neg B)$ forces $A$. All six clauses hold under $A = B = C = \top$, and since every step was forced, it is the only model. With $\neg C$ instead: $(A \lor C)$ forces $A$, $(\neg A \lor B)$ forces $B$, and $A = B = \top$, $C = \bot$ is again the only model.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes print $\phi_1 = (A \lor \neg B) \land C$, but their SMT-LIB code asserts <code>(not c)</code>. Both versions of $\phi_1 \land \phi_2$ are satisfiable, with different models; the lab has both.</div>
+        <div class="callout course"><span class="co-tag">Try</span>Paste the SMT-LIB code above into the <a href="https://jfmc.github.io/z3-play" target="_blank" rel="noopener">Z3 Playground</a>. To read more, see the <a href="https://smt-lib.org/" target="_blank" rel="noopener">SMT-LIB standard</a> and the tutorial <a href="https://z3prover.github.io/papers/programmingz3.html" target="_blank" rel="noopener">Programming Z3</a>.</div>
+        <div data-lab="sat"></div>
+        <div class="quiz" data-quiz="sat"></div>
+      </section>
+
+      <!-- 02 -->
+      <section class="topic" id="smt-practice" data-part="SMT solving" data-short="Using a solver">
+        <header class="topic-head">
+          <span class="topic-num">02</span>
+          <div><h2>Using an SMT solver in practice</h2><p class="kicker">Encode, check, decode</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>The solver is a brilliant colleague who only reads formulas. You translate your question into a formula, it answers, and you translate the answer back. Almost every mistake is a translation mistake: forget one rule while translating, and the colleague happily solves a different problem from the one you have.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>Using a solver takes three steps:</p>
+              <ul>
+                <li><strong>Encode</strong> the problem as a proposition the solver can check.</li>
+                <li><strong>Check</strong> whether the proposition is satisfiable.</li>
+                <li><strong>Decode</strong>: if it is, the model must be turned back into a (counter-)solution the user understands.</li>
+              </ul>
+              <p>Libraries do much of the encoding work. With the Python bindings (already installed with JPAMB), a first example is:</p>
+<pre><code class="language-python">$ uv run python
+>>> from z3 import *
+>>> s = Solver()
+>>> a = Int("a")
+>>> s.add(a > 10)
+>>> s.check()
+sat
+>>> s.model()
+[a = 11]</code></pre>
+              <ul>
+                <li><strong>Finding</strong> something: assert its conditions; a model is a solution. <strong>Proving</strong> something: assert the premises and the <em>negated</em> claim; <code>unsat</code> is a proof (Proposition 8.3), and a model is a counterexample.</li>
+                <li><strong>Encoding a puzzle.</strong> The N-Queens problem shows the pattern: one Boolean per square ("is there a queen here?"), and each rule becomes constraints. "At least one queen in this row" is one clause $Q_{a1} \lor Q_{b1} \lor \cdots$. "At most one" can be written pairwise: for every two squares $p, q$ of the row, $\neg p \lor \neg q$. Diagonals are the squares where the row minus the column (or the row plus the column) is constant.</li>
+                <li><strong>Precision.</strong> The answer is only as good as the encoding. <code>z3.Int</code> is a mathematical integer; Java's <code>int</code> is a 32-bit bit-vector (<code>z3.BitVec("a", 32)</code>). Encode a Java program with <code>Int</code> and the solver will miss every overflow bug.</li>
+                <li>Keep encodings simple: the solver's run time is unpredictable, and a needlessly complicated proposition can turn "instant" into "timeout".</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.7</span> A correct encoding</p>
+            <p>Let a problem have instances $I$ with solution sets $\mathit{Sol}(I)$. An <strong>encoding</strong> is a pair of a formula $\mathit{enc}(I)$ and a decoder $\mathit{dec}$ from models to candidate solutions. It is <strong>correct</strong> if
+            $$\nu \models \mathit{enc}(I) \implies \mathit{dec}(\nu) \in \mathit{Sol}(I) \qquad\text{and}\qquad \mathit{Sol}(I) \neq \emptyset \implies \mathit{enc}(I) \text{ is satisfiable.}$$</p>
+            <p class="read">"Every model decodes to a real solution, and if real solutions exist, the formula has a model." Then <code>sat</code> gives a solution and <code>unsat</code> proves there is none. Drop the first condition and you get fake solutions; drop the second and you get fake impossibility.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.8</span> The pairwise "at most one" encoding</p>
+            <p>For Boolean variables $p_1, \ldots, p_k$,
+            $$\nu \models \textstyle\bigwedge_{1 \leq i \lt j \leq k} (\neg p_i \lor \neg p_j) \iff \big|\{ i \mid \nu(p_i) = \top \}\big| \leq 1,$$
+            and the formula has $\binom{k}{2} = k(k-1)/2$ clauses. "Exactly one" adds the single clause $p_1 \lor \cdots \lor p_k$.</p>
+            <details class="proof"><summary>Proof</summary><p>($\Leftarrow$) If at most one $p_i$ is true, every clause $\neg p_i \lor \neg p_j$ has at least one true literal. ($\Rightarrow$) If two variables $p_i, p_j$ with $i \lt j$ were true, the clause $\neg p_i \lor \neg p_j$ would be false. There is one clause per unordered pair. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes' helper <code>at_most_one</code> loops over <code>itertools.permutations(props, 2)</code>, which produces every pair twice, so it emits $k(k-1)$ clauses. That is still correct; <code>itertools.combinations</code> gives the $\binom{k}{2}$ of Proposition 8.8.</div>
+        <div data-lab="solver"></div>
+        <div class="quiz" data-quiz="smt-practice"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 2</span><h2>Symbolic execution</h2></div>
+
+      <!-- 03 -->
+      <section class="topic" id="sym-values" data-part="Symbolic execution" data-short="Symbolic values">
+        <header class="topic-head">
+          <span class="topic-num">03</span>
+          <div><h2>Symbolic values</h2><p class="kicker">Compute with the recipe, not with the cake</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Testing a program is like baking one cake with 200 g of flour and tasting it. Symbolic execution writes down the <em>recipe</em> instead: "flour amount plus four". The recipe tells you the result for every amount of flour at once, and you can read it, simplify it and ask questions about it.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>Instead of running the program with concrete values, symbolic execution builds <strong>symbolic values</strong>: formulas over input symbols. For example:</p>
+<pre><code class="language-java">int incr(int a) {
+  int x = a;        // x := a
+  x += 1;           // x := a + 1
+  x += 3;           // x := a + 1 + 3 = a + 4
+  return x;         // return (a + 4)
+}</code></pre>
+              <ul>
+                <li>One symbolic run shows that the method adds 4 to its input. A test only shows <code>incr(42) == 46</code>, and even some static analyses would not see it.</li>
+                <li>A symbol stands for an input. With input $i = 42$, the concrete value of $i + 2 - 10$ is $34$, while the symbolic value is $i - 8$.</li>
+                <li>Symbolic values are tiny programs (expressions), and they are easy to analyse further: hand them to a solver, compare them, simplify them.</li>
+                <li>Without simplification they grow. A loop adds $((x + 1) + 1) + 1$ one layer per round; <code>z3.simplify</code> folds it again:</li>
+              </ul>
+<pre><code class="language-python">>>> i = z3.Int("i")
+>>> for r in range(10):
+...     i = i + 1
+...
+>>> print(i)
+i + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1
+
+>>> i = z3.Int("i")
+>>> for r in range(10):
+...     i = z3.simplify(i + 1)
+...
+>>> print(i)
+10 + i</code></pre>
+              <ul>
+                <li>Values that do not depend on the input stay plain numbers. In <code>addTen</code> below, the loop counter <code>r</code> is always concrete, so the loop test is decided without any formula.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.9</span> Symbolic values and their meaning</p>
+            <p>Let $\mathbf{Sym}$ be a set of input symbols. Symbolic values are
+            $$s_1, s_2 \in \mathbf{SymVal} ::= v \mid n \mid s_1 \oplus s_2 \mid -s_1 \qquad (v \in \mathbf{Sym},\ n \in \Z,\ \oplus \in \{+, -, \times, /, \%\}).$$
+            A <strong>valuation</strong> $\nu : \mathbf{Sym} \to \Z$ chooses an input. The value of $s$ under $\nu$ is $\sem{v}_\nu = \nu(v)$, $\sem{n}_\nu = n$, $\sem{s_1 \oplus s_2}_\nu = \sem{s_1}_\nu \oplus_{i32} \sem{s_2}_\nu$, with $\oplus_{i32}$ the JVM's 32-bit operation.</p>
+            <p class="read">"A symbolic value is an expression; plug in the inputs and compute, exactly as the JVM would."</p>
+          </div>
+          <p>The symbolic rules are the concrete rules from Week 3 with symbolic values in the frame. For example, <code>binary:I add</code> pops $s_1\,s_2$ and pushes the expression $s_1 + s_2$, and <code>push:I n</code> pushes the constant $n$:</p>
+          <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{binary{:}I}\ \mathtt{add})}{\langle \lambda, \sigma\, s_1 s_2, \iota \rangle \Rightarrow \langle \lambda, \sigma\,(s_1 + s_2), \iota + 1 \rangle} \qquad \frac{\bc[\iota] = (\mathtt{incr}\ k\ c)}{\langle \lambda, \sigma, \iota \rangle \Rightarrow \langle \lambda[k \mapsto \lambda[k] + c], \sigma, \iota + 1 \rangle}$$</div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.10</span> Symbolic execution of branch-free code is exact</p>
+            <p>Start from the frame $\sigma_0$ whose $k$-th local is the symbol $v_k$ of the $k$-th parameter. If $n$ symbolic steps that do not branch on a symbolic value lead to $\sigma_n$, then for every valuation $\nu$, the concrete run from the input $\nu$ reaches, after $n$ steps, the state $\sem{\sigma_n}_\nu$ (every symbolic value in $\sigma_n$ replaced by its value).</p>
+            <details class="proof"><summary>Proof</summary><p>Induction on $n$. For $n = 0$, the concrete initial state has $\nu(v_k)$ in local $k$, which is $\sem{\sigma_0}_\nu$. For the step, assume the concrete state is $\sem{\sigma_n}_\nu$; both runs execute the same instruction, since the program counter is concrete in both. Each symbolic rule builds its result with the same operation the concrete rule applies to values, e.g. it pushes $s_1 + s_2$ where the concrete rule pushes $\sem{s_1}_\nu +_{i32} \sem{s_2}_\nu$, and by Definition 8.9 that is $\sem{s_1 + s_2}_\nu$. Loads, stores and constants move values around without changing them. So the concrete successor is $\sem{\sigma_{n+1}}_\nu$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.11</span> Equivalence and simplification</p>
+            <p>$s \equiv s'$ if $\sem{s}_\nu = \sem{s'}_\nu$ for every $\nu$. A <strong>simplifier</strong> maps $s$ to an equivalent, smaller $s'$. A solver can check equivalence: $s \equiv s'$ iff $s \neq s'$ is unsatisfiable (Proposition 8.3).</p>
+          </div>
+          <p class="read">"Simplification never changes what a value means, only how it is written." In the lab, <code>swapSubtract</code> builds a long expression that simplifies to $b - a$.</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span><code>z3.Int</code> is a mathematical integer, but Definition 8.9 uses 32-bit arithmetic, as Java does. The two disagree on overflow: $a + 1 \gt a$ is valid for <code>Int</code> and false for $a = 2147483647$ in Java. The labs on this page use mathematical integers like the notes (with every input inside the 32-bit range) and warn you when a concrete run overflows. Also: Z3 prints the simplified value as <code>-8 + i</code>; the labs print <code>i - 8</code>.</div>
+        <div data-lab="stepper"></div>
+        <div class="quiz" data-quiz="sym-values"></div>
+      </section>
+
+      <!-- 04 -->
+      <section class="topic" id="path-constraints" data-part="Symbolic execution" data-short="Path constraints">
+        <header class="topic-head">
+          <span class="topic-num">04</span>
+          <div><h2>Path constraints</h2><p class="kicker">Values forget how you got here; the path remembers</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A hiker's logbook does not only say where she is. It also says what she knows because of the way she came: "I took the left fork at the bridge, so I am north of the river". Symbolic execution keeps such a log for every path: the list of conditions that must have been true to end up here. That list is the <strong>path constraint</strong>.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>If the program tests $x \lt 10$ and takes the true branch, then on this branch $x \lt 10$, but no individual value says so. We write a symbolic state as $\psi \vdash \sigma$: the path constraint $\psi$ and the symbolic state $\sigma$ (variables to symbolic values). An annotated program:</p>
+<pre><code class="language-java">int incr(int a) {
+  int x = a;          // []                    |- x := a
+  if (x > 10) {       // [a > 10]              |- x := a
+    x += 1;           // [a > 10]              |- x := a + 1
+    if (x &lt; 10)       // [a > 10, a + 1 &lt; 10]  |- UNSAT
+      assert false;   // never executed
+  }
+  return x;           // returns [ a  > 10 |- a + 1
+                      //         , a &lt;= 10 |- a      ]
+}</code></pre>
+              <ul>
+                <li>At a branch on a symbolic value, both sides are possible: one adds the condition, the other its negation.</li>
+                <li>At the second branch the path already knows $a \gt 10$, and $x = a + 1$. Can $a + 1 \lt 10$ also hold? That question is for the SMT solver: build the symbolic values, add the path constraint, check.</li>
+              </ul>
+<pre><code class="language-python">>>> import z3
+>>> a = z3.Int("a")
+>>> s = z3.Solver()
+>>> path = []
+
+>>> x = a
+>>> path.append(x > 10)
+>>> print(path, s.check(path), s.model())
+[a > 10] sat [a = 11]
+
+>>> x += 1
+>>> print(x)
+a + 1
+>>> path.append(x &lt; 10)
+>>> print(path, s.check(path))
+[a > 10, a + 1 &lt; 10] unsat</code></pre>
+              <ul>
+                <li>The infeasible branch is <strong>pruned</strong>. After all branches (to some depth), the method is described by two paths, $a \gt 10 \vdash a + 1$ and $a \leq 10 \vdash a$, so it is equivalent to the much simpler</li>
+              </ul>
+<pre><code class="language-java">int incr(int a) {
+  if (a > 10) return a + 1;
+  if (a &lt;= 10) return a;
+}</code></pre>
+              <ul>
+                <li>A path constraint describes exactly the inputs that take the path. That is a <strong>path-equivalence class</strong> from <a href="dynamic-analysis.html#paths">Week 4</a>, now as a formula, and the solver can produce a member of it on demand.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.12</span> Symbolic states and branching</p>
+            <p>A symbolic state $\psi \vdash \langle \lambda, \sigma, \iota \rangle$ is a path constraint $\psi$ (a conjunction of conditions over symbolic values) and a frame of symbolic values. Branches on symbolic values have two rules, one per side; every other instruction keeps $\psi$ and follows Definition 8.9:</p>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{ifz}\ c\ t)}{\psi \vdash \langle \lambda, \sigma\, s, \iota \rangle \Rightarrow \psi \land (s \mathrel{c} 0) \vdash \langle \lambda, \sigma, t \rangle} \qquad \frac{\bc[\iota] = (\mathtt{ifz}\ c\ t)}{\psi \vdash \langle \lambda, \sigma\, s, \iota \rangle \Rightarrow \psi \land \neg(s \mathrel{c} 0) \vdash \langle \lambda, \sigma, \iota + 1 \rangle}$$</div>
+            <p>(<code>if c t</code> is the same with $s_1 \mathrel{c} s_2$.) A division also branches, because it can fail:</p>
+            <div class="mathbox">$$\frac{\bc[\iota] = (\mathtt{binary{:}I}\ \mathtt{div})}{\psi \vdash \langle \lambda, \sigma\, s_1 s_2, \iota \rangle \Rightarrow \psi \land (s_2 = 0) \vdash \err(\text{divide by zero})} \qquad \frac{\bc[\iota] = (\mathtt{binary{:}I}\ \mathtt{div})}{\psi \vdash \langle \lambda, \sigma\, s_1 s_2, \iota \rangle \Rightarrow \psi \land (s_2 \neq 0) \vdash \langle \lambda, \sigma\,(s_1 / s_2), \iota + 1 \rangle}$$</div>
+            <p>A successor is kept only if its path constraint is satisfiable.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.13</span> A path constraint describes its path exactly</p>
+            <p>Assume the solver's arithmetic is the program's arithmetic. Let $n$ symbolic steps from $\mathit{true} \vdash \sigma_0$ reach $\psi \vdash \sigma_n$. Then for every valuation $\nu$:
+            $$\nu \models \psi \iff \text{the concrete run on } \nu \text{ takes the same } n \text{ steps (same program counters) and reaches } \sem{\sigma_n}_\nu.$$</p>
+            <details class="proof"><summary>Proof</summary><p>Induction on $n$; for $n = 0$ both sides hold for every $\nu$. Non-branching steps leave $\psi$ unchanged and preserve "the concrete state is $\sem{\sigma}_\nu$" exactly as in Theorem 8.10. At a branch on $s$ with condition $c$, the symbolic side with $\psi \land (s \mathrel{c} 0)$ is followed by $\nu$ iff $\nu \models \psi$ (so, by induction, the concrete run is at the same branch with the value $\sem{s}_\nu$ on the stack) and $\sem{s}_\nu \mathrel{c} 0$, which is exactly the condition under which the concrete rule jumps. The other side is symmetric. Divisions are the same with the condition $s_2 = 0$. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Corollary 8.14</span> Path constraints are path classes</p>
+            <p>For a complete symbolic path $\pi$ with constraint $\psi_\pi$, the inputs whose traces lie in the path-equivalence class of $\pi$ (<a href="dynamic-analysis.html#paths">Definition 4.29</a>) are exactly $\{\nu \mid \nu \models \psi_\pi\}$. Constraints of two different complete paths are never satisfiable together: at their first difference one contains a condition and the other its negation.</p>
+          </div>
+          <p class="read">"A path constraint is the membership test of a path class. The list of all $\psi_\pi \vdash \text{result}$ splits the inputs into disjoint pieces, which is why it can serve as a summary of the method."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>Three things in the notes' example. (1) The listing says <code>x =+ 1;</code>, which Java reads as <code>x = +1</code>: then $x = 1 \lt 10$ and the assertion fails for every $a \gt 10$. The comments show that <code>x += 1</code> is meant; the lab has both (<code>incrAsPrinted</code>). (2) The Python session calls <code>path.add(...)</code> on a list; it must be <code>path.append(...)</code>. (3) "Never executed" holds over <code>z3.Int</code> only. With Java's 32-bit ints, $a = 2147483647$ passes $a \gt 10$, $x = a + 1$ wraps to $-2147483648 \lt 10$, and the assertion fails. Use <code>z3.BitVec</code> to model Java.</div>
+        <div data-lab="symtree"></div>
+        <div class="quiz" data-quiz="path-constraints"></div>
+      </section>
+
+      <!-- 05 -->
+      <section class="topic" id="sym-practice" data-part="Symbolic execution" data-short="Symbolic execution in practice">
+        <header class="topic-head">
+          <span class="topic-num">05</span>
+          <div><h2>Symbolic execution in practice</h2><p class="kicker">Depth-first to depth $n$, and the path explosion</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A choose-your-own-adventure book: at every fork you may turn to one of two pages. Reading every possible story up to page 100 means following every fork, and each fork doubles the number of stories. Luckily some forks are impossible ("if you have the key" when you never picked it up), and you can skip everything behind them. Whether that saves you depends on the book.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>A simple implementation of symbolic execution is a depth-first search to depth $n$, with a stack of paths. A path holds the next instruction, a symbolic state, the path constraint and the depth. Given a stepping function over symbolic states, the loop pops a path, steps it, and pushes every successor whose path constraint is satisfiable, as long as the depth allows. In pseudo-code, with the small fixes from the warning below:</p>
+<pre><code class="language-python">stack : list[tuple[PC, SymState, SymPath, int]]
+
+def step(pc: PC, state: SymState)
+  -> Iterable[tuple[PC, SymState, SymPath]]: ...
+
+def analyse(pc : PC, inputs : list[tuple[str, JvmType]], max_depth : int):
+  # assuming only integers, create symbolic vars for all input
+  locals = z3.Ints(" ".join(i_name for i_name, _ in inputs))
+  # create state.
+  state = SymState.from_locals(locals)
+
+  # Create a stack to do depth first search with.
+  stack = [(pc, state, [], 0)]
+
+  # As long as the stack is not empty
+  while stack:
+    # pop the end of the stack
+    (pc, state, path, n) = stack.pop(-1)
+
+    # Check if state does something we want to warn the user about.
+    if interesting(state):
+      return "found interesting state"
+
+    # otherwise create the list of next branches
+    for (pc, state_, pathc) in step(pc, state):
+        # add new path constraints to the path
+        path_ = path + pathc
+
+        # check if path is reachable
+        if str(z3.Solver().check(*path_)) != "sat":
+          continue
+
+        # append stack if within limits
+        if n &lt; max_depth:
+          stack.append((pc, state_, path_, n + 1))
+
+  return f"all is fine, uptil depth {max_depth}"</code></pre>
+              <ul>
+                <li><strong>What a result means.</strong> A reported state comes with a model: an input that really reaches it (if the solver models Java's semantics). "All is fine up to depth $n$" covers only traces of at most $n$ steps, like the bounded analysis of <a href="bounded-static-analysis.html#bounded">Week 5</a>.</li>
+                <li><strong>Path explosion.</strong> $k$ branches in a row can give $2^k$ paths, and a loop whose test depends on the input gives a new path for every number of iterations. Pruning helps only when constraints conflict.</li>
+                <li><strong>Search order.</strong> Depth-first is simple and needs little memory. Real tools choose the next path with heuristics, for example towards code not covered yet (KLEE, Cadar, Dunbar and Engler, 2008).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.15</span> Bounded symbolic exploration</p>
+            <p>The <strong>symbolic execution tree</strong> has the initial symbolic state as root and the successors of Definition 8.12 as children. Exploring to depth $n$ visits every node reachable from the root in at most $n$ steps whose path constraint is satisfiable.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.16</span> What bounded symbolic execution guarantees</p>
+            <p>Assume an exact solver whose arithmetic is the program's. Then:</p>
+            <ul>
+              <li>every visited node is reached by some concrete run (a model of its path constraint is such an input), so a reported error is a true <strong>may</strong> answer, never a false warning;</li>
+              <li>every prefix of at most $n$ steps of a concrete run is visited, so if no visited node is an error, no trace of at most $n$ steps reaches one;</li>
+              <li>if additionally no path was cut by the depth bound, no trace of any length reaches an error.</li>
+            </ul>
+            <details class="proof"><summary>Proof</summary><p>Theorem 8.13 in both directions. A visited node has a satisfiable $\psi$; a model $\nu$ of it is an input whose run takes the same steps. Conversely, the first $m \leq n$ steps of the run on $\nu$ follow one symbolic path whose constraint $\nu$ satisfies, so the solver keeps every node on it. If no path was cut, every concrete run ends within the explored tree. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"In the terms of <a href="dynamic-analysis.html#terminology">Week 4</a>: symbolic execution is a sound may-analysis for errors, and up to the depth bound it misses nothing."</p>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.17</span> Path explosion and pruning</p>
+            <p>A loop-free method with $k$ two-way branches has at most $2^k$ complete paths, and $2^k$ are feasible when the branches test independent inputs. If instead all $k$ branches test $x \gt t_1, \ldots, x \gt t_k$ on the same unchanged $x$, with $t_1 \lt \cdots \lt t_k$, exactly $k + 1$ paths are feasible.</p>
+            <details class="proof"><summary>Proof</summary><p>A path is determined by its $k$ decisions, so there are at most $2^k$. With independent inputs, any decision vector is satisfied by choosing each input on the right side of its test. With one $x$: if $x \gt t_j$ then $x \gt t_i$ for all $i \lt j$, so the true decisions form a prefix $t_1, \ldots, t_j$ with $0 \leq j \leq k$. Each of these $k + 1$ prefixes is satisfiable (take $x = t_j + 1$, or $x = t_1$ for $j = 0$), and every other decision vector contradicts itself. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes' version declares a stack of 3-tuples and starts with <code>stack = [(pc, state, [])]</code>, but pops 4-tuples <code>(pc, state, path, n)</code>; the initial entry needs depth 0. The check <code>z3.check(path_)</code> must be a call on a solver, e.g. <code>z3.Solver().check(*path_)</code>. And the stepping function returns <code>tuple[PC, SymState, SymPath]</code> (the notes have a stray bracket).</div>
+        <div data-lab="explosion"></div>
+        <div class="quiz" data-quiz="sym-practice"></div>
+      </section>
+
+      <!-- 06 -->
+      <section class="topic" id="limitations" data-part="Symbolic execution" data-short="Limitations">
+        <header class="topic-head">
+          <span class="topic-num">06</span>
+          <div><h2>Limitations of symbolic execution</h2><p class="kicker">Everything has to become a formula</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>A satnav can only plan along roads it has maps for. Private roads with no map (library code), a gate whose code is a riddle designed to be unsolvable (a hash), or a car park where every space looks the same (an array position you do not know): there the satnav either guesses or gives up.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <p>The big flaw: you must be able to build a symbolic expression over the <em>entire</em> program.</p>
+              <ul>
+                <li><strong>Built-ins and library code.</strong> <code>malloc</code>, native methods, system calls, the JDK: either there is no code to execute symbolically, or far too much. The fallback is a hand-written <strong>model</strong> (a simpler stand-in), which may over- or under-estimate the real behaviour.</li>
+                <li><strong>One-way functions.</strong> Hashes are built so that nobody can compute an input from an output. A solver cannot either:</li>
+              </ul>
+<pre><code class="language-java">public static void hashGate(int x, int y) {
+  if (x == hash(y)) {
+    assert false;
+  }
+}</code></pre>
+              <ul>
+                <li><strong>Strings.</strong> String operations (concatenation, <code>indexOf</code>, regular expressions) are notoriously hard to model in SMT.</li>
+                <li><strong>Memory aliasing and arrays.</strong> <code>a[i]</code> with a symbolic <code>i</code> may be any element, and two references may or may not point to the same object. The simple approach only allows concrete indices, so the analysis does not know what a symbolic access points to.</li>
+                <li><strong>Non-linear arithmetic and floating point</strong> make solving slow or undecidable (Proposition 8.6).</li>
+                <li><strong>Path explosion and loops</strong> (topic 05), and the cost of one solver call per branch.</li>
+              </ul>
+              <p>The way out: keep a <em>concrete</em> value next to each symbolic one. That is Part 3.</p>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.18</span> The theory of arrays</p>
+            <p>SMT solvers do have arrays, with $\mathit{select}(a, i)$ (read) and $\mathit{store}(a, i, v)$ (write), governed by the read-over-write axioms
+            $$\mathit{select}(\mathit{store}(a, i, v), j) = \begin{cases} v & \text{if } i = j \\ \mathit{select}(a, j) & \text{otherwise.} \end{cases}$$</p>
+            <p class="read">"Reading after a write either hits the written index or looks further back." With symbolic indices, a read after $m$ writes is a case split over up to $m + 1$ possibilities, and every branch of the program multiplies them.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.19</span> Aliasing grows faster than $2^k$</p>
+            <p>For $k$ non-null references that may alias, the possible aliasing situations are the partitions of the $k$ references into groups pointing to the same object. Their number is the Bell number $B_k$: $1, 2, 5, 15, 52, 203, \ldots$ for $k = 1, 2, \ldots$</p>
+            <details class="proof"><summary>Proof</summary><p>"Points to the same object as" is an equivalence relation on the references, and equivalence relations correspond one-to-one to partitions. Every partition is realisable by allocating one object per group. The partitions of a $k$-element set are counted by $B_k$ by definition. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Symbolic execution is exact where it works, and it works only where everything can be written as a formula the solver can handle.</div>
+        <div class="quiz" data-quiz="limitations"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <div class="part-head"><span class="part-label">Part 3</span><h2>Concolic execution</h2></div>
+
+      <!-- 07 -->
+      <section class="topic" id="concolic" data-part="Concolic execution" data-short="Concrete plus symbolic">
+        <header class="topic-head">
+          <span class="topic-num">07</span>
+          <div><h2>Concolic execution: concrete and symbolic</h2><p class="kicker">Walk the maze for real, take notes at every junction</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Instead of planning a route through a maze on paper, you walk it. At every junction you write down why you went the way you did: "left, because the door on the right was locked". When you get out, pick one junction from your notes and ask: "what would have to be different to go the other way?" Change exactly that, and walk again. You never get stuck on a riddle you cannot solve on paper, because you are always walking a real path.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>One answer to the limitations is to simulate built-ins, but that may over- or under-estimate their behaviour. The alternative: keep a <strong>concrete value</strong> next to every symbolic value. Where the symbolic part cannot follow (a built-in, a hash, a symbolic index), use the concrete value instead. We may lose the symbolic value, but that is better than giving up. Concrete plus symbolic is <strong>concolic</strong>.</li>
+                <li>Run the program on a (random) concrete input. The concrete values decide every branch. At each branch on a symbolic value, emit the condition as a path constraint if it was true, and its negation otherwise.</li>
+                <li>A run is a function from a program and an input to a list of path constraints, $\mathit{concolic}(P, i) = \psi_0, \ldots, \psi_n$. Negate one of them, keep the ones before it, and solve: the model is an input that goes the other way at that branch.</li>
+              </ul>
+              <div class="table-wrap">
+                <table class="dt">
+                  <thead><tr><th>Program</th><th>Run</th><th>Path constraints</th><th>Negate and solve</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">isNotAMillion</td><td class="mono">(0) → ok</td><td>$i \neq 1000000$</td><td>$i = 1000000$ → assertion error</td></tr>
+                    <tr><td class="mono">hashGate</td><td class="mono">(0, 7) → ok</td><td>$x \neq h$, with $h = \mathit{hash}(7)$ used concretely</td><td>$x = h$, $y = 7$ kept → assertion error</td></tr>
+                    <tr><td class="mono">arraySpellsHello</td><td class="mono">([C: ]) → out of bounds</td><td>$0 \geq \mathit{length}$</td><td>$0 \lt \mathit{length}$ → <code>[C: 'a']</code>, then <code>'h'</code>, <code>'h','a'</code>, ...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul>
+                <li>In <code>hashGate</code> the hash is never solved: its concrete value becomes a constant in the constraint, and the solver only has to choose $x$. This is the classic example of DART (Godefroid, Klarlund and Sen, 2005).</li>
+                <li>In <code>arraySpellsHello</code> the indices are concrete (0, 1, 2, ...), so the array problem of topic 06 disappears, while the length and the characters stay symbolic. The search spells "hello" one letter at a time, in 11 runs.</li>
+                <li>Because every run is a real run, every error found is real. What can go wrong is only that a run does not take the predicted path (divergence), which costs a run.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.20</span> Concolic values and concretisation</p>
+            <p>For a concrete input with valuation $\nu_i$, a <strong>concolic value</strong> is a pair $(c, s)$ of an integer and a symbolic value with the invariant $c = \sem{s}_{\nu_i}$. Instructions compute both parts with the rules of Week 3 and Definition 8.9. <strong>Concretisation</strong> replaces $(c, s)$ by $(c, c)$; it keeps the invariant but forgets how the value depends on the input.</p>
+          </div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.21</span> A concolic run</p>
+            <p>$\mathit{concolic}(P, i) = \psi_0, \psi_1, \ldots, \psi_n$, where at the $j$-th branch whose condition $\varphi(s)$ contains a symbol, the run takes the side given by $\varphi(c)$ and emits
+            $$\psi_j = \begin{cases} \varphi(s) & \text{if } \varphi(c) \text{ is true} \\ \neg\varphi(s) & \text{otherwise.} \end{cases}$$
+            A new input is any $i' \in \mathbf{solve}(\psi_0 \land \cdots \land \psi_{k-1} \land \neg\psi_k)$ for some $k \leq n$.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.22</span> An input satisfies its own path constraint</p>
+            <p>If the solver's arithmetic is the program's, $\nu_i \models \psi_0 \land \cdots \land \psi_n$.</p>
+            <details class="proof"><summary>Proof</summary><p>By the invariant, $\varphi(\sem{s}_{\nu_i}) = \varphi(c)$ at each branch, and $\psi_j$ is the side that $\varphi(c)$ chose. Concretised values are constants, which $\nu_i$ satisfies trivially. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.23</span> The prefix theorem</p>
+            <p>Let $\mathit{concolic}(P, i) = \psi_0, \ldots, \psi_n$, with no concretisation before the $k$-th branch, and the solver's arithmetic the program's. If $i' \models \psi_0 \land \cdots \land \psi_{k-1} \land \neg\psi_k$, then
+            $$\mathit{concolic}(P, i') = \psi_0, \ldots, \psi_{k-1}, \neg\psi_k, \psi'_{k+1}, \ldots$$
+            for some new (possibly no) constraints $\psi'_{k+1}, \ldots$</p>
+            <details class="proof"><summary>Proof</summary><p>Up to its $k$-th branch, the run on $i$ follows one symbolic path, and without concretisation its symbolic part does not depend on the concrete values, only on the path. Since $i' \models \psi_0 \land \cdots \land \psi_{k-1}$, Theorem 8.13 says the run on $i'$ follows the same path to the $k$-th branch with the same symbolic state, so it emits the same $\psi_0, \ldots, \psi_{k-1}$. At branch $k$ it evaluates $\varphi$ on $\sem{s}_{\nu_{i'}}$; since $i' \models \neg\psi_k$, it takes the other side and emits $\neg\psi_k$ (Proposition 8.22 for the new run). After that the run is free. <span class="qed">&#8718;</span></p></details>
+          </div>
+          <p class="read">"Negating the $k$-th constraint and keeping the ones before it steers the next run to the same junction and then the other way."</p>
+        </div>
+        <div class="callout warn"><span class="co-tag">Careful</span>The notes negate the last constraint $\psi_n$ and say the new run produces "a prefix of the same path constraints $\psi_0, \psi_1, \ldots, \neg\psi_n$". More precisely: it reproduces $\psi_0, \ldots, \psi_{n-1}$, then $\neg\psi_n$, then possibly new constraints. Any $k$ works, not just the last. The guarantee needs an exact symbolic part: after a concretisation (change $y$ in <code>hashGate</code> and $\mathit{hash}(y)$ changes) or an overflow that mathematical integers do not model, a run can <strong>diverge</strong>. ("conclic" in the notes is a typo for concolic.)</div>
+        <div data-lab="concolic"></div>
+        <div class="quiz" data-quiz="concolic"></div>
+      </section>
+
+      <!-- 08 -->
+      <section class="topic" id="concolic-search" data-part="Concolic execution" data-short="Searching all paths">
+        <header class="topic-head">
+          <span class="topic-num">08</span>
+          <div><h2>Searching all paths, and fuzzing</h2><p class="kicker">Negate, solve, run again, until nothing new is left</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>Guessing a 6-digit code at random takes about a million tries. Now imagine a lock that, every time you are wrong, tells you which check failed: "the third digit is not 7". You fix that digit and try again. Random fuzzing is the first lock; concolic execution turns every program into the second.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li><strong>The search.</strong> Keep a list of inputs to run, each with a <em>bound</em>. Run an input; for every constraint at or after its bound, negate it (keeping the ones before), solve, and add the new input with the bound just after the negated position. If we keep track of what was negated and have infinite time, this is a depth-first search through all possible paths of the program (DART, Godefroid et al. 2005; CUTE, Sen, Marinov and Agha, 2005). Negating every constraint of each run at once is the generational search of SAGE (Godefroid, Levin and Molnar, 2008).</li>
+                <li><strong>Very precise coverage.</strong> Every run takes a new path, so the search walks through path classes one by one: path coverage, much stronger than the instruction coverage of <a href="dynamic-analysis.html#coverage">Week 4</a>.</li>
+                <li><strong>Against the fuzzers of Week 4.</strong> Random inputs hit <code>i == 1000000</code> with probability $2^{-32}$. A dictionary helps only if the constant is written in the code, not if it is computed (<code>hash(y)</code>). Coverage guidance works character by character, but needs a fitting mutation each time. Concolic execution needs neither luck nor a dictionary: it computes the input.</li>
+                <li><strong>The price.</strong> Each run tracks symbolic values and calls the solver, so it is far slower than a fuzzer run. Loops give infinitely many paths, so real tools bound runs, depth or time and prefer paths that reach new code. Hybrid fuzzers (SAGE; Driller, Stephens et al. 2016) let a fuzzer do the cheap exploring and call the concolic engine when it gets stuck.</li>
+                <li><strong>For JPAMB.</strong> An error found by a concrete run is certain, so it is worth a high wager. A search that finished, with no <code>unknown</code> answers and no runs cut off, supports a confident "no" (over the model the solver uses).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.24</span> Concolic search</p>
+            <p>Start with the worklist $W = \{(i_0, 0)\}$. Repeat: take $(i, b)$ from $W$, compute $\psi_0, \ldots, \psi_n = \mathit{concolic}(P, i)$, and for every $j$ with $b \leq j \leq n$, if $\psi_0 \land \cdots \land \psi_{j-1} \land \neg\psi_j$ has a model $i'$, add $(i', j + 1)$ to $W$.</p>
+            <p class="read">"A run may only flip its own new decisions; the earlier ones belong to the run it came from."</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Theorem 8.25</span> Every feasible path exactly once</p>
+            <p>Assume the conditions of the prefix theorem hold for every run (exact symbolic part, no divergence) and the solver never answers <code>unknown</code>. Then the runs of the concolic search take pairwise different paths, every feasible path of $P$ is eventually run, and the search terminates iff $P$ has finitely many feasible paths.</p>
+            <details class="proof"><summary>Proof sketch</summary><p>Think of the execution tree, whose nodes are sequences of branch decisions. Claim: a work item $(i, b)$ stands for the subtree $T(i, b)$ of all paths that agree with $i$'s first $b$ decisions, and the item's run plus the items it creates cover $T(i, b)$ exactly once. The run takes one path in $T(i, b)$. A path in $T(i, b)$ that differs from it first at decision $j \geq b$ lies in $T(i', j + 1)$ for the item created at $j$ (by the prefix theorem, $i'$ agrees on the first $j$ decisions and flips the $j$-th); the subtrees for different $j$ are disjoint, and if the solver finds no model the subtree is empty. Induction on the height of the (finite, if there are finitely many feasible paths) subtree gives the claim for $(i_0, 0)$, whose subtree is the whole tree. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout key"><span class="co-tag">Key idea</span>Fuzzing samples path classes by luck. Symbolic execution describes them and asks the solver for members. Concolic execution does the second while always standing on a real run, so it can fall back on concrete values wherever the formulas run out.</div>
+        <div data-lab="race"></div>
+        <div class="quiz" data-quiz="concolic-search"></div>
+      </section>
+
+      <!-- 09 -->
+      <section class="topic" id="instrumentation" data-part="Concolic execution" data-short="Code instrumentation">
+        <header class="topic-head">
+          <span class="topic-num">09</span>
+          <div><h2>Code instrumentation</h2><p class="kicker">Sensors in the real factory instead of a model of it</p></div>
+        </header>
+        <div class="topic-grid single">
+          <div class="explain">
+            <div class="plain">
+              <div class="block-label">In plain words</div>
+              <p>To learn how a factory works you can build a scale model and run that, or you can screw sensors onto the real machines and watch the real production line. The model is easy to inspect but slow and never quite right; the sensors are fast and see the real thing. Your interpreter is the model; instrumentation is the sensors.</p>
+            </div>
+            <div class="tech">
+              <div class="block-label">How it works</div>
+              <ul>
+                <li>One big limitation of the dynamic techniques so far is speed: they run the program in our own interpreter. Ideally we would get all the information while the program runs on the real JVM.</li>
+                <li><strong>Code instrumentation</strong> injects small instructions into the code to track and trace what happens: a counter per branch for coverage, a log line per lock operation for deadlock prediction (the <code>wiretap</code> instrumenter, used in Kalhauge and Palsberg, 2018), or symbolic shadows for concolic execution. The injected code costs time too, and frameworks differ in how much (Reichelt et al. 2024).</li>
+                <li>For concolic execution the injected code must keep the symbolic value of the entire memory: essentially a <strong>shadow variable</strong> for each variable, updated with every instruction, plus a record of every branch. As Java (a sketch of what an instrumenter would inject; <code>Sym</code> and <code>Shadow</code> are made-up helper classes):</li>
+              </ul>
+<pre><code class="language-java">public static int incr(int a) {
+  Sym sa = Shadow.input("a");                   // shadow of the parameter
+  int x = a;    Sym sx = sa;                    // copy the value and its shadow
+  if (Shadow.branch(x > 10, Sym.gt(sx, 10))) {  // records sx > 10 or its negation
+    x += 1;     sx = Sym.add(sx, 1);
+    if (Shadow.branch(x &lt; 10, Sym.lt(sx, 10)))
+      assert false;
+  }
+  return x;
+}</code></pre>
+              <ul>
+                <li><code>Shadow.branch</code> returns the concrete condition unchanged, so the program behaves as before, and records the symbolic condition or its negation. At the bytecode level the same happens with a shadow stack next to the operand stack.</li>
+                <li>This is not trivial: every instruction, every method call and every heap access needs its shadow update.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="formal">
+          <div class="block-label">Formally</div>
+          <div class="def">
+            <p class="def-head"><span class="def-kind">Definition 8.26</span> Instrumentation with shadow state</p>
+            <p>An instrumentation maps $P$ to $P'$, which runs $P$'s instructions unchanged and additionally keeps shadow locals $\Lambda$ and a shadow stack $\Sigma$ of symbolic values and an output log. For each instruction of $P$, $P'$ performs the corresponding symbolic rule on $(\Lambda, \Sigma)$ (Definition 8.9), and at every branch on a symbolic value it appends the condition or its negation, according to the concrete outcome, to the log.</p>
+          </div>
+          <div class="thm">
+            <p class="def-head"><span class="def-kind">Proposition 8.27</span> The instrumented run computes the concolic run</p>
+            <p>If after every instruction the shadow of every local and stack slot is the symbolic part of its concolic value (Definition 8.20), then the log of $P'$ on input $i$ is $\mathit{concolic}(P, i)$, and $P'$ returns what $P$ returns.</p>
+            <details class="proof"><summary>Proof</summary><p>The concrete instructions are unchanged, so $P'$ takes the same concrete path as $P$. The shadow invariant holds initially (each parameter's shadow is its symbol) and is preserved because each shadow update is the symbolic rule of the instruction. At each branch the log receives exactly the $\psi_j$ of Definition 8.21. <span class="qed">&#8718;</span></p></details>
+          </div>
+        </div>
+        <div class="callout course"><span class="co-tag">Course</span>The course has no straightforward way to instrument bytecode. <code>jvm2json</code> can create class files from JSON by running it in reverse, but it does not compute the type information for changes within the bytecode of individual methods (the stack map frames the JVM's verifier checks), so edited methods would not load. Bytecode instrumentation is a technical contribution of its own in the project.</div>
+        <div class="quiz" data-quiz="instrumentation"></div>
+      </section>
+
+      <!-- ================================================================ -->
+      <section class="topic" id="cheat-sheet" data-toc-extra="Cheat sheet">
+        <header class="topic-head">
+          <span class="topic-num">&Sigma;</span>
+          <div><h2>Cheat sheet</h2><p class="kicker">Definitions and results worth memorising</p></div>
+        </header>
+        <div class="cheat">
+          <div class="cheat-item"><h3>SAT and SMT</h3><div class="mathbox">$\nu \models \phi$ for some $\nu$</div><p>Answers: <code>sat</code> with a model, <code>unsat</code>, <code>unknown</code>. SAT is NP-complete; SMT adds theories (LIA, BV, arrays).</p></div>
+          <div class="cheat-item"><h3>Refutation</h3><div class="mathbox">$\Gamma \models \phi \iff \Gamma \land \neg\phi$ unsat</div><p>To prove, look for a counterexample. A model of the negation is one.</p></div>
+          <div class="cheat-item"><h3>Three steps</h3><div class="mathbox">encode, check, decode</div><p>Correct encoding: every model decodes to a solution, and solutions imply sat.</p></div>
+          <div class="cheat-item"><h3>At most one</h3><div class="mathbox">$\bigwedge_{i \lt j} (\neg p_i \lor \neg p_j)$</div><p>$\binom{k}{2}$ clauses; "exactly one" adds $p_1 \lor \cdots \lor p_k$.</p></div>
+          <div class="cheat-item"><h3>Symbolic values</h3><div class="mathbox">$s ::= v \mid n \mid s \oplus s$, $\ \sem{s}_\nu$</div><p>Branch-free code: the concrete result on $\nu$ is $\sem{s}_\nu$ (Theorem 8.10).</p></div>
+          <div class="cheat-item"><h3>Path constraint</h3><div class="mathbox">$\psi \vdash \sigma$</div><p>$\nu \models \psi$ iff the run on $\nu$ follows the path. Unsat branches are pruned.</p></div>
+          <div class="cheat-item"><h3>Bounded symbolic execution</h3><div class="mathbox">DFS, prune unsat, stop at depth $n$</div><p>Found errors are real; "no error" holds up to $n$ steps only.</p></div>
+          <div class="cheat-item"><h3>Path explosion</h3><div class="mathbox">$k$ branches $\to$ up to $2^k$ paths</div><p>One variable, $k$ thresholds: $k + 1$. Loops: unboundedly many.</p></div>
+          <div class="cheat-item"><h3>Limitations</h3><div class="mathbox">built-ins, hashes, strings, arrays, aliasing</div><p>Aliasing of $k$ references: Bell number $B_k$ cases.</p></div>
+          <div class="cheat-item"><h3>Concolic run</h3><div class="mathbox">$\mathit{concolic}(P, i) = \psi_0, \ldots, \psi_n$</div><p>Concrete decides, symbolic records; concretise what the solver cannot handle.</p></div>
+          <div class="cheat-item"><h3>Next input</h3><div class="mathbox">$i' \in \mathbf{solve}(\psi_0 \land \cdots \land \psi_{k-1} \land \neg\psi_k)$</div><p>Prefix theorem: same first $k$ decisions, then the other side.</p></div>
+          <div class="cheat-item"><h3>Concolic search</h3><div class="mathbox">$(i, b)$: negate $\psi_j$ for $j \geq b$, push $(i', j + 1)$</div><p>Each feasible path once (exact tracking, complete solver).</p></div>
+        </div>
+        <div class="table-wrap"><table class="gloss">
+          <tr><td>$\nu \models \phi$</td><td>satisfaction</td><td>the assignment (or valuation) $\nu$ makes $\phi$ true</td></tr>
+          <tr><td>model</td><td>witness of sat</td><td>an assignment that satisfies the formula</td></tr>
+          <tr><td>LIA, BV</td><td>theories</td><td>linear integer arithmetic; fixed-width bit-vectors (machine integers)</td></tr>
+          <tr><td>$v \in \mathbf{Sym}$</td><td>symbol</td><td>stands for one input value</td></tr>
+          <tr><td>$\sem{s}_\nu$</td><td>meaning</td><td>the value of the symbolic value $s$ when the inputs are $\nu$</td></tr>
+          <tr><td>$\psi \vdash \sigma$</td><td>symbolic state</td><td>path constraint $\psi$ and symbolic frame $\sigma$</td></tr>
+          <tr><td>pruning</td><td>solver check</td><td>dropping a branch whose path constraint is unsat</td></tr>
+          <tr><td>$(c, s)$</td><td>concolic value</td><td>concrete value and symbolic value with $c = \sem{s}_{\nu_i}$</td></tr>
+          <tr><td>concretisation</td><td>fallback</td><td>replace the symbolic part by the concrete value</td></tr>
+          <tr><td>divergence</td><td>missed prediction</td><td>a new run does not take the path the solver aimed for</td></tr>
+          <tr><td>shadow variable</td><td>instrumentation</td><td>symbolic value kept next to each real variable</td></tr>
+        </table></div>
+      </section>
+
+      <section class="topic" id="exam-questions" data-toc-extra="Exam questions">
+        <header class="topic-head">
+          <span class="topic-num">?</span>
+          <div><h2>Exam questions</h2><p class="kicker">The lecture's "until next time" questions, with model answers</p></div>
+        </header>
+        <details class="proof"><summary>What are some good uses for SMT solving?</summary>
+          <p>An SMT solver decides whether a formula over Booleans, integers, bit-vectors, arrays and similar data has a model, and returns one if it does. Anything that can be phrased as "find values such that ..." or "show that no values exist such that ..." fits. In program analysis:</p>
+          <ul>
+            <li><strong>Path feasibility and test generation:</strong> symbolic and concolic execution ask whether a path constraint is satisfiable and use the model as a test input that takes the path (topics 04 and 07).</li>
+            <li><strong>Proving properties:</strong> to show that a property holds for all inputs, assert its negation; <code>unsat</code> is a proof and a model is a counterexample (Proposition 8.3). This is how verifiers show assertions cannot fail and how one shows a branch is dead.</li>
+            <li><strong>Equivalence of expressions:</strong> $s \equiv s'$ iff $s \neq s'$ is unsat, e.g. to check that a simplification or a compiler optimisation is correct.</li>
+            <li><strong>Constraint problems:</strong> puzzles like N-Queens, scheduling, configuration.</li>
+          </ul>
+          <p>The art is the encoding: it must be precise (every model a real solution, no solution lost; Java's <code>int</code> as 32-bit bit-vectors, not mathematical integers) and simple, because solver run time is unpredictable (NP-complete, or undecidable for non-linear integer arithmetic).</p>
+        </details>
+        <details class="proof"><summary>What are the big limitations of Symbolic Execution?</summary>
+          <p>It needs a symbolic expression over the entire program, and the solver must be able to handle it:</p>
+          <ul>
+            <li><strong>Built-ins and library code</strong> (<code>malloc</code>, native methods, system calls) have no code to execute symbolically, or too much; hand-written models may over- or under-approximate the real behaviour.</li>
+            <li><strong>Hard theories:</strong> one-way functions such as hashes, string operations, non-linear arithmetic and floating point make the solver slow, or answer <code>unknown</code>.</li>
+            <li><strong>Memory:</strong> arrays with symbolic indices and possibly aliased references need case splits (one per element, a Bell number of aliasing situations), so the simple approach only supports concrete indices.</li>
+            <li><strong>Path explosion:</strong> up to $2^k$ paths for $k$ branches and unboundedly many for input-dependent loops; with a depth bound the result only covers short traces.</li>
+            <li><strong>Faithfulness:</strong> the model of the semantics must match the real one; with mathematical integers, overflow paths are wrongly pruned.</li>
+          </ul>
+        </details>
+        <details class="proof"><summary>Why would you use Concolic Execution?</summary>
+          <p>Because it keeps the precision of symbolic execution where formulas work, and falls back on the real program where they do not. Every run is a concrete run, so built-ins, hashes and symbolic indices can simply use their concrete values (concretisation) instead of stopping the analysis, and every reported error comes with a real input that triggers it: no false warnings. Compared with fuzzing, it does not need luck: negating a recorded path constraint and solving gives an input for the other side of exactly that branch, so magic constants (<code>isNotAMillion</code>), computed values (<code>x == hash(y)</code>) and long chains of checks (<code>arraySpellsHello</code>) are passed in a few runs, and the search walks through path classes one by one, which gives very precise coverage.</p>
+          <p>The costs: each run is slower (symbolic tracking, solver calls), loops still give infinitely many paths, concretisation and modelling gaps can make runs diverge, and getting the symbolic values while running fast requires code instrumentation, which is not trivial. In practice it is combined with fuzzing: the fuzzer explores cheaply, the concolic engine breaks through where the fuzzer gets stuck.</p>
+        </details>
+      </section>
+
+      <p class="page-foot">Based on the course notes "Concolic Execution" of 02242 Program Analysis by Christian Gram Kalhauge, DTU Compute. The notes cite Godefroid, Klarlund and Sen (2005) <i>DART: directed automated random testing</i>; Sen, Marinov and Agha (2005) <i>CUTE: a concolic unit testing engine for C</i>; Kalhauge and Palsberg (2018) <i>Sound deadlock prediction</i>; Reichelt, Bulej, Jung and van Hoorn (2024) <i>Overhead Comparison of Instrumentation Frameworks</i>. Further references: Cook (1971) and Levin (1973) on NP-completeness; Matiyasevich (1970) on Hilbert's tenth problem; de Moura and Bj&oslash;rner (2008) <i>Z3: an efficient SMT solver</i>; Cadar, Dunbar and Engler (2008) <i>KLEE</i>; Godefroid, Levin and Molnar (2008) <i>Automated whitebox fuzz testing</i> (SAGE); Stephens et al. (2016) <i>Driller</i>. The solver in the labs is a small stand-in for Z3 that handles linear integer constraints. Unofficial study aid.</p>
+    </div>
+  </main>
+</div>
+
+<script src="assets/vendor/katex/katex.min.js"></script>
+<script src="assets/vendor/katex/contrib/auto-render.min.js"></script>
+<script src="assets/vendor/highlight/highlight.min.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/jvm.js"></script>
+<script src="assets/js/concolic-execution.js"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+/* Week 8, Concolic Execution: lab-specific styles (loaded after style.css). */
+
+/* Control rows for wide labs */
+.ce-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: end; }
+.ce-sub { font-size: 13px; color: var(--muted); }
+.ce-gap { margin-top: 12px; }
+
+/* SAT lab */
+.ce-vars { display: flex; flex-wrap: wrap; gap: 8px; }
+.ce-var { font-family: var(--mono); }
+.ce-var.on { background: var(--tech-soft); border-color: var(--tech); color: var(--tech); }
+.ce-formula { overflow-x: auto; }
+table.dt.ce-tt td, table.dt.ce-tt th { text-align: center; padding: 3px 8px; font-size: 13px; }
+table.dt.ce-tt tbody tr { cursor: pointer; }
+table.dt.ce-tt td.ce-f { color: var(--bad); }
+.ce-clauses { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.ce-clauses li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
+.ce-clauses li.f { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+
+/* Symbolic state table */
+table.dt.ce-st td, table.dt.ce-st th { font-size: 12.5px; padding: 4px 8px; }
+table.dt.ce-st td.mono { overflow-wrap: anywhere; }
+table.dt.ce-st tr.ce-stk td:first-child { color: var(--tech); }
+
+/* Execution tree */
+.ce-treebox { max-height: 460px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 8px 10px; }
+.ce-tree, .ce-tree ul { list-style: none; margin: 0; padding: 0; }
+.ce-tree ul { margin-left: 10px; padding-left: 14px; border-left: 2px solid var(--line-2); }
+.ce-tree li { margin: 4px 0; }
+.ce-node { font-size: 13px; line-height: 1.5; color: var(--ink-2); overflow-wrap: anywhere; }
+.ce-node.pruned { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.ce-node.pruned .pill, .ce-node.pruned .ce-sub { text-decoration: none; }
+.ce-at {
+  display: inline-block; min-width: 22px; text-align: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 0 5px;
+}
+table.dt.ce-sum td { font-size: 12.5px; vertical-align: middle; }
+table.dt.ce-sum td.mono { overflow-wrap: anywhere; }
+
+/* Concolic lab */
+.ce-cons { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.ce-cons li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 13px; }
+.ce-cons li .mono { overflow-wrap: anywhere; min-width: 0; }
+.ce-note { font-size: 13px; color: var(--ink-2); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); border-radius: 8px; padding: 6px 10px; margin: 8px 0 0; }
+.ce-query { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 10px 12px; }
+.ce-query p { margin: 0 0 8px; font-size: 13.5px; overflow-wrap: anywhere; }
+
+/* Notes-style annotated code */
+.ce-ann { font-size: 12.5px; }

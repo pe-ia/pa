@@ -12,6 +12,7 @@ Every concept is explained in three layers: first **in plain words** (an everyda
 | 4 | [`dynamic-analysis.html`](site/dynamic-analysis.html) | Dynamic Analysis |
 | 5 | [`bounded-static-analysis.html`](site/bounded-static-analysis.html) | Bounded Static Analysis |
 | 6 | [`unbounded-static-analysis.html`](site/unbounded-static-analysis.html) | Unbounded Static Analysis |
+| 8 | [`concolic-execution.html`](site/concolic-execution.html) | Concolic Execution |
 | | [`course-guide.html`](site/course-guide.html) | Course guide: schedule, project, technical contributions, writing the paper |
 
 ## Running it
@@ -46,7 +47,7 @@ The site is for studying the lectures. It deliberately contains no course activi
 
 ### Lecture material
 
-All lecture content this site is based on comes from the course notes of **02242 Program Analysis** at the Technical University of Denmark (DTU), DTU Compute, written by **Christian Gram Kalhauge**: the topics Introduction, Syntactic Analysis, Semantics, Dynamic Analysis, Bounded Static Analysis and Unbounded Static Analysis, the notes Trace Terminology and Project, the topic How to Write a Good Paper, and the course page itself (courses.compute.dtu.dk/02242). The JPAMB rules and scoring formulas come from the [JPAMB repository](https://github.com/kalhauge/jpamb).
+All lecture content this site is based on comes from the course notes of **02242 Program Analysis** at the Technical University of Denmark (DTU), DTU Compute, written by **Christian Gram Kalhauge**: the topics Introduction, Syntactic Analysis, Semantics, Dynamic Analysis, Bounded Static Analysis, Unbounded Static Analysis and Concolic Execution, the notes Trace Terminology and Project, the topic How to Write a Good Paper, and the course page itself (courses.compute.dtu.dk/02242). The JPAMB rules and scoring formulas come from the [JPAMB repository](https://github.com/kalhauge/jpamb).
 
 The notes and their figures remain the property of their authors. This site is an unofficial study aid; it is not affiliated with or endorsed by DTU or the teachers. Where the notes contain typos or small mistakes, the site uses the corrected version and points the difference out.
 

@@ -45,6 +45,8 @@
       <div class="hp-step"><b>Run it on everything</b><span>Lattices, Galois connections, abstract interpretation</span></div>
       <div class="hp-arrow" aria-hidden="true">&rarr;</div>
       <div class="hp-step"><b>Run it forever</b><span>Fixed points, intervals, widening, worklists</span></div>
+      <div class="hp-arrow" aria-hidden="true">&rarr;</div>
+      <div class="hp-step"><b>Solve for it</b><span>SMT, symbolic and concolic execution</span></div>
     </div>
 
     <div class="hub-grid">
@@ -90,6 +92,13 @@
         <div class="lc-foot" data-counts="unbounded-static-analysis"><span class="chip lc-progress" data-summary-text></span></div>
       </a>
 
+      <a class="lecture-card" href="concolic-execution.html" data-summary="concolic-execution">
+        <div class="lc-top"><span class="lc-num">Week 8</span><span class="lc-status ready">Ready</span></div>
+        <h2>Concolic execution</h2>
+        <p>Letting a solver find the inputs: SAT and SMT, symbolic values and path constraints, symbolic execution and its limits, concolic runs that negate and solve, the search for all paths against fuzzing, and code instrumentation.</p>
+        <div class="lc-foot" data-counts="concolic-execution"><span class="chip lc-progress" data-summary-text></span></div>
+      </a>
+
       <a class="lecture-card guide-card" href="course-guide.html">
         <div class="lc-top"><span class="lc-num">Guide</span><span class="lc-status later">Reference</span></div>
         <h2>Course guide</h2>
@@ -111,6 +120,7 @@
       "dynamic-analysis": [24, 12, 67],
       "bounded-static-analysis": [22, 9, 64],
       "unbounded-static-analysis": [16, 8, 53],
+      "concolic-execution": [9, 7, 41],
       "course-guide": [13, 5, 26]
     };
     document.querySelectorAll("[data-counts]").forEach(function (foot) {
